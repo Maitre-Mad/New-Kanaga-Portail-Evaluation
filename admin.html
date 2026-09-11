@@ -66,32 +66,87 @@
     </form>
   </div>
 
-  <!-- NOUVEAU PANEL : QUESTIONS D'ÉVALUATION -->
+  <!-- PANEL : QUESTIONS D'ÉVALUATION (ARCHITECTURE SABLIER / MODÈLE EN Y) -->
   <div class="panel admin-panel" id="admin-panel-questions" style="display:none;">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
-       <h3 style="margin:0;">Profils et Questions d'Évaluation</h3>
-       <button class="btn btn-primary" onclick="saveAdminQuestionsConfig()" id="btn-save-questions">Enregistrer la Configuration</button>
+    <!-- Bannière explicative : Architecture Sablier / Modèle en Y -->
+    <div class="sablier-banner">
+      <div class="sablier-header">
+        <span style="font-size: 20px;">⏳</span>
+        <span>Structure en Sablier (Modèle en Y) du Questionnaire d'Évaluation</span>
+      </div>
+      <p style="font-size: 13px; color: #5D4037; margin-bottom: 12px; line-height: 1.5;">
+        Le questionnaire s'adapte dynamiquement au profil de chaque collaborateur tout en garantissant un cadre commun et équitable.
+      </p>
+      <div class="sablier-diagram">
+        <div class="sablier-node sablier-node-start">
+          <strong>1. Entonnoir de départ</strong><br>
+          <em>(Identité, période, sélection du profil de poste)</em>
+        </div>
+        <div class="sablier-arrow">➔</div>
+        <div class="sablier-node sablier-node-split">
+          <strong>2. Tronc Commun & Aiguillage</strong><br>
+          • <strong>Fondamentales :</strong> 8 compétences communes pour tous<br>
+          • <strong>Aiguillage profil :</strong> Questions spécifiques selon le métier (ex: <em>Junior privé</em> vs <em>Assistant public</em>)
+        </div>
+        <div class="sablier-arrow">➔</div>
+        <div class="sablier-node sablier-node-merge">
+          <strong>3. Réunion Finale</strong><br>
+          <em>(Bilan objectifs, points forts, axes d'amélioration, objectifs SMART)</em>
+        </div>
+      </div>
     </div>
-    <span id="questions-status-msg" class="status-msg" style="display:block; margin-bottom:15px;"></span>
+
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px;">
+       <h3 style="margin:0; color: var(--primary-color);">Personnalisation des Profils et Questions</h3>
+       <button class="btn btn-primary" onclick="saveAdminQuestionsConfig()" id="btn-save-questions" style="font-weight: 600; box-shadow: var(--shadow-sm);">
+         💾 Enregistrer la Configuration
+       </button>
+    </div>
+    <span id="questions-status-msg" class="status-msg" style="display:block; margin-bottom:15px; font-weight: 500;"></span>
     
-    <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:20px;">
-       <div style="flex:1; margin-right:20px;">
-          <label style="font-weight:bold;">Sélectionnez la section à modifier :</label>
-          <select id="admin-profile-select" class="form-control" onchange="renderAdminFormBuilder()">
-            <!-- Rempli dynamiquement, contiendra 'Fondamentales' et les profils -->
+    <!-- Barre d'outils de gestion des Profils -->
+    <div class="admin-profile-toolbar">
+       <div class="admin-profile-selector-box">
+          <label style="font-weight:bold; font-size:13px; color:#4A5568; display:block; margin-bottom:6px;">
+            Section ou Profil à configurer :
+          </label>
+          <select id="admin-profile-select" class="form-control" onchange="renderAdminFormBuilder()" style="font-weight: 600;">
+            <!-- Rempli dynamiquement -->
           </select>
        </div>
-       <div>
-          <button class="btn btn-outline" style="margin-right:10px;" onclick="addAdminProfile()">+ Nouveau Profil</button>
-          <button class="btn" style="background:var(--danger-color); color:white;" onclick="deleteAdminProfile()" id="btn-delete-profile">Supprimer le Profil</button>
+       <div class="admin-profile-btns">
+          <button type="button" class="btn btn-outline" onclick="openAddProfileModal()" title="Créer un nouveau profil de poste">
+            ➕ Nouveau Profil
+          </button>
+          <button type="button" class="btn btn-outline" onclick="duplicateAdminProfile()" id="btn-duplicate-profile" title="Dupliquer le profil sélectionné">
+            📋 Dupliquer
+          </button>
+          <button type="button" class="btn btn-outline" onclick="openRenameProfileModal()" id="btn-rename-profile" title="Renommer ce profil">
+            ✏️ Renommer
+          </button>
+          <button type="button" class="btn" style="background:var(--danger-color); color:white;" onclick="deleteAdminProfile()" id="btn-delete-profile" title="Supprimer ce profil">
+            🗑️ Supprimer
+          </button>
        </div>
     </div>
+
+    <!-- En-tête de section active -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+      <div>
+        <h4 id="admin-current-section-title" style="margin: 0; color: var(--primary-color);">Questions du profil</h4>
+        <p id="admin-current-section-desc" class="text-muted" style="margin: 2px 0 0 0; font-size: 12px;">Questions posées lors de l'évaluation</p>
+      </div>
+      <span id="admin-question-count-badge" class="badge badge-primary">0 question(s)</span>
+    </div>
     
-    <div id="admin-form-builder-container" style="background:#f9f9f9; padding:20px; border-radius:8px; border:1px solid #eee;">
+    <!-- Conteneur des questions -->
+    <div id="admin-form-builder-container" style="background:#FAF8F5; padding:18px; border-radius:8px; border:1px solid #E2D9C8; min-height: 120px;">
       <!-- Le Form Builder sera rendu ici en JS -->
     </div>
     
-    <button class="btn btn-outline" style="margin-top:15px; width:100%; border:2px dashed #ccc;" onclick="addAdminFormQuestion()">+ Ajouter une question</button>
+    <button class="btn btn-outline" style="margin-top:15px; width:100%; border:2px dashed #BF9959; color:var(--primary-color); font-weight:600; padding:10px;" onclick="addAdminFormQuestion()">
+      ➕ Ajouter une question à cette section
+    </button>
   </div>
 
   <!-- PANEL : GROUPES D'ADMINISTRATION PAR PAYS (RÉPONSES FORMULAIRE) -->
@@ -157,3 +212,51 @@
     </div>
   </div>
 </div>
+
+<!-- Modal : Nouveau Profil d'Évaluation -->
+<div id="admin-add-profile-modal" class="modal">
+  <div class="modal-content" style="max-width: 500px;">
+    <div class="modal-header">
+      <h3>➕ Créer un Nouveau Profil</h3>
+      <span class="close-button" onclick="closeAddProfileModal()">&times;</span>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label style="font-weight: 600;">Nom du Profil (ex: Développeur, Chef de Projet, Auditeur) *</label>
+        <input type="text" id="admin-new-profile-name" class="form-control" placeholder="Entrez le titre du poste" required>
+      </div>
+      <div class="form-group" style="margin-top: 15px;">
+        <label style="font-weight: 600;">Modèle de départ (Optionnel) :</label>
+        <p class="text-muted" style="font-size: 12px; margin-bottom: 6px;">Vous pouvez copier les questions d'un profil existant pour gagner du temps.</p>
+        <select id="admin-clone-profile-select" class="form-control">
+          <option value="">-- Démarrer avec une question vierge --</option>
+        </select>
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+        <button type="button" class="btn btn-outline" onclick="closeAddProfileModal()">Annuler</button>
+        <button type="button" class="btn btn-primary" onclick="confirmAddProfile()">Créer le Profil</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal : Renommer un Profil -->
+<div id="admin-rename-profile-modal" class="modal">
+  <div class="modal-content" style="max-width: 450px;">
+    <div class="modal-header">
+      <h3>✏️ Renommer le Profil</h3>
+      <span class="close-button" onclick="closeRenameProfileModal()">&times;</span>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label style="font-weight: 600;">Nouveau nom pour ce profil *</label>
+        <input type="text" id="admin-rename-profile-name" class="form-control" required>
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+        <button type="button" class="btn btn-outline" onclick="closeRenameProfileModal()">Annuler</button>
+        <button type="button" class="btn btn-primary" onclick="confirmRenameProfile()">Renommer</button>
+      </div>
+    </div>
+  </div>
+</div>
+

@@ -1041,41 +1041,58 @@ function syncOdooEmployees() {
 }
 
 // =================================================================
-// 5. NATIVE EVALUATION SYSTEM
+// 5. NATIVE EVALUATION SYSTEM (Modèle en Sablier / Y)
 // =================================================================
 
 function getEvaluationConfig(token) {
   const sessionUser = verifySession(token);
 
-  const props = PropertiesService.getUserProperties();
-  const saved = props.getProperty('eval_config');
+  const scriptProps = PropertiesService.getScriptProperties();
+  const userProps = PropertiesService.getUserProperties();
+  let saved = scriptProps.getProperty('eval_config');
+  if (!saved) {
+    saved = userProps.getProperty('eval_config');
+  }
   
-  // ModÃƒÆ’Ã‚Â¨le par dÃƒÆ’Ã‚Â©faut
   const defaultScale = "PI, PA, CA, PS, PE, N/A";
   const defaultConfig = {
     fondamentales: [
-      { text: "1. Professionnalisme et ÃƒÆ’Ã‚Â©thique (Normes, confidentialitÃƒÆ’Ã‚Â©, intÃƒÆ’Ã‚Â©gritÃƒÆ’Ã‚Â©, ponctualitÃƒÆ’Ã‚Â©, prÃƒÆ’Ã‚Â©sentation)", description: "", type: "scale", options: defaultScale },
-      { text: "2. Communication Orale et ÃƒÆ’Ã‚Â©crite (ClartÃƒÆ’Ã‚Â©, concision, ÃƒÆ’Ã‚Â©coute active, adaptation du message)", description: "", type: "scale", options: defaultScale },
-      { text: "3. Travail d'ÃƒÆ’Ã‚Â©quipe et Collaboration (Contribution positive, partage d'informations, soutien)", description: "", type: "scale", options: defaultScale },
-      { text: "4. Organisation et Gestion du Temps (Planification, priorisation des tÃƒÆ’Ã‚Â¢ches, respect des dÃƒÆ’Ã‚Â©lais)", description: "", type: "scale", options: defaultScale },
-      { text: "5. Initiative et ProactivitÃƒÆ’Ã‚Â© (CapacitÃƒÆ’Ã‚Â© ÃƒÆ’Ã‚Â  anticiper, proposer des solutions)", description: "", type: "scale", options: defaultScale },
-      { text: "6. AdaptabilitÃƒÆ’Ã‚Â© et Apprentissage Continu (FlexibilitÃƒÆ’Ã‚Â© face au changement, volontÃƒÆ’Ã‚Â© d'apprendre)", description: "", type: "scale", options: defaultScale },
-      { text: "7. ComprÃƒÆ’Ã‚Â©hension du Contexte local (Environnement ÃƒÆ’Ã‚Â©conomique, rÃƒÆ’Ã‚Â©glementaire et culturel)", description: "", type: "scale", options: defaultScale },
-      { text: "8. CapacitÃƒÆ’Ã‚Â© d'innovation (Solutions inÃƒÆ’Ã‚Â©dites, utilisation d'outils innovants)", description: "", type: "scale", options: defaultScale }
+      { text: "1. Professionnalisme et éthique", description: "Normes, confidentialité, intégrité, ponctualité, présentation et exemplarité.", type: "scale", options: defaultScale },
+      { text: "2. Communication Orale et Écrite", description: "Clarté, concision, écoute active, adaptation du message aux interlocuteurs.", type: "scale", options: defaultScale },
+      { text: "3. Travail d'équipe et Collaboration", description: "Contribution positive, esprit d'entraide, partage d'informations et soutien aux collègues.", type: "scale", options: defaultScale },
+      { text: "4. Organisation et Gestion du Temps", description: "Planification, priorisation des tâches, respect strict des échéances.", type: "scale", options: defaultScale },
+      { text: "5. Initiative et Proactivité", description: "Capacité à anticiper les besoins, formuler des propositions et résoudre les blocages.", type: "scale", options: defaultScale },
+      { text: "6. Adaptabilité et Apprentissage Continu", description: "Flexibilité face au changement, curiosité intellectuelle, volonté de perfectionnement.", type: "scale", options: defaultScale },
+      { text: "7. Compréhension du Contexte Local", description: "Maîtrise de l'environnement économique, réglementaire et culturel des interventions.", type: "scale", options: defaultScale },
+      { text: "8. Capacité d'Innovation", description: "Recherche de méthodes innovantes, adoption de nouveaux outils et création de valeur.", type: "scale", options: defaultScale }
     ],
-    consultant: [
-      { text: "1. Analyse et RÃƒÆ’Ã‚Â©solution de ProblÃƒÆ’Ã‚Â¨mes (Identifier les enjeux, analyser les donnÃƒÆ’Ã‚Â©es, solutions pragmatiques)", description: "", type: "scale", options: defaultScale },
-      { text: "2. Gestion de Projet / Mission (Planification, exÃƒÆ’Ã‚Â©cution, livrables, risques, budget)", description: "", type: "scale", options: defaultScale },
-      { text: "3. QualitÃƒÆ’Ã‚Â© des Livrables (Rigueur, pertinence, clartÃƒÆ’Ã‚Â© et professionnalisme des rapports)", description: "", type: "scale", options: defaultScale },
-      { text: "4. Relation Client (ComprÃƒÆ’Ã‚Â©hension des besoins, gestion de la satisfaction, communication)", description: "", type: "scale", options: defaultScale },
-      { text: "5. DÃƒÆ’Ã‚Â©veloppement Commercial (Identification d'opportunitÃƒÆ’Ã‚Â©s, propositions, rÃƒÆ’Ã‚Â©seautage)", description: "", type: "scale", options: defaultScale }
+    "Junior - Secteur privé": [
+      { text: "1. Compréhension des enjeux business privés", description: "Capacité à cerner le modèle économique, la rentabilité et les priorités du client privé.", type: "scale", options: defaultScale },
+      { text: "2. Rigueur d'exécution et qualité des livrables", description: "Précision, respect des formats attendus, souci du détail et respect des délais clients.", type: "scale", options: defaultScale },
+      { text: "3. Réactivité et orientation service client", description: "Disponibilité, écoute des attentes opérationnelles et relation client de confiance.", type: "scale", options: defaultScale },
+      { text: "4. Maîtrise des outils bureautiques et digitaux", description: "Utilisation efficace d'Excel, PowerPoint, ERP et logiciels métiers.", type: "scale", options: defaultScale },
+      { text: "5. Polyvalence et esprit d'équipe en mission", description: "Capacité à s'intégrer rapidement sur des projets variés du secteur privé.", type: "scale", options: defaultScale }
     ],
-    comptable: [
-      { text: "1. Rigueur et Exactitude Comptable (PrÃƒÆ’Ã‚Â©cision dans la saisie, traitement des donnÃƒÆ’Ã‚Â©es, ÃƒÆ’Ã‚Â©tats financiers)", description: "", type: "scale", options: defaultScale },
-      { text: "2. Respect des DÃƒÆ’Ã‚Â©lais et ProcÃƒÆ’Ã‚Â©dures (ClÃƒÆ’Ã‚Â´tures pÃƒÆ’Ã‚Â©riodiques, dÃƒÆ’Ã‚Â©clarations fiscales et sociales)", description: "", type: "scale", options: defaultScale },
-      { text: "3. Analyse et ContrÃƒÆ’Ã‚Â´le de Gestion (Suivi budgÃƒÆ’Ã‚Â©taire, tableaux de bord, propositions d'optimisation)", description: "", type: "scale", options: defaultScale },
-      { text: "4. MaÃƒÆ’Ã‚Â®trise des Outils Financiers (Logiciels comptables, ERP, Excel avancÃƒÆ’Ã‚Â©)", description: "", type: "scale", options: defaultScale },
-      { text: "5. Veille RÃƒÆ’Ã‚Â©glementaire (Maintien ÃƒÆ’Ã‚Â  jour des connaissances fiscales et lÃƒÆ’Ã‚Â©gales)", description: "", type: "scale", options: defaultScale }
+    "Assistant - Secteur public": [
+      { text: "1. Connaissance des procédures administratives publiques", description: "Respect des circuits de validation, règles de gestion et procédures du secteur public.", type: "scale", options: defaultScale },
+      { text: "2. Conformité réglementaire et archivage", description: "Rigueur documentaire, traçabilité des actes et conformité aux règles des bailleurs.", type: "scale", options: defaultScale },
+      { text: "3. Rédaction administrative et comptes-rendus", description: "Qualité rédactionnelle formelle adaptée à l'administration publique.", type: "scale", options: defaultScale },
+      { text: "4. Suivi d'exécution budgétaire / marchés", description: "Vérification des pièces justificatives, suivi des engagements et mandats.", type: "scale", options: defaultScale },
+      { text: "5. Sens du service public et relation usagers/bailleurs", description: "Déontologie, neutralité et collaboration efficace avec les partenaires institutionnels.", type: "scale", options: defaultScale }
+    ],
+    "Consultant": [
+      { text: "1. Analyse et Résolution de Problèmes", description: "Identifier les enjeux stratégiques, analyser les données et concevoir des solutions pragmatiques.", type: "scale", options: defaultScale },
+      { text: "2. Gestion de Projet / Mission", description: "Cadrage, planification, pilotage des livrables, gestion des risques et respect du budget.", type: "scale", options: defaultScale },
+      { text: "3. Qualité et Pertinence des Livrables", description: "Excellence rédactionnelle, valeur ajoutée des recommandations et professionnalisme.", type: "scale", options: defaultScale },
+      { text: "4. Relation Client et Posture Conseil", description: "Compréhension approfondie des besoins, gestion de la satisfaction et écoute active.", type: "scale", options: defaultScale },
+      { text: "5. Contribution au Développement Commercial", description: "Détection d'opportunités, participation aux propositions commerciales et foisonnement.", type: "scale", options: defaultScale }
+    ],
+    "Comptable": [
+      { text: "1. Rigueur et Exactitude Comptable", description: "Précision dans la saisie, révision des comptes et préparation des états financiers.", type: "scale", options: defaultScale },
+      { text: "2. Respect des Délais et Procédures Légales", description: "Clôtures périodiques, déclarations fiscales et sociales dans les délais prescrits.", type: "scale", options: defaultScale },
+      { text: "3. Analyse et Contrôle de Gestion", description: "Suivi budgétaire, analyse des écarts et propositions d'optimisation financière.", type: "scale", options: defaultScale },
+      { text: "4. Maîtrise des Logiciels Financiers", description: "Utilisation experte des logiciels comptables, ERP et modélisation sous tableur.", type: "scale", options: defaultScale },
+      { text: "5. Veille Réglementaire et Fiscale", description: "Maintien à jour des connaissances en droit fiscal, comptable et social.", type: "scale", options: defaultScale }
     ]
   };
 
@@ -1099,19 +1116,25 @@ function getEvaluationConfig(token) {
         }
       }
       if (migrated) {
-         props.setProperty('eval_config', JSON.stringify(config));
+         scriptProps.setProperty('eval_config', JSON.stringify(config));
       }
       return config;
     } catch(e) {}
   }
   
-  props.setProperty('eval_config', JSON.stringify(defaultConfig));
+  scriptProps.setProperty('eval_config', JSON.stringify(defaultConfig));
   return defaultConfig;
 }
 
 function saveEvaluationConfig(token, config) {
   const sessionUser = verifySession(token);
-  PropertiesService.getUserProperties().setProperty('eval_config', JSON.stringify(config));
+  if (!sessionUser || (sessionUser.role !== 'Admin' && sessionUser.role !== 'Manager')) {
+    throw new Error("Action non autorisée. Seuls les administrateurs et managers peuvent modifier les profils et questions.");
+  }
+  const configJson = JSON.stringify(config);
+  PropertiesService.getScriptProperties().setProperty('eval_config', configJson);
+  PropertiesService.getUserProperties().setProperty('eval_config', configJson);
+  return { success: true };
 }
 
 function initiateEvaluationsBatch(token, formData) {

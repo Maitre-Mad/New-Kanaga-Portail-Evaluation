@@ -34,16 +34,16 @@
 <div id="eval-wizard-screen" style="display: none;">
   <div class="panel" style="max-width: 800px; margin: 0 auto;">
     <div id="eval-wizard-progress" class="wizard-progress">
-      <div class="wizard-step active" id="step-nav-1">1. Infos</div>
-      <div class="wizard-step" id="step-nav-2">2. Fondamentales</div>
-      <div class="wizard-step" id="step-nav-3">3. Spécifiques</div>
-      <div class="wizard-step" id="step-nav-4">4. Synthèse</div>
+      <div class="wizard-step active" id="step-nav-1">1. Entonnoir (Infos)</div>
+      <div class="wizard-step" id="step-nav-2">2. Tronc Commun</div>
+      <div class="wizard-step" id="step-nav-3">3. Aiguillage Profil</div>
+      <div class="wizard-step" id="step-nav-4">4. Réunion Finale</div>
     </div>
 
     <form id="eval-wizard-form">
-      <!-- Etape 1 -->
+      <!-- Etape 1 : Entonnoir de départ -->
       <div class="wizard-content active" id="wizard-step-1">
-        <h3 id="step-1-title">I. Informations Générales</h3>
+        <h3 id="step-1-title">Section 0 : Entonnoir de départ (Informations Générales)</h3>
         <div class="form-group">
           <label>Type d'évaluation</label>
           <input type="text" id="eval-type" class="form-control" readonly>
@@ -58,11 +58,14 @@
         </div>
         <div class="form-group" style="margin-top: 15px;">
           <label>Quel est le profil de poste de l'employé(e) ? *</label>
-          <p class="text-muted" style="font-size:12px;">Détermine les questions de l'évaluation.</p>
+          <p class="text-muted" style="font-size:12px; margin-bottom: 4px;">Détermine les questions de l'évaluation.</p>
           <select id="eval-profile-select" class="form-control" required onchange="handleEvalProfileChange()">
             <option value="">-- Choisir --</option>
             <option value="Autre">Autre profil</option>
           </select>
+          <div style="font-size:12px; color:#7C4C26; background:#FAF6EE; padding:8px 12px; border-radius:6px; border:1px solid #E0CC99; margin-top:8px; line-height:1.4;">
+            ⏳ <strong>Modèle en Y (Sablier) :</strong> Après le tronc commun des compétences fondamentales, le système aiguillera automatiquement le questionnaire vers les questions spécifiques adaptées à ce profil.
+          </div>
         </div>
         <div id="eval-evaluators-group" style="margin-top: 15px;">
           <div class="form-group">
@@ -83,7 +86,7 @@
 
       <!-- Etape 2 -->
       <div class="wizard-content" id="wizard-step-2">
-        <h3>III. Évaluation des Compétences - Fondamentales</h3>
+        <h3>Section 1 : Tronc Commun - Compétences Fondamentales</h3>
         <div class="eval-rating-scale-card">
           <div class="eval-scale-header">
             <div class="eval-scale-title">
@@ -147,7 +150,7 @@
 
       <!-- Etape 3 -->
       <div class="wizard-content" id="wizard-step-3">
-        <h3 id="step-3-title">Compétences Spécifiques</h3>
+        <h3 id="step-3-title">Section 2 : Aiguillage - Compétences Spécifiques au Profil</h3>
         <div class="eval-rating-scale-card">
           <div class="eval-scale-header">
             <div class="eval-scale-title">
@@ -211,7 +214,7 @@
 
       <!-- Etape 4 -->
       <div class="wizard-content" id="wizard-step-4">
-        <h3>IV. Objectifs et Synthèse</h3>
+        <h3>Section 3 : Réunion Finale - Objectifs et Synthèse Globale</h3>
         <div class="form-group">
           <label>Réalisation des Objectifs de la période écoulée</label>
           <textarea id="eval-past-goals" class="form-control" rows="3" placeholder="Détaillez les objectifs fixés, résultats atteints..."></textarea>

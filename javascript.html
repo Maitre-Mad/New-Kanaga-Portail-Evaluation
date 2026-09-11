@@ -589,6 +589,17 @@
   let evalQuestions = {};
   const scaleOptions = ["PI", "PA", "CA", "PS", "PE", "N/A"];
 
+  function findProfileQuestions(profileName) {
+    if (!evalQuestions || !profileName) return null;
+    const target = profileName.toLowerCase().trim();
+    for (const key in evalQuestions) {
+      if (key.toLowerCase().trim() === target) {
+        return evalQuestions[key];
+      }
+    }
+    return null;
+  }
+
   function loadEvaluationData() {
     showEvalSelectionScreen();
     google.script.run
@@ -596,25 +607,22 @@
          evalQuestions = config;
          
          const select = document.getElementById('eval-profile-select');
-         // Garder "-- Choisir --" (index 0)
-         const defaultOption = select.options[0];
+         const defaultOption = (select && select.options[0]) ? select.options[0] : new Option("-- Choisir le profil --", "");
          select.innerHTML = '';
          select.appendChild(defaultOption);
          
          for (const key in config) {
             if (key.toLowerCase() !== 'fondamentales') {
                const opt = document.createElement('option');
-               // Capitalize the key (e.g. "consultant" -> "Consultant")
-               const capKey = key.charAt(0).toUpperCase() + key.slice(1);
-               opt.value = capKey;
-               opt.text = "Profil : " + capKey.toUpperCase();
+               opt.value = key;
+               opt.text = "Profil : " + key;
                select.appendChild(opt);
             }
          }
          
          const autreOpt = document.createElement('option');
          autreOpt.value = "Autre";
-         autreOpt.text = "Autre profil";
+         autreOpt.text = "Autre profil (aucun profil spécifique)";
          select.appendChild(autreOpt);
       })
       .getEvaluationConfig(window.kanagaToken);
@@ -801,10 +809,14 @@
           document.getElementById('eval-period').readOnly = true;
         }
         
-        generateGrid('grid-fondamentales', 'fonda', evalQuestions.fondamentales);
-        if (ev && ev.profile && ev.profile !== 'Autre' && evalQuestions[ev.profile.toLowerCase()]) {
-            generateGrid('grid-specifiques', 'spec', evalQuestions[ev.profile.toLowerCase()]);
-            document.getElementById('step-3-title').innerText = "Compétences Spécifiques (" + ev.profile + ")";
+        generateGrid('grid-fondamentales', 'fonda', (evalQuestions && evalQuestions.fondamentales) ? evalQuestions.fondamentales : []);
+        const specQuestions = (ev && ev.profile && ev.profile !== 'Autre') ? findProfileQuestions(ev.profile) : null;
+        if (specQuestions && specQuestions.length > 0) {
+            generateGrid('grid-specifiques', 'spec', specQuestions);
+            document.getElementById('step-3-title').innerText = "Section 2 : Aiguillage - " + ev.profile;
+            document.getElementById('step-nav-3').style.display = 'inline-block';
+        } else {
+            document.getElementById('step-nav-3').style.display = 'none';
         }
         
         // Pré-remplissage pour l'auto-évaluation (si brouillon existant)
@@ -1029,26 +1041,33 @@
             alert('Veuillez sélectionner un profil.');
             return;
         }
-        if (profile === 'Autre') {
-            next = 4;
+        const specQuestions = (profile !== 'Autre') ? findProfileQuestions(profile) : null;
+        if (!specQuestions || specQuestions.length === 0 || profile === 'Autre') {
+            next = 4; // Aiguillage: pas de questions spécifiques, saut vers la Réunion Finale
         } else if(window.evalCurrentMode !== 'Initiation') {
-            generateGrid('grid-specifiques', 'spec', evalQuestions[profile.toLowerCase()]);
-            document.getElementById('step-3-title').innerText = "Compétences Spécifiques (" + profile + ")";
+            generateGrid('grid-specifiques', 'spec', specQuestions);
+            document.getElementById('step-3-title').innerText = "Section 2 : Aiguillage - " + profile;
+            document.getElementById('step-nav-3').style.display = 'inline-block';
         }
     }
     showEvalStep(next);
   }
 
   function prevEvalStep(current, prev) {
-    if (current === 4 && document.getElementById('eval-profile-select').value === 'Autre') {
-        prev = 2;
+    if (current === 4) {
+        const profile = document.getElementById('eval-profile-select').value;
+        const specQuestions = (profile !== 'Autre') ? findProfileQuestions(profile) : null;
+        if (!specQuestions || specQuestions.length === 0 || profile === 'Autre') {
+            prev = 2; // Retour direct au Tronc Commun
+        }
     }
     showEvalStep(prev);
   }
 
   function handleEvalProfileChange() {
     const profile = document.getElementById('eval-profile-select').value;
-    if (profile === 'Autre') {
+    const specQuestions = (profile !== 'Autre') ? findProfileQuestions(profile) : null;
+    if (!specQuestions || specQuestions.length === 0 || profile === 'Autre') {
       document.getElementById('step-nav-3').style.opacity = '0.3';
     } else {
       document.getElementById('step-nav-3').style.opacity = '1';
@@ -2262,27 +2281,46 @@
        .getEvaluationConfig(window.kanagaToken);
   }
   
-  function updateAdminProfileSelect() {
+  function updateAdminProfileSelect(selectedKey) {
       const select = document.getElementById('admin-profile-select');
-      const oldVal = select.value;
+      if (!select) return;
+      const oldVal = selectedKey || select.value;
       select.innerHTML = '';
       
       const fondaOpt = document.createElement('option');
       fondaOpt.value = 'fondamentales';
-      fondaOpt.text = 'Fondamentales (Communes)';
+      fondaOpt.text = '📌 Tronc Commun : Fondamentales (Communes à tous)';
       select.appendChild(fondaOpt);
+      
+      const cloneSelect = document.getElementById('admin-clone-profile-select');
+      if (cloneSelect) {
+        cloneSelect.innerHTML = '<option value="">-- Démarrer avec une question vierge --</option>';
+        const fondaClone = document.createElement('option');
+        fondaClone.value = 'fondamentales';
+        fondaClone.text = 'Copier depuis : Fondamentales (Communes)';
+        cloneSelect.appendChild(fondaClone);
+      }
       
       for (const key in adminEvalConfigData) {
          if (key.toLowerCase() !== 'fondamentales') {
             const opt = document.createElement('option');
             opt.value = key;
-            opt.text = "Profil : " + key.charAt(0).toUpperCase() + key.slice(1);
+            opt.text = "🎯 Profil : " + key;
             select.appendChild(opt);
+
+            if (cloneSelect) {
+              const cOpt = document.createElement('option');
+              cOpt.value = key;
+              cOpt.text = "Copier depuis : " + key;
+              cloneSelect.appendChild(cOpt);
+            }
          }
       }
       
       if (oldVal && adminEvalConfigData[oldVal]) {
          select.value = oldVal;
+      } else {
+         select.value = 'fondamentales';
       }
       
       renderAdminFormBuilder();
@@ -2290,55 +2328,88 @@
 
   function renderAdminFormBuilder() {
       const select = document.getElementById('admin-profile-select');
-      const profile = select.value;
+      if (!select) return;
+      const profile = select.value || 'fondamentales';
       const container = document.getElementById('admin-form-builder-container');
-      
+      const titleEl = document.getElementById('admin-current-section-title');
+      const descEl = document.getElementById('admin-current-section-desc');
+      const badgeEl = document.getElementById('admin-question-count-badge');
       const btnDelete = document.getElementById('btn-delete-profile');
-      if (profile === 'fondamentales') {
-          btnDelete.style.display = 'none';
-      } else {
-          btnDelete.style.display = 'inline-block';
-      }
+      const btnRename = document.getElementById('btn-rename-profile');
+      const btnDuplicate = document.getElementById('btn-duplicate-profile');
       
+      const isFonda = (profile === 'fondamentales');
+      if (btnDelete) btnDelete.style.display = isFonda ? 'none' : 'inline-block';
+      if (btnRename) btnRename.style.display = isFonda ? 'none' : 'inline-block';
+      if (btnDuplicate) btnDuplicate.style.display = isFonda ? 'none' : 'inline-block';
+      
+      if (titleEl) {
+        titleEl.textContent = isFonda 
+          ? "Tronc Commun : Compétences Fondamentales" 
+          : `Aiguillage Spécifique : Profil "${profile}"`;
+      }
+      if (descEl) {
+        descEl.textContent = isFonda
+          ? "Section 1 du Sablier : Posée obligatoirement à tous les collaborateurs, quel que soit leur métier."
+          : `Section 2 du Sablier : Posée uniquement aux collaborateurs avec le profil "${profile}".`;
+      }
+
+      if (!container) return;
       container.innerHTML = '';
       
-      if (!profile || !adminEvalConfigData[profile]) return;
+      if (!adminEvalConfigData || !adminEvalConfigData[profile]) {
+        container.innerHTML = '<p class="text-muted" style="padding:10px;">Section introuvable.</p>';
+        return;
+      }
       
       const questions = adminEvalConfigData[profile];
+      if (badgeEl) {
+        badgeEl.textContent = `${questions.length} question(s)`;
+      }
+
       if (questions.length === 0) {
-          container.innerHTML = '<p class="text-muted">Aucune question pour ce profil.</p>';
+          container.innerHTML = `
+            <div style="text-align:center; padding:30px 15px; color:#718096;">
+              <p style="font-size:14px; margin-bottom:6px;">Aucune question spécifique configurée pour cette section.</p>
+              <p style="font-size:12px;">Cliquez sur <strong>"+ Ajouter une question à cette section"</strong> ci-dessous pour ajouter une compétence.</p>
+            </div>
+          `;
           return;
       }
       
       questions.forEach((q, idx) => {
           const card = document.createElement('div');
-          card.style.background = 'white';
-          card.style.padding = '15px';
-          card.style.marginBottom = '15px';
-          card.style.borderRadius = '5px';
-          card.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+          card.className = 'admin-q-card';
           
           let optionsHtml = '';
           if (q.type === 'scale') {
               optionsHtml = `
-              <div style="margin-top:10px;">
-                  <label style="font-size:12px; font-weight:bold;">Options (séparées par des virgules)</label>
-                  <input type="text" class="form-control" value="${q.options || 'PI, PA, CA, PS, PE, N/A'}" onchange="updateAdminQuestion(${idx}, 'options', this.value)">
+              <div style="margin-top:10px; background:#FAF6EE; padding:10px; border-radius:6px; border:1px solid #E0CC99;">
+                  <label style="font-size:12px; font-weight:600; color:#5D4037; display:block; margin-bottom:4px;">Options du barème de notation (séparées par des virgules) :</label>
+                  <input type="text" class="form-control" value="${escapeHtml(q.options || 'PI, PA, CA, PS, PE, N/A')}" onchange="updateAdminQuestion(${idx}, 'options', this.value)" placeholder="ex: PI, PA, CA, PS, PE, N/A">
               </div>`;
           }
           
+          const isFirst = (idx === 0);
+          const isLast = (idx === questions.length - 1);
+
           card.innerHTML = `
-            <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
-               <input type="text" class="form-control" style="flex:1; margin-right:15px; font-weight:bold;" value="${q.text}" onchange="updateAdminQuestion(${idx}, 'text', this.value)" placeholder="Titre de la question">
-               <select class="form-control" style="width:200px;" onchange="updateAdminQuestion(${idx}, 'type', this.value)">
-                  <option value="scale" ${q.type === 'scale' ? 'selected' : ''}>Choix Multiple</option>
+            <div class="admin-q-header">
+               <span class="admin-q-num">#${idx + 1}</span>
+               <input type="text" class="form-control" style="flex:1; font-weight:600;" value="${escapeHtml(q.text)}" onchange="updateAdminQuestion(${idx}, 'text', this.value)" placeholder="Titre de la compétence ou question *">
+               <select class="form-control" style="width:190px;" onchange="updateAdminQuestion(${idx}, 'type', this.value)">
+                  <option value="scale" ${q.type === 'scale' ? 'selected' : ''}>Choix Multiple (Barème)</option>
                   <option value="text" ${q.type === 'text' ? 'selected' : ''}>Texte libre</option>
                   <option value="boolean" ${q.type === 'boolean' ? 'selected' : ''}>Oui / Non</option>
                </select>
-               <button class="btn btn-outline" style="margin-left:15px; color:var(--danger-color); border-color:var(--danger-color);" onclick="deleteAdminFormQuestion(${idx})">X</button>
+               <div class="admin-q-actions">
+                 <button type="button" class="btn-q-tool" ${isFirst ? 'disabled style="opacity:0.3; cursor:not-allowed;"' : `onclick="moveAdminQuestion(${idx}, -1)"`} title="Monter">▲</button>
+                 <button type="button" class="btn-q-tool" ${isLast ? 'disabled style="opacity:0.3; cursor:not-allowed;"' : `onclick="moveAdminQuestion(${idx}, 1)"`} title="Descendre">▼</button>
+                 <button type="button" class="btn-q-tool btn-q-del" onclick="deleteAdminFormQuestion(${idx})" title="Supprimer">🗑️</button>
+               </div>
             </div>
-            <div style="margin-bottom:10px;">
-               <input type="text" class="form-control" style="width:100%; font-size:13px;" value="${q.description || ''}" onchange="updateAdminQuestion(${idx}, 'description', this.value)" placeholder="Description ou légende (Optionnel)">
+            <div>
+               <input type="text" class="form-control" style="width:100%; font-size:13px;" value="${escapeHtml(q.description || '')}" onchange="updateAdminQuestion(${idx}, 'description', this.value)" placeholder="Description, consignes ou critères attendus (Optionnel)">
             </div>
             ${optionsHtml}
           `;
@@ -2346,12 +2417,24 @@
       });
   }
 
+  function moveAdminQuestion(idx, direction) {
+      const profile = document.getElementById('admin-profile-select').value;
+      if (!profile || !adminEvalConfigData[profile]) return;
+      const list = adminEvalConfigData[profile];
+      const targetIdx = idx + direction;
+      if (targetIdx < 0 || targetIdx >= list.length) return;
+      const temp = list[idx];
+      list[idx] = list[targetIdx];
+      list[targetIdx] = temp;
+      renderAdminFormBuilder();
+  }
+
   function updateAdminQuestion(idx, field, value) {
       const profile = document.getElementById('admin-profile-select').value;
       if (adminEvalConfigData[profile] && adminEvalConfigData[profile][idx]) {
           adminEvalConfigData[profile][idx][field] = value;
           if (field === 'type') {
-              renderAdminFormBuilder(); // Re-render if type changes to show/hide options
+              renderAdminFormBuilder();
           }
       }
   }
@@ -2361,7 +2444,7 @@
       if (!profile || !adminEvalConfigData[profile]) return;
       
       adminEvalConfigData[profile].push({
-          text: "Nouvelle question",
+          text: "Nouvelle compétence spécifique",
           description: "",
           type: "scale",
           options: "PI, PA, CA, PS, PE, N/A"
@@ -2373,27 +2456,123 @@
       const profile = document.getElementById('admin-profile-select').value;
       if (!profile || !adminEvalConfigData[profile]) return;
       
-      adminEvalConfigData[profile].splice(idx, 1);
-      renderAdminFormBuilder();
+      if (confirm(`Voulez-vous supprimer la question n° ${idx + 1} ?`)) {
+        adminEvalConfigData[profile].splice(idx, 1);
+        renderAdminFormBuilder();
+      }
   }
 
-  function addAdminProfile() {
-      let name = prompt("Entrez le nom du nouveau profil (ex: Développeur) :");
-      if (!name) return;
-      name = name.trim().toLowerCase();
-      if (name === 'fondamentales' || name === 'autre') {
-          alert("Ce nom de profil est réservé.");
+  function openAddProfileModal() {
+      const input = document.getElementById('admin-new-profile-name');
+      if (input) input.value = '';
+      const modal = document.getElementById('admin-add-profile-modal');
+      if (modal) modal.style.display = 'block';
+  }
+
+  function closeAddProfileModal() {
+      const modal = document.getElementById('admin-add-profile-modal');
+      if (modal) modal.style.display = 'none';
+  }
+
+  function confirmAddProfile() {
+      const nameInput = document.getElementById('admin-new-profile-name');
+      let name = (nameInput ? nameInput.value : '').trim();
+      if (!name) {
+          alert("Veuillez entrer un nom pour le nouveau profil.");
           return;
       }
-      if (adminEvalConfigData[name]) {
-          alert("Ce profil existe déjà.");
+      if (name.toLowerCase() === 'fondamentales' || name.toLowerCase() === 'autre') {
+          alert("Ce nom de profil est réservé par le système.");
           return;
+      }
+      for (const key in adminEvalConfigData) {
+          if (key.toLowerCase().trim() === name.toLowerCase().trim()) {
+              alert(`Le profil "${key}" existe déjà.`);
+              return;
+          }
       }
       
-      adminEvalConfigData[name] = [{ text: "1. Nouvelle question", description: "", type: "scale", options: "PI, PA, CA, PS, PE, N/A" }];
-      updateAdminProfileSelect();
-      document.getElementById('admin-profile-select').value = name;
-      renderAdminFormBuilder();
+      const cloneSelect = document.getElementById('admin-clone-profile-select');
+      const cloneFrom = cloneSelect ? cloneSelect.value : '';
+      if (cloneFrom && adminEvalConfigData[cloneFrom]) {
+          adminEvalConfigData[name] = JSON.parse(JSON.stringify(adminEvalConfigData[cloneFrom]));
+      } else {
+          adminEvalConfigData[name] = [{
+              text: "1. Compétence technique / métier",
+              description: "Critères d'évaluation de la performance attendue pour ce poste",
+              type: "scale",
+              options: "PI, PA, CA, PS, PE, N/A"
+          }];
+      }
+      
+      closeAddProfileModal();
+      updateAdminProfileSelect(name);
+  }
+
+  function duplicateAdminProfile() {
+      const select = document.getElementById('admin-profile-select');
+      const current = select.value;
+      if (!current || current === 'fondamentales' || !adminEvalConfigData[current]) return;
+      
+      let cloneName = prompt(`Nom du nouveau profil dupliqué depuis "${current}" :`, `${current} (Copie)`);
+      if (!cloneName) return;
+      cloneName = cloneName.trim();
+      for (const key in adminEvalConfigData) {
+          if (key.toLowerCase().trim() === cloneName.toLowerCase().trim()) {
+              alert("Un profil portant ce nom existe déjà.");
+              return;
+          }
+      }
+      adminEvalConfigData[cloneName] = JSON.parse(JSON.stringify(adminEvalConfigData[current]));
+      updateAdminProfileSelect(cloneName);
+  }
+
+  function openRenameProfileModal() {
+      const select = document.getElementById('admin-profile-select');
+      const current = select.value;
+      if (!current || current === 'fondamentales') return;
+      const input = document.getElementById('admin-rename-profile-name');
+      if (input) input.value = current;
+      const modal = document.getElementById('admin-rename-profile-modal');
+      if (modal) modal.style.display = 'block';
+  }
+
+  function closeRenameProfileModal() {
+      const modal = document.getElementById('admin-rename-profile-modal');
+      if (modal) modal.style.display = 'none';
+  }
+
+  function confirmRenameProfile() {
+      const select = document.getElementById('admin-profile-select');
+      const oldKey = select.value;
+      const input = document.getElementById('admin-rename-profile-name');
+      const newKey = (input ? input.value : '').trim();
+      if (!newKey || oldKey === newKey) {
+          closeRenameProfileModal();
+          return;
+      }
+      if (newKey.toLowerCase() === 'fondamentales' || newKey.toLowerCase() === 'autre') {
+          alert("Ce nom de profil est réservé par le système.");
+          return;
+      }
+      for (const k in adminEvalConfigData) {
+          if (k !== oldKey && k.toLowerCase().trim() === newKey.toLowerCase().trim()) {
+              alert(`Un profil portant le nom "${k}" existe déjà.`);
+              return;
+          }
+      }
+      
+      const newConfig = {};
+      for (const k in adminEvalConfigData) {
+          if (k === oldKey) {
+              newConfig[newKey] = adminEvalConfigData[oldKey];
+          } else {
+              newConfig[k] = adminEvalConfigData[k];
+          }
+      }
+      adminEvalConfigData = newConfig;
+      closeRenameProfileModal();
+      updateAdminProfileSelect(newKey);
   }
 
   function deleteAdminProfile() {
@@ -2401,32 +2580,40 @@
       const val = select.value;
       if (!val || val === 'fondamentales' || !adminEvalConfigData[val]) return;
       
-      if (confirm(`Voulez-vous vraiment supprimer le profil "${val}" et toutes ses questions spécifiques ?`)) {
+      if (confirm(`Voulez-vous vraiment supprimer définitivement le profil "${val}" et toutes ses questions spécifiques ?`)) {
           delete adminEvalConfigData[val];
-          updateAdminProfileSelect();
+          updateAdminProfileSelect('fondamentales');
       }
   }
 
   function saveAdminQuestionsConfig() {
       const btn = document.getElementById('btn-save-questions');
       const status = document.getElementById('questions-status-msg');
-      btn.disabled = true;
-      status.innerText = "Enregistrement en cours...";
-      status.style.color = "var(--primary-color)";
+      if (btn) btn.disabled = true;
+      if (status) {
+        status.innerText = "⏳ Enregistrement de la configuration des profils et questions...";
+        status.style.color = "var(--primary-color)";
+      }
       
       google.script.run
         .withSuccessHandler(function() {
-            btn.disabled = false;
-            status.innerText = "Configuration enregistrée avec succès.";
-            status.style.color = "green";
-            setTimeout(() => status.innerText = "", 5000);
-            
-            google.script.run.withSuccessHandler(c => evalQuestions = c).getEvaluationConfig(window.kanagaToken);
+            if (btn) btn.disabled = false;
+            if (status) {
+              status.innerText = "✅ Configuration des profils et questions enregistrée avec succès !";
+              status.style.color = "green";
+              setTimeout(() => { if (status) status.innerText = ""; }, 4000);
+            }
+            google.script.run.withSuccessHandler(function(c) {
+                evalQuestions = c;
+                loadEvaluationData(); // Rafraîchit les options du sélecteur de profils du formulaire
+            }).getEvaluationConfig(window.kanagaToken);
         })
         .withFailureHandler(function(err) {
-            btn.disabled = false;
-            status.innerText = "Erreur: " + err.message;
-            status.style.color = "red";
+            if (btn) btn.disabled = false;
+            if (status) {
+              status.innerText = "❌ Erreur : " + err.message;
+              status.style.color = "var(--danger-color)";
+            }
         })
         .saveEvaluationConfig(window.kanagaToken, adminEvalConfigData);
   }
