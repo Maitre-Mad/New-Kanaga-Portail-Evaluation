@@ -1,6 +1,11 @@
 const SPREADSHEET_ID = '1s9SM5h8Y4kv23WR0ZA1oFOUjIhDFz65nzmFyKnWJi1k';
 
 function doGet(e) {
+  try {
+    getEvaluationConfig();
+  } catch(err) {
+    Logger.log("Init EvaluationQuestions error: " + err.message);
+  }
   return HtmlService.createTemplateFromFile('index')
     .evaluate()
     .setTitle('Portail Kanaga')
@@ -1184,7 +1189,11 @@ function getEvaluationConfig(token) {
           }
           sheet.getRange(2, 3, pageValues.length, 1).setValues(pageValues);
         }
-        colPage = 2; // Index de la nouvelle colonne
+        
+        // Recharger les données et en-têtes suite à l'insertion de la colonne
+        data = sheet.getDataRange().getValues();
+        headerRow = data[0].map(h => String(h || '').trim().toLowerCase());
+        colPage = headerRow.indexOf('page');
       } catch(migErr) {
         Logger.log("Erreur migration colonne Page: " + migErr.message);
       }
@@ -1219,8 +1228,16 @@ function getEvaluationConfig(token) {
     }
 
     // Auto-fusion de la conclusion si absente de la feuille
-    if (!config['conclusion']) {
+    if (!config['conclusion'] || config['conclusion'].length === 0) {
       config['conclusion'] = defaultConfig['conclusion'];
+    } else if (config['conclusion'] && config['conclusion'].length >= 5) {
+      // Si toutes les questions de la conclusion sont sur la page 1, rétablir les 2 pages standard
+      const allPage1 = config['conclusion'].every(q => (parseInt(q.page, 10) || 1) === 1);
+      if (allPage1) {
+        config['conclusion'].forEach((q, idx) => {
+          q.page = (idx >= 4) ? 2 : 1;
+        });
+      }
     }
 
     // Tri de chaque profil par la colonne Ordre
