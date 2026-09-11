@@ -1237,17 +1237,22 @@
     
     if (totalPages > 1) {
       if (paginationBar) paginationBar.style.display = 'flex';
-      if (pageLabel) pageLabel.textContent = `Page ${curIdx} sur ${totalPages}`;
+      const curQForPage = specQuestions ? specQuestions.find(q => (parseInt(q.page, 10) || 1) === curPage && q.pageTitle) : null;
+      const curPageTitle = curQForPage ? curQForPage.pageTitle.trim() : '';
+      const pageTitleSuffix = curPageTitle ? ` : ${curPageTitle}` : '';
+      if (pageLabel) pageLabel.textContent = `Page ${curIdx} sur ${totalPages}${pageTitleSuffix}`;
       if (pagePills) {
         pagePills.innerHTML = '';
         pageNumbers.forEach((p, i) => {
           const pill = document.createElement('span');
+          const pQ = specQuestions ? specQuestions.find(q => (parseInt(q.page, 10) || 1) === p && q.pageTitle) : null;
+          const pTitle = pQ ? pQ.pageTitle.trim() : '';
           pill.style.cssText = `display:inline-block; width:28px; height:28px; border-radius:50%; text-align:center; line-height:28px; font-size:12px; font-weight:700; cursor:pointer; ` +
             (p === curPage 
               ? `background:var(--primary-color); color:white;` 
               : `background:#E2D9C8; color:#5D4037;`);
           pill.textContent = (i + 1);
-          pill.title = `Aller à la page ${i + 1}`;
+          pill.title = pTitle ? `Page ${i + 1} : ${pTitle}` : `Aller à la page ${i + 1}`;
           pill.onclick = function() {
             if (p > curPage) {
               const profile = (window.evalCurrentEv && window.evalCurrentEv.profile) ? window.evalCurrentEv.profile : document.getElementById('eval-profile-select').value;
@@ -1423,17 +1428,25 @@
     
     if (totalPages > 1) {
       if (paginationBar) paginationBar.style.display = 'flex';
-      if (pageLabel) pageLabel.textContent = `Page ${curIdx} sur ${totalPages}`;
+      const conclusionQuestions = (evalQuestions && evalQuestions.conclusion) ? evalQuestions.conclusion : [];
+      const curQForPage = conclusionQuestions.find(q => (parseInt(q.page, 10) || 1) === curPage && q.pageTitle);
+      const defaultConcTitle = (curPage === 1) ? 'Bilan & Performance Globale' : (curPage === 2 ? 'Plan de Développement & Objectifs SMART' : '');
+      const curPageTitle = curQForPage ? curQForPage.pageTitle.trim() : defaultConcTitle;
+      const pageTitleSuffix = curPageTitle ? ` : ${curPageTitle}` : '';
+      if (pageLabel) pageLabel.textContent = `Page ${curIdx} sur ${totalPages}${pageTitleSuffix}`;
       if (pagePills) {
         pagePills.innerHTML = '';
         pageNumbers.forEach((p, i) => {
           const pill = document.createElement('span');
+          const pQ = conclusionQuestions.find(q => (parseInt(q.page, 10) || 1) === p && q.pageTitle);
+          const pDefTitle = (p === 1) ? 'Bilan & Performance Globale' : (p === 2 ? 'Plan de Développement & Objectifs SMART' : '');
+          const pTitle = pQ ? pQ.pageTitle.trim() : pDefTitle;
           pill.style.cssText = `display:inline-block; width:28px; height:28px; border-radius:50%; text-align:center; line-height:28px; font-size:12px; font-weight:700; cursor:pointer; ` +
             (p === curPage 
               ? `background:var(--primary-color); color:white;` 
               : `background:#E2D9C8; color:#5D4037;`);
           pill.textContent = (i + 1);
-          pill.title = `Aller à la page ${i + 1}`;
+          pill.title = pTitle ? `Page ${i + 1} : ${pTitle}` : `Aller à la page ${i + 1}`;
           pill.onclick = function() {
             if (p > curPage) {
               const conclusionQuestions = (evalQuestions && evalQuestions.conclusion) ? evalQuestions.conclusion : [];
@@ -3301,6 +3314,9 @@
         tabsContainer.innerHTML = '';
         pageNums.forEach(p => {
           const pCount = questions.filter(q => q.page === p).length;
+          const pQWithTitle = questions.find(q => q.page === p && q.pageTitle);
+          const pTitle = pQWithTitle ? pQWithTitle.pageTitle.trim() : '';
+          const tabLabel = pTitle ? `Page ${p} : ${pTitle} (${pCount})` : `Page ${p} (${pCount})`;
           const btn = document.createElement('button');
           btn.type = 'button';
           btn.className = 'btn';
@@ -3308,13 +3324,21 @@
             (p === adminCurrentPage
               ? `background: var(--primary-color); color: white; border: 1px solid var(--primary-color);`
               : `background: white; color: #4A5568; border: 1px solid #CBD5E0;`);
-          btn.textContent = `Page ${p} (${pCount})`;
+          btn.textContent = tabLabel;
+          btn.title = pTitle ? `Page ${p} : ${pTitle}` : `Page ${p}`;
           btn.onclick = function() {
             adminCurrentPage = p;
             renderAdminFormBuilder();
           };
           tabsContainer.appendChild(btn);
         });
+      }
+
+      // Synchroniser le champ de titre de la page active
+      const pageTitleInput = document.getElementById('admin-page-title-input');
+      if (pageTitleInput) {
+        const curQWithTitle = questions.find(q => q.page === adminCurrentPage && q.pageTitle);
+        pageTitleInput.value = curQWithTitle ? (curQWithTitle.pageTitle || '') : '';
       }
 
       const btnDeletePage = document.getElementById('btn-delete-page');
@@ -3403,6 +3427,63 @@
       }
   }
 
+  function getCurrentAdminPageTitle(profile, pageNum) {
+      if (!adminEvalConfigData || !adminEvalConfigData[profile]) return '';
+      const q = adminEvalConfigData[profile].find(item => (parseInt(item.page, 10) || 1) === pageNum && item.pageTitle);
+      return q ? (q.pageTitle || '').trim() : '';
+  }
+
+  function updateCurrentAdminPageTitle(newTitle) {
+      const profile = document.getElementById('admin-profile-select').value;
+      if (!profile || !adminEvalConfigData[profile]) return;
+      const questions = adminEvalConfigData[profile];
+      const cleanTitle = (newTitle || '').trim();
+      let matched = false;
+      questions.forEach(q => {
+          if ((parseInt(q.page, 10) || 1) === adminCurrentPage) {
+              q.pageTitle = cleanTitle;
+              matched = true;
+          }
+      });
+      if (!matched) {
+          questions.push({
+              text: "Nouvelle compétence (" + (cleanTitle || "Page " + adminCurrentPage) + ")",
+              description: "",
+              type: "scale",
+              options: "PI, PA, CA, PS, PE, N/A",
+              page: adminCurrentPage,
+              pageTitle: cleanTitle
+          });
+      }
+      // Mettre à jour l'intitulé de l'onglet actif
+      const tabsContainer = document.getElementById('admin-pages-tabs-container');
+      if (tabsContainer) {
+          const pageNums = Array.from(new Set(questions.map(q => parseInt(q.page, 10) || 1))).sort((a,b) => a - b);
+          tabsContainer.innerHTML = '';
+          pageNums.forEach(p => {
+              const pCount = questions.filter(q => (parseInt(q.page, 10) || 1) === p).length;
+              const pQWithTitle = questions.find(q => (parseInt(q.page, 10) || 1) === p && q.pageTitle);
+              const pTitle = pQWithTitle ? pQWithTitle.pageTitle.trim() : '';
+              const tabLabel = pTitle ? `Page ${p} : ${pTitle} (${pCount})` : `Page ${p} (${pCount})`;
+              const btn = document.createElement('button');
+              btn.type = 'button';
+              btn.className = 'btn';
+              btn.style.cssText = `padding: 5px 12px; font-size: 12px; font-weight: 600; border-radius: 4px; cursor: pointer; ` +
+                (p === adminCurrentPage
+                  ? `background: var(--primary-color); color: white; border: 1px solid var(--primary-color);`
+                  : `background: white; color: #4A5568; border: 1px solid #CBD5E0;`);
+              btn.textContent = tabLabel;
+              btn.title = pTitle ? `Page ${p} : ${pTitle}` : `Page ${p}`;
+              btn.onclick = function() {
+                adminCurrentPage = p;
+                renderAdminFormBuilder();
+              };
+              tabsContainer.appendChild(btn);
+          });
+      }
+      markAdminQuestionsUnsaved();
+  }
+
   function addAdminProfilePage() {
       const profile = document.getElementById('admin-profile-select').value;
       if (!profile || !adminEvalConfigData[profile]) return;
@@ -3415,7 +3496,8 @@
           description: "",
           type: "scale",
           options: "PI, PA, CA, PS, PE, N/A",
-          page: newPage
+          page: newPage,
+          pageTitle: ""
       });
       markAdminQuestionsUnsaved();
       renderAdminFormBuilder();
@@ -3486,15 +3568,165 @@
       const profile = document.getElementById('admin-profile-select').value;
       if (!profile || !adminEvalConfigData[profile]) return;
       
+      const curTitle = getCurrentAdminPageTitle(profile, adminCurrentPage);
       adminEvalConfigData[profile].push({
           text: "Nouvelle compétence spécifique",
           description: "",
           type: "scale",
           options: "PI, PA, CA, PS, PE, N/A",
-          page: adminCurrentPage
+          page: adminCurrentPage,
+          pageTitle: curTitle || ""
       });
       markAdminQuestionsUnsaved();
       renderAdminFormBuilder();
+  }
+
+  // Fonctions de gestion de la réutilisation / importation de page inter-profils
+  function openReusePageModal() {
+      const targetProfile = document.getElementById('admin-profile-select').value;
+      if (!targetProfile || !adminEvalConfigData[targetProfile]) {
+          alert("Veuillez sélectionner un profil cible.");
+          return;
+      }
+      const label = document.getElementById('reuse-target-profile-name');
+      if (label) label.textContent = targetProfile;
+
+      const srcSelect = document.getElementById('reuse-source-profile-select');
+      if (!srcSelect) return;
+      srcSelect.innerHTML = '';
+
+      const allProfiles = Object.keys(adminEvalConfigData);
+      allProfiles.forEach(p => {
+          const opt = document.createElement('option');
+          opt.value = p;
+          opt.textContent = (p === targetProfile) ? `${p} (même profil)` : p;
+          srcSelect.appendChild(opt);
+      });
+
+      const otherProfile = allProfiles.find(p => p !== targetProfile);
+      if (otherProfile) {
+          srcSelect.value = otherProfile;
+      }
+
+      onReuseSourceProfileChange();
+
+      const modal = document.getElementById('admin-reuse-page-modal');
+      if (modal) modal.style.display = 'block';
+  }
+
+  function closeReusePageModal() {
+      const modal = document.getElementById('admin-reuse-page-modal');
+      if (modal) modal.style.display = 'none';
+  }
+
+  function onReuseSourceProfileChange() {
+      const srcSelect = document.getElementById('reuse-source-profile-select');
+      const pageSelect = document.getElementById('reuse-source-page-select');
+      if (!srcSelect || !pageSelect) return;
+      const srcProfile = srcSelect.value;
+      pageSelect.innerHTML = '';
+
+      if (!adminEvalConfigData[srcProfile]) return;
+      const questions = adminEvalConfigData[srcProfile];
+      let pageNums = Array.from(new Set(questions.map(q => parseInt(q.page, 10) || 1))).sort((a,b) => a - b);
+      if (pageNums.length === 0) pageNums.push(1);
+
+      pageNums.forEach(p => {
+          const pQWithTitle = questions.find(q => (parseInt(q.page, 10) || 1) === p && q.pageTitle);
+          const pTitle = pQWithTitle ? pQWithTitle.pageTitle.trim() : '';
+          const pCount = questions.filter(q => (parseInt(q.page, 10) || 1) === p).length;
+          const opt = document.createElement('option');
+          opt.value = p;
+          opt.textContent = pTitle ? `Page ${p} : ${pTitle} (${pCount} question${pCount > 1 ? 's' : ''})` : `Page ${p} (${pCount} question${pCount > 1 ? 's' : ''})`;
+          pageSelect.appendChild(opt);
+      });
+
+      onReuseSourcePageChange();
+  }
+
+  function onReuseSourcePageChange() {
+      const srcSelect = document.getElementById('reuse-source-profile-select');
+      const pageSelect = document.getElementById('reuse-source-page-select');
+      const titleInput = document.getElementById('reuse-page-title-input');
+      const previewList = document.getElementById('reuse-questions-preview');
+      if (!srcSelect || !pageSelect) return;
+
+      const srcProfile = srcSelect.value;
+      const srcPage = parseInt(pageSelect.value, 10) || 1;
+      const questions = adminEvalConfigData[srcProfile] || [];
+      const pageQuestions = questions.filter(q => (parseInt(q.page, 10) || 1) === srcPage);
+
+      const pQWithTitle = pageQuestions.find(q => q.pageTitle);
+      const pTitle = pQWithTitle ? pQWithTitle.pageTitle.trim() : '';
+      if (titleInput) {
+          titleInput.value = pTitle;
+      }
+
+      if (previewList) {
+          previewList.innerHTML = '';
+          if (pageQuestions.length === 0) {
+              previewList.innerHTML = '<li style="color:#A0AEC0;">Aucune question sur cette page</li>';
+          } else {
+              pageQuestions.forEach(q => {
+                  const li = document.createElement('li');
+                  li.style.marginBottom = '4px';
+                  li.textContent = `${q.text || 'Sans titre'} [${q.type || 'scale'}]`;
+                  previewList.appendChild(li);
+              });
+          }
+      }
+  }
+
+  function confirmReusePage() {
+      const targetProfile = document.getElementById('admin-profile-select').value;
+      const srcProfile = document.getElementById('reuse-source-profile-select').value;
+      const srcPage = parseInt(document.getElementById('reuse-source-page-select').value, 10) || 1;
+      const customTitle = (document.getElementById('reuse-page-title-input').value || '').trim();
+      const modeRadio = document.querySelector('input[name="reuse-import-mode"]:checked');
+      const mode = modeRadio ? modeRadio.value : 'new_page';
+
+      if (!adminEvalConfigData[srcProfile] || !adminEvalConfigData[targetProfile]) {
+          alert("Profil source ou cible invalide.");
+          return;
+      }
+
+      const srcQuestions = adminEvalConfigData[srcProfile].filter(q => (parseInt(q.page, 10) || 1) === srcPage);
+      if (srcQuestions.length === 0) {
+          alert("La page source sélectionnée ne contient aucune question.");
+          return;
+      }
+
+      const targetList = adminEvalConfigData[targetProfile];
+      let destPageNum = adminCurrentPage;
+      if (mode === 'new_page') {
+          const maxPage = targetList.reduce((max, q) => Math.max(max, parseInt(q.page, 10) || 1), 0);
+          destPageNum = maxPage + 1;
+      }
+
+      const clonedQuestions = srcQuestions.map(q => ({
+          text: q.text,
+          description: q.description || '',
+          type: q.type || 'scale',
+          options: q.options || 'PI, PA, CA, PS, PE, N/A',
+          page: destPageNum,
+          pageTitle: customTitle || (q.pageTitle || '')
+      }));
+
+      if (mode === 'current_page' && customTitle) {
+          targetList.forEach(q => {
+              if ((parseInt(q.page, 10) || 1) === destPageNum) {
+                  q.pageTitle = customTitle;
+              }
+          });
+      }
+
+      targetList.push(...clonedQuestions);
+      adminCurrentPage = destPageNum;
+      markAdminQuestionsUnsaved();
+      closeReusePageModal();
+      renderAdminFormBuilder();
+
+      alert(`✅ ${clonedQuestions.length} question(s) importée(s) avec succès sur la Page ${destPageNum} de "${targetProfile}".`);
   }
 
   function deleteAdminFormQuestion(idx) {

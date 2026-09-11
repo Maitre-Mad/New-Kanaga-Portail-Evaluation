@@ -1164,6 +1164,9 @@ function getEvaluationConfig(token) {
 
     const colProfil = headerRow.indexOf('profil');
     let colPage = headerRow.indexOf('page');
+    let colTitrePage = headerRow.findIndex(h => h.includes('titre') && h.includes('page'));
+    if (colTitrePage === -1) colTitrePage = headerRow.indexOf('titre page');
+    if (colTitrePage === -1) colTitrePage = headerRow.indexOf('nom page');
     const colOrdre = headerRow.indexOf('ordre');
     const colQuestion = headerRow.indexOf('question');
     const colDesc = headerRow.indexOf('description');
@@ -1200,6 +1203,35 @@ function getEvaluationConfig(token) {
       }
     }
 
+    // Si la colonne 'Titre Page' n'existe pas, l'ajouter juste après la colonne Page
+    if (colTitrePage === -1 && colPage !== -1) {
+      try {
+        sheet.insertColumnAfter(colPage + 1);
+        sheet.getRange(1, colPage + 2).setValue('Titre Page').setFontWeight('bold').setBackground('#f3f3f3');
+        if (data.length > 1) {
+          const titleValues = [];
+          for (let r = 1; r < data.length; r++) {
+            const prof = String(data[r][colProfil !== -1 ? colProfil : 0] || '').trim().toLowerCase();
+            const pNum = colPage !== -1 ? (parseInt(data[r][colPage], 10) || 1) : 1;
+            let pTitle = '';
+            if (prof === 'conclusion') {
+              pTitle = (pNum === 1) ? 'Bilan & Performance Globale' : 'Plan de Développement & Objectifs SMART';
+            } else {
+              pTitle = 'Page ' + pNum;
+            }
+            titleValues.push([pTitle]);
+          }
+          sheet.getRange(2, colPage + 2, titleValues.length, 1).setValues(titleValues);
+        }
+
+        data = sheet.getDataRange().getValues();
+        headerRow = data[0].map(h => String(h || '').trim().toLowerCase());
+        colTitrePage = headerRow.findIndex(h => h.includes('titre') && h.includes('page'));
+      } catch(migTitleErr) {
+        Logger.log("Erreur migration colonne Titre Page: " + migTitleErr.message);
+      }
+    }
+
     const config = {};
 
     for (let r = 1; r < data.length; r++) {
@@ -1212,6 +1244,7 @@ function getEvaluationConfig(token) {
       }
 
       const page = colPage !== -1 ? (parseInt(row[colPage], 10) || 1) : 1;
+      const pageTitle = colTitrePage !== -1 ? String(row[colTitrePage] || '').trim() : '';
       const order = colOrdre !== -1 ? (parseInt(row[colOrdre], 10) || (config[prof].length + 1)) : (config[prof].length + 1);
       const text = String(colQuestion !== -1 ? row[colQuestion] : (row[3] || '')).trim();
       const desc = String(colDesc !== -1 ? row[colDesc] : (row[4] || '')).trim();
@@ -1224,6 +1257,7 @@ function getEvaluationConfig(token) {
         type: type,
         options: options,
         page: page,
+        pageTitle: pageTitle,
         order: order
       });
     }
@@ -1232,11 +1266,14 @@ function getEvaluationConfig(token) {
     if (!config['conclusion'] || config['conclusion'].length === 0) {
       config['conclusion'] = defaultConfig['conclusion'];
     } else if (config['conclusion'] && config['conclusion'].length >= 5) {
-      // Si toutes les questions de la conclusion sont sur la page 1, rétablir les 2 pages standard
+      // Rétablir les 2 pages standard et titres si besoin
       const allPage1 = config['conclusion'].every(q => (parseInt(q.page, 10) || 1) === 1);
       if (allPage1) {
         config['conclusion'].forEach((q, idx) => {
           q.page = (idx >= 4) ? 2 : 1;
+          if (!q.pageTitle) {
+            q.pageTitle = (idx >= 4) ? 'Plan de Développement & Objectifs SMART' : 'Bilan & Performance Globale';
+          }
         });
       }
     }
@@ -1269,7 +1306,7 @@ function saveEvaluationConfig(token, config) {
   }
 
   sheet.clear();
-  const headers = ['Profil', 'Base Associée', 'Page', 'Ordre', 'Question', 'Description', 'Type', 'Options'];
+  const headers = ['Profil', 'Base Associée', 'Page', 'Titre Page', 'Ordre', 'Question', 'Description', 'Type', 'Options'];
   sheet.appendRow(headers);
   sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold').setBackground('#f3f3f3');
 
@@ -1286,6 +1323,7 @@ function saveEvaluationConfig(token, config) {
           profile,
           baseAssociee,
           parseInt(q.page, 10) || 1,
+          q.pageTitle || '',
           idx + 1,
           q.text || '',
           q.description || '',

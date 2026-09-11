@@ -200,6 +200,19 @@
         </button>
       </div>
     </div>
+
+    <!-- Barre de détails et d'action de la Page Active (Titre et Réutilisation) -->
+    <div id="admin-page-details-bar" style="margin-bottom:12px; background:#fff; padding:10px 14px; border-radius:6px; border:1px solid #CBD5E0; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+      <div style="display:flex; align-items:center; gap:10px; flex:1; min-width:280px;">
+        <label style="font-size:12px; font-weight:700; color:#4A5568; white-space:nowrap;">📄 Titre de cette Page :</label>
+        <input type="text" id="admin-page-title-input" class="form-control" style="font-size:13px; font-weight:600; flex:1;" placeholder="Ex: Savoir-être et relation client..." oninput="updateCurrentAdminPageTitle(this.value)">
+      </div>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <button type="button" class="btn btn-outline" style="font-size:12px; padding:5px 12px; font-weight:600; border-color:#CBD5E0;" onclick="openReusePageModal()" title="Réutiliser ou importer une page depuis un autre profil">
+          📥 Réutiliser une Page d'un autre profil
+        </button>
+      </div>
+    </div>
     
     <!-- Conteneur des questions -->
     <div id="admin-form-builder-container" style="background:#FAF8F5; padding:18px; border-radius:8px; border:1px solid #E2D9C8; min-height: 120px;">
@@ -328,6 +341,65 @@
       <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
         <button type="button" class="btn btn-outline" onclick="closeRenameProfileModal()">Annuler</button>
         <button type="button" class="btn btn-primary" onclick="confirmRenameProfile()">Renommer</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal : Réutiliser une Page depuis un autre profil -->
+<div id="admin-reuse-page-modal" class="modal">
+  <div class="modal-content" style="max-width: 550px;">
+    <div class="modal-header">
+      <h3 style="margin: 0; color: var(--primary-color);">📥 Réutiliser une Page de Questions</h3>
+      <span class="close-button" onclick="closeReusePageModal()">&times;</span>
+    </div>
+    <div class="modal-body">
+      <p class="text-muted" style="font-size: 13px; margin-bottom: 14px; line-height: 1.4;">
+        Importez et réutilisez une page complète de questions issue d'un autre profil vers le profil actuel (<strong id="reuse-target-profile-name"></strong>).
+      </p>
+
+      <div class="form-group">
+        <label style="font-weight: 600;">1. Profil source :</label>
+        <select id="reuse-source-profile-select" class="form-control" onchange="onReuseSourceProfileChange()">
+          <!-- Rempli en JS -->
+        </select>
+      </div>
+
+      <div class="form-group" style="margin-top: 14px;">
+        <label style="font-weight: 600;">2. Page à importer :</label>
+        <select id="reuse-source-page-select" class="form-control" onchange="onReuseSourcePageChange()">
+          <!-- Rempli en JS -->
+        </select>
+      </div>
+
+      <div class="form-group" style="margin-top: 14px;">
+        <label style="font-weight: 600;">3. Titre pour la page importée :</label>
+        <input type="text" id="reuse-page-title-input" class="form-control" placeholder="Titre de la page">
+      </div>
+
+      <div class="form-group" style="margin-top: 14px;">
+        <label style="font-weight: 600;">4. Mode d'importation :</label>
+        <div style="display: flex; gap: 16px; margin-top: 6px;">
+          <label style="font-weight: normal; font-size: 13px; cursor: pointer;">
+            <input type="radio" name="reuse-import-mode" value="new_page" checked> Créer une nouvelle page (recommandé)
+          </label>
+          <label style="font-weight: normal; font-size: 13px; cursor: pointer;">
+            <input type="radio" name="reuse-import-mode" value="current_page"> Ajouter à la page active
+          </label>
+        </div>
+      </div>
+
+      <!-- Aperçu des questions -->
+      <div style="margin-top: 15px; background: #FAF8F5; border: 1px solid #E2D9C8; border-radius: 6px; padding: 10px 12px;">
+        <div style="font-size: 12px; font-weight: 700; color: #5D4037; margin-bottom: 6px;">Aperçu des questions de cette page :</div>
+        <ul id="reuse-questions-preview" style="margin: 0; padding-left: 18px; font-size: 12px; color: #4A5568; max-height: 120px; overflow-y: auto;">
+          <!-- Questions injectées en JS -->
+        </ul>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+        <button type="button" class="btn btn-outline" onclick="closeReusePageModal()">Annuler</button>
+        <button type="button" class="btn btn-primary" onclick="confirmReusePage()">Importer cette Page</button>
       </div>
     </div>
   </div>
