@@ -142,11 +142,15 @@
       if (hubCard) hubCard.style.display = 'none';
     }
 
-    if (user.role === 'Admin' || user.role === 'IT') {
-      document.getElementById('nav-it-dashboard').style.display = 'block';
-    } else {
-      document.getElementById('nav-it-dashboard').style.display = 'none';
-    }
+    // Modules retirés visuellement sur cette version (IT Dashboard, Support IT, Réponses Formulaire)
+    const navTickets = document.getElementById('nav-tickets');
+    if (navTickets) navTickets.style.display = 'none';
+
+    const navItDashboard = document.getElementById('nav-it-dashboard');
+    if (navItDashboard) navItDashboard.style.display = 'none';
+
+    const navResponsesBtn = document.getElementById('nav-responses');
+    if (navResponsesBtn) navResponsesBtn.style.display = 'none';
 
     if (user.role === 'ConsultantExterne') {
       document.getElementById('nav-hub').style.display = 'none';
@@ -159,24 +163,6 @@
       if (navHubConsultant) navHubConsultant.style.display = 'none';
       document.getElementById('nav-evaluation').style.display = 'inline-block';
     }
-
-    // Dynamic permission check for 'Réponses Formulaire' nav button
-    google.script.run
-      .withSuccessHandler(res => {
-        const navResponsesBtn = document.getElementById('nav-responses');
-        if (navResponsesBtn) {
-          if (res && res.canAccess) {
-            navResponsesBtn.style.display = 'inline-block';
-          } else {
-            navResponsesBtn.style.display = 'none';
-          }
-        }
-      })
-      .withFailureHandler(() => {
-        const navResponsesBtn = document.getElementById('nav-responses');
-        if (navResponsesBtn) navResponsesBtn.style.display = 'none';
-      })
-      .checkFormResponsesAccess(window.kanagaToken);
 
     document.getElementById('global-loader').style.display = 'none';
     document.getElementById('top-navbar').style.display = 'flex';
@@ -206,6 +192,10 @@
 
   // --- Navigation (SPA Logic) ---
   function navigateTo(viewId) {
+    if (viewId === 'tickets' || viewId === 'it-dashboard' || viewId === 'responses') {
+      viewId = 'hub';
+    }
+
     // Hide all views
     document.querySelectorAll('.app-view').forEach(view => {
       view.style.display = 'none';
