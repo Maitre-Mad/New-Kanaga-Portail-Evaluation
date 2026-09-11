@@ -624,8 +624,22 @@
          autreOpt.value = "Autre";
          autreOpt.text = "Autre profil (aucun profil spécifique)";
          select.appendChild(autreOpt);
+
+         if (window.evalCurrentEv && window.evalCurrentEv.profile) {
+            select.value = window.evalCurrentEv.profile;
+         }
       })
       .getEvaluationConfig(window.kanagaToken);
+
+    // Charger les évaluations existantes immédiatement pour alimenter les alertes et initialiser le cache
+    google.script.run
+      .withSuccessHandler(function(evalsStr) {
+         try {
+           window.loadedEvals = JSON.parse(evalsStr) || [];
+           showEvalSelectionScreen();
+         } catch(e) {}
+      })
+      .getNativeEvaluations(window.kanagaToken);
 
     if (currentUser && (currentUser.role === 'Manager' || currentUser.role === 'Admin')) {
        document.getElementById('manager-eval-portal').style.display = 'block';
@@ -683,6 +697,19 @@
   window.evalCurrentMode = null;
 
   function startEvaluationWizard(type, attachedRowId = null) {
+    // Si une évaluation attachée est demandée mais que window.loadedEvals n'est pas encore en mémoire
+    if (attachedRowId && (!window.loadedEvals || window.loadedEvals.length === 0)) {
+       google.script.run
+         .withSuccessHandler(function(evalsStr) {
+            try {
+              window.loadedEvals = JSON.parse(evalsStr) || [];
+            } catch(e) {}
+            startEvaluationWizard(type, attachedRowId);
+         })
+         .getNativeEvaluations(window.kanagaToken);
+       return;
+    }
+
     document.getElementById('eval-selection-screen').style.display = 'none';
     document.getElementById('eval-manager-dashboard').style.display = 'none';
     document.getElementById('eval-viewer-screen').style.display = 'none';
@@ -701,33 +728,47 @@
         document.getElementById('btn-pre-eval').style.display = 'none';
     }
     
+    const ev = (window.loadedEvals && attachedRowId) 
+      ? window.loadedEvals.find(e => parseInt(e.rowId, 10) === parseInt(attachedRowId, 10)) 
+      : null;
+    window.evalCurrentEv = ev || null;
+
     const empSelect = document.getElementById('eval-employee-email');
-    empSelect.innerHTML = '';
-    if (window.employeeList) {
-       window.employeeList.forEach(emp => {
-          empSelect.innerHTML += `<option value="${emp.email}">${emp.fullName} (${emp.email})</option>`;
-       });
-    }
-    
+    const empDisplay = document.getElementById('eval-employee-readonly-display');
+    const periodInput = document.getElementById('eval-period');
+    const profileSelect = document.getElementById('eval-profile-select');
+    const autoevalBanner = document.getElementById('eval-autoeval-banner');
+    const evaluatorsGroup = document.getElementById('eval-evaluators-group');
+    let submitBtn = document.getElementById('btn-submit-initiation');
+    if (submitBtn) submitBtn.style.display = 'none';
+
     if (window.empChoices) {
         window.empChoices.destroy();
         window.empChoices = null;
     }
+
     if (type === 'Initiation') {
+        if (autoevalBanner) autoevalBanner.style.display = 'none';
+        if (empDisplay) empDisplay.style.display = 'none';
+        empSelect.style.display = 'block';
+        empSelect.disabled = false;
+        empSelect.innerHTML = '';
+        if (window.employeeList) {
+           window.employeeList.forEach(emp => {
+              empSelect.innerHTML += `<option value="${emp.email}">${emp.fullName} (${emp.email})</option>`;
+           });
+        }
         window.empChoices = new Choices(empSelect, { removeItemButton: true, searchEnabled: true, placeholder: true, placeholderValue: "Sélectionner les employés" });
-    }
-    
-    // UI Resets
-    document.getElementById('grid-fondamentales').style.display = 'block';
-    document.getElementById('eval-profile-select').disabled = false;
-    document.getElementById('eval-period').readOnly = false;
-    document.getElementById('step-nav-3').style.display = 'inline-block';
-    document.getElementById('step-nav-4').style.display = 'inline-block';
-    
-    const evaluatorsGroup = document.getElementById('eval-evaluators-group');
-    if (type === 'Initiation') {
+
+        periodInput.readOnly = false;
+        periodInput.style.backgroundColor = '';
+        periodInput.style.cursor = '';
+
+        profileSelect.disabled = false;
+        profileSelect.style.backgroundColor = '';
+        profileSelect.style.cursor = '';
+
         if (evaluatorsGroup) evaluatorsGroup.style.display = 'block';
-        
         const princSelect = document.getElementById('eval-principal-evaluator');
         if (princSelect) {
             princSelect.innerHTML = '<option value="">-- Choisir l\'évaluateur principal --</option>';
@@ -758,20 +799,7 @@
                 placeholderValue: "Sélectionner les évaluateurs secondaires (optionnel)"
             });
         }
-    } else {
-        if (evaluatorsGroup) evaluatorsGroup.style.display = 'none';
-        if (window.secChoices) {
-            window.secChoices.destroy();
-            window.secChoices = null;
-        }
-    }
 
-    let submitBtn = document.getElementById('btn-submit-initiation');
-    if(submitBtn) submitBtn.style.display = 'none';
-
-    if (type === 'Initiation') {
-        empSelect.disabled = false;
-        
         document.getElementById('step-1-title').innerText = "Initiation d'une nouvelle évaluation";
         document.getElementById('eval-wizard-progress').style.display = 'none';
         document.getElementById('btn-next-step1').style.display = 'none';
@@ -780,7 +808,7 @@
         document.getElementById('step-nav-3').style.display = 'none';
         document.getElementById('step-nav-4').style.display = 'none';
         
-        if(!submitBtn) {
+        if (!submitBtn) {
            const actionsDiv = document.querySelector('#wizard-step-1 .wizard-actions');
            submitBtn = document.createElement('button');
            submitBtn.type = 'button';
@@ -793,27 +821,73 @@
         submitBtn.style.display = 'inline-block';
         showEvalStep(1);
     } else {
+        if (evaluatorsGroup) evaluatorsGroup.style.display = 'none';
+        if (window.secChoices) {
+            window.secChoices.destroy();
+            window.secChoices = null;
+        }
+
         document.getElementById('step-1-title').innerText = "I. Informations Générales";
         document.getElementById('eval-wizard-progress').style.display = 'flex';
         document.getElementById('btn-next-step1').style.display = 'inline-block';
-        
-        const ev = window.loadedEvals.find(e => e.rowId === attachedRowId);
-        window.evalCurrentEv = ev || null;
-        if(ev) {
-          if (window.empChoices) window.empChoices.destroy();
-          empSelect.innerHTML = `<option value="${ev.employeeEmail || currentUser.username}" selected>${ev.employeeName}</option>`;
-          empSelect.disabled = true;
-          document.getElementById('eval-profile-select').value = ev.profile;
-          document.getElementById('eval-profile-select').disabled = true;
-          document.getElementById('eval-period').value = ev.period;
-          document.getElementById('eval-period').readOnly = true;
+
+        if (ev) {
+            // 1. Période pré-remplie et NON modifiable
+            periodInput.value = ev.period || '';
+            periodInput.readOnly = true;
+            periodInput.style.backgroundColor = '#f8f9fa';
+            periodInput.style.cursor = 'not-allowed';
+
+            // 2. Collaborateur pré-rempli et NON modifiable (l'auto-évaluateur ne choisit pas)
+            const empEmail = ev.employeeEmail || (currentUser ? currentUser.username : '');
+            const empName = ev.employeeName || (currentUser ? currentUser.fullName : empEmail);
+            empSelect.innerHTML = `<option value="${empEmail}" selected>${empName}</option>`;
+            empSelect.style.display = 'none';
+
+            if (empDisplay) {
+                empDisplay.style.display = 'block';
+                empDisplay.innerHTML = `
+                  <div style="padding: 10px 14px; background: #f8f9fa; border: 1px solid #ced4da; border-radius: 4px; font-size: 14px; color: #212529; font-weight: 600;">
+                    ${escapeHtml(empName)} <span style="font-weight: normal; color: #6c757d;">(${escapeHtml(empEmail)})</span>
+                  </div>
+                `;
+            }
+
+            // 3. Profil de poste pré-rempli et NON modifiable
+            let profFound = false;
+            for (let i = 0; i < profileSelect.options.length; i++) {
+                if (profileSelect.options[i].value.toLowerCase().trim() === (ev.profile || '').toLowerCase().trim()) {
+                    profileSelect.selectedIndex = i;
+                    profFound = true;
+                    break;
+                }
+            }
+            if (!profFound && ev.profile) {
+                const opt = new Option("Profil : " + ev.profile, ev.profile, true, true);
+                profileSelect.appendChild(opt);
+            }
+            profileSelect.disabled = true;
+            profileSelect.style.backgroundColor = '#f8f9fa';
+            profileSelect.style.cursor = 'not-allowed';
+
+            // 4. Bannière explicative pour l'auto-évaluation
+            if (autoevalBanner) {
+                autoevalBanner.style.display = 'block';
+                const evaluatorDisplayName = ev.principalEvaluatorName || ev.evaluatorName || "votre évaluateur principal";
+                autoevalBanner.innerHTML = `
+                  <strong>Auto-évaluation de la performance</strong><br>
+                  Cette évaluation a été initiée par <strong>${escapeHtml(evaluatorDisplayName)}</strong> pour la période <strong>${escapeHtml(ev.period)}</strong> sur le profil <strong>${escapeHtml(ev.profile)}</strong>. Ces informations sont verrouillées et déterminent vos questions.
+                `;
+            }
         }
-        
+
+        // Grilles d'évaluation
         generateGrid('grid-fondamentales', 'fonda', (evalQuestions && evalQuestions.fondamentales) ? evalQuestions.fondamentales : []);
-        const specQuestions = (ev && ev.profile && ev.profile !== 'Autre') ? findProfileQuestions(ev.profile) : null;
+        const targetProfile = (ev && ev.profile) ? ev.profile : profileSelect.value;
+        const specQuestions = (targetProfile && targetProfile !== 'Autre') ? findProfileQuestions(targetProfile) : null;
         if (specQuestions && specQuestions.length > 0) {
             generateGrid('grid-specifiques', 'spec', specQuestions);
-            document.getElementById('step-3-title').innerText = "Section 2 : Aiguillage - " + ev.profile;
+            document.getElementById('step-3-title').innerText = "Section 2 : Aiguillage - " + targetProfile;
             document.getElementById('step-nav-3').style.display = 'inline-block';
             window.evalCurrentSpecPage = 1;
             updateSpecPageView();
@@ -1133,7 +1207,7 @@
   }
 
   function updateSpecPageView() {
-    const profile = document.getElementById('eval-profile-select').value;
+    const profile = (window.evalCurrentEv && window.evalCurrentEv.profile) ? window.evalCurrentEv.profile : document.getElementById('eval-profile-select').value;
     const specQuestions = (profile !== 'Autre') ? findProfileQuestions(profile) : null;
     const pageNumbers = getSpecPageNumbers(specQuestions);
     const totalPages = pageNumbers.length;
@@ -1192,7 +1266,7 @@
   }
 
   function evalSpecPrev() {
-    const profile = document.getElementById('eval-profile-select').value;
+    const profile = (window.evalCurrentEv && window.evalCurrentEv.profile) ? window.evalCurrentEv.profile : document.getElementById('eval-profile-select').value;
     const specQuestions = (profile !== 'Autre') ? findProfileQuestions(profile) : null;
     const pageNumbers = getSpecPageNumbers(specQuestions);
     const curIdx = pageNumbers.indexOf(window.evalCurrentSpecPage);
@@ -1207,7 +1281,7 @@
   }
 
   function evalSpecNext() {
-    const profile = document.getElementById('eval-profile-select').value;
+    const profile = (window.evalCurrentEv && window.evalCurrentEv.profile) ? window.evalCurrentEv.profile : document.getElementById('eval-profile-select').value;
     const specQuestions = (profile !== 'Autre') ? findProfileQuestions(profile) : null;
     const pageNumbers = getSpecPageNumbers(specQuestions);
     const curIdx = pageNumbers.indexOf(window.evalCurrentSpecPage);
@@ -1229,7 +1303,7 @@
         }
     }
     if (current === 2) {
-        const profile = document.getElementById('eval-profile-select').value;
+        const profile = (window.evalCurrentEv && window.evalCurrentEv.profile) ? window.evalCurrentEv.profile : document.getElementById('eval-profile-select').value;
         if (!profile) {
             alert('Veuillez sélectionner un profil.');
             return;
@@ -1254,7 +1328,7 @@
 
   function prevEvalStep(current, prev) {
     if (current === 4) {
-        const profile = document.getElementById('eval-profile-select').value;
+        const profile = (window.evalCurrentEv && window.evalCurrentEv.profile) ? window.evalCurrentEv.profile : document.getElementById('eval-profile-select').value;
         const specQuestions = (profile !== 'Autre') ? findProfileQuestions(profile) : null;
         if (!specQuestions || specQuestions.length === 0 || profile === 'Autre') {
             prev = 2; // Retour direct au Tronc Commun
