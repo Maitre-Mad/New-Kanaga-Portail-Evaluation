@@ -2,6 +2,7 @@
   <h2>Portail d'Évaluation</h2>
   <p>Gérez vos objectifs, auto-évaluations et évaluations d'équipe.</p>
   <div id="eval-header-actions" style="display: none; position: absolute; right: 0; top: 0;">
+    <button class="btn btn-success" id="eval-header-initiate-btn" style="margin-right: 8px; display: none;" onclick="startEvaluationWizard('Initiation')">+ Initier une Évaluation</button>
     <button class="btn btn-outline" style="margin-right: 8px;" onclick="toggleEvalScaleModal(true)">Barème & Légende</button>
     <button class="btn btn-outline" onclick="showEvalSelectionScreen()">Retour à l'accueil</button>
   </div>
@@ -272,7 +273,10 @@
 <!-- MANAGER DASHBOARD SCREEN (Single Page View) -->
 <div id="eval-manager-dashboard" style="display: none;">
   <div class="panel">
-    <h3>Dossiers d'Évaluation</h3>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+      <h3 style="margin: 0;">Dossiers d'Évaluation</h3>
+      <button class="btn btn-success" id="manager-dashboard-initiate-btn" style="display: none;" onclick="startEvaluationWizard('Initiation')">+ Initier une Évaluation</button>
+    </div>
     <div id="eval-dashboard-loader" class="status-msg" style="color:var(--primary-color);">Chargement des évaluations...</div>
     <div class="table-responsive" style="margin-top:20px;">
       <table class="modern-table" id="evals-table">

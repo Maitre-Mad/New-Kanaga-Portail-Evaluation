@@ -4,6 +4,41 @@
   let choicesInstances = { project: null, task: null, editProject: null, editTask: null };
   let evaluationData = {};
 
+  function isUserAdmin(user) {
+    let u = user || currentUser;
+    if (!u) {
+      try {
+        const stored = localStorage.getItem('kanagaUser');
+        if (stored) {
+          u = JSON.parse(stored);
+          if (!currentUser) currentUser = u;
+        }
+      } catch(e) {}
+    }
+    if (!u) return false;
+    const email = String(u.username || '').toLowerCase().trim();
+    if (email === 'mhdicko@kanagaconsulting.com') return true;
+    const role = String(u.role || '').toLowerCase().trim();
+    return role === 'admin' || role === 'administrateur' || role === 'superadmin';
+  }
+
+  function isUserManagerOrAdmin(user) {
+    let u = user || currentUser;
+    if (!u) {
+      try {
+        const stored = localStorage.getItem('kanagaUser');
+        if (stored) {
+          u = JSON.parse(stored);
+          if (!currentUser) currentUser = u;
+        }
+      } catch(e) {}
+    }
+    if (!u) return false;
+    if (isUserAdmin(u)) return true;
+    const role = String(u.role || '').toLowerCase().trim();
+    return role === 'manager' || role === 'directeur';
+  }
+
   // --- Initialisation ---
   window.addEventListener('load', function() {
     setDateValidation();
@@ -275,7 +310,7 @@
     populateSocietySwitcher(user.societies, user.activeSociety);
     updateActiveLanguageUI(user.language);
     
-    if (user.role === 'Admin' || user.role === 'Manager') {
+    if (isUserManagerOrAdmin(user)) {
       document.getElementById('nav-admin').style.display = 'block';
       const hubCard = document.getElementById('hub-card-admin');
       if (hubCard) hubCard.style.display = 'block';
@@ -791,10 +826,10 @@
       })
       .getNativeEvaluations(window.kanagaToken);
 
-    if (currentUser && (currentUser.role === 'Manager' || currentUser.role === 'Admin')) {
-       document.getElementById('manager-eval-portal').style.display = 'block';
-    } else {
-       document.getElementById('manager-eval-portal').style.display = 'none';
+    const isMgr = isUserManagerOrAdmin();
+    const mgrPortal = document.getElementById('manager-eval-portal');
+    if (mgrPortal) {
+      mgrPortal.style.display = isMgr ? 'block' : 'none';
     }
   }
 
@@ -804,6 +839,13 @@
     document.getElementById('eval-manager-dashboard').style.display = 'none';
     document.getElementById('eval-viewer-screen').style.display = 'none';
     document.getElementById('eval-header-actions').style.display = 'none';
+
+    // Assurer l'affichage du portail manager pour les managers et administrateurs
+    const isMgr = isUserManagerOrAdmin();
+    const mgrPortal = document.getElementById('manager-eval-portal');
+    if (mgrPortal) {
+      mgrPortal.style.display = isMgr ? 'block' : 'none';
+    }
 
     // Handle pending evaluations card
     const pendingContainer = document.getElementById('employee-pending-evals');
@@ -870,6 +912,10 @@
     document.getElementById('eval-viewer-screen').style.display = 'none';
     document.getElementById('eval-wizard-screen').style.display = 'block';
     document.getElementById('eval-header-actions').style.display = 'block';
+    const headerInitBtn = document.getElementById('eval-header-initiate-btn');
+    if (headerInitBtn) {
+      headerInitBtn.style.display = (isUserManagerOrAdmin() && type !== 'Initiation') ? 'inline-block' : 'none';
+    }
     
     window.evalAttachedRowId = attachedRowId;
     window.evalCurrentMode = type;
@@ -2279,7 +2325,7 @@
            }
            alert("Votre évaluation secondaire a été enregistrée avec succès !");
            setTimeout(() => {
-               if (currentUser.role === 'Manager' || currentUser.role === 'Admin') showManagerDashboard();
+               if (isUserManagerOrAdmin()) showManagerDashboard();
                else showEmployeeDashboard();
                if (btn) {
                  btn.disabled = false;
@@ -2368,7 +2414,7 @@
           status.innerHTML = '<span style="color:green;">Pré-évaluation sauvegardée !</span>';
           setTimeout(() => {
              document.getElementById('eval-wizard-screen').style.display = 'none';
-             if (currentUser.role === 'Manager' || currentUser.role === 'Admin') showManagerDashboard();
+             if (isUserManagerOrAdmin()) showManagerDashboard();
              else showEvalSelectionScreen();
           }, 1500);
         })
@@ -2390,7 +2436,7 @@
     google.script.run
       .withSuccessHandler(function() {
         alert("L'évaluation est désormais en attente de l'évaluateur principal.");
-        if (currentUser.role === 'Manager' || currentUser.role === 'Admin') showManagerDashboard();
+        if (isUserManagerOrAdmin()) showManagerDashboard();
         else showEmployeeDashboard();
       })
       .withFailureHandler(function(err) {
@@ -2401,12 +2447,12 @@
 
   function getEvaluationRowActions(ev, idx) {
     const isCollab = (ev.employeeEmail === currentUser.username || ev.employeeName === currentUser.fullName);
-    const isPrincipal = (ev.principalEvaluatorEmail === currentUser.username || ev.principalEvaluatorName === currentUser.fullName || (!ev.principalEvaluatorEmail && ev.evaluatorName === currentUser.fullName) || currentUser.role === 'Admin');
+    const isPrincipal = (ev.principalEvaluatorEmail === currentUser.username || ev.principalEvaluatorName === currentUser.fullName || (!ev.principalEvaluatorEmail && ev.evaluatorName === currentUser.fullName) || isUserAdmin());
 
     let secList = [];
     try { secList = JSON.parse(ev.secondaryEvaluators || '[]'); } catch(e){}
     const mySecEntry = secList.find(s => s.email === currentUser.username || s.name === currentUser.fullName);
-    const isSecondary = !!mySecEntry || currentUser.role === 'Admin';
+    const isSecondary = !!mySecEntry || isUserAdmin();
     const secDone = mySecEntry && mySecEntry.status === 'Complété';
 
     let badgeClass = 'badge-primary';
@@ -2433,11 +2479,11 @@
       if (isSecondary && !secDone) {
         actionBtns += ` <button class="btn" style="padding:5px 10px; font-size:12px; margin-left:5px; background-color:#ff9800; color:#fff;" onclick="startEvaluationWizard('Évaluation Secondaire', ${ev.rowId})">Évaluer (Secondaire)</button>`;
       }
-      if (isPrincipal || currentUser.role === 'Admin') {
+      if (isPrincipal || isUserAdmin()) {
         actionBtns += ` <button class="btn btn-outline" style="padding:5px 10px; font-size:12px; margin-left:5px;" onclick="advanceToPrincipal(${ev.rowId})" title="Clôturer l'étape secondaire et passer à l'évaluation principale">Passer au Principal →</button>`;
       }
     } else if (ev.status === 'Attente Évaluateur Principal' || ev.status === 'Auto-évaluée' || ev.status === 'Pré-évaluée') {
-      if (isPrincipal || currentUser.role === 'Admin') {
+      if (isPrincipal || isUserAdmin()) {
         actionBtns += ` <button class="btn" style="padding:5px 10px; font-size:12px; margin-left:5px; background-color:var(--secondary-color); color:#fff;" onclick="startEvaluationWizard('Évaluation Manager', ${ev.rowId})">Évaluer (Principal)</button>`;
       }
     }
@@ -2459,6 +2505,14 @@
     document.getElementById('eval-manager-dashboard').style.display = 'block';
     document.getElementById('eval-viewer-screen').style.display = 'none';
     document.getElementById('eval-header-actions').style.display = 'block';
+
+    const isMgr = isUserManagerOrAdmin();
+    const dashInitBtn = document.getElementById('manager-dashboard-initiate-btn');
+    if (dashInitBtn) dashInitBtn.style.display = isMgr ? 'inline-block' : 'none';
+    const headerInitBtn = document.getElementById('eval-header-initiate-btn');
+    if (headerInitBtn) headerInitBtn.style.display = isMgr ? 'inline-block' : 'none';
+
+    document.querySelector('#eval-manager-dashboard h3').innerText = "Dossiers d'Évaluation";
     document.getElementById('eval-dashboard-loader').style.display = 'block';
     const tbody = document.querySelector('#evals-table tbody');
     if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Chargement en cours...</td></tr>';
@@ -2514,6 +2568,12 @@
     document.getElementById('eval-manager-dashboard').style.display = 'block';
     document.getElementById('eval-viewer-screen').style.display = 'none';
     document.getElementById('eval-header-actions').style.display = 'block';
+
+    const isMgr = isUserManagerOrAdmin();
+    const dashInitBtn = document.getElementById('manager-dashboard-initiate-btn');
+    if (dashInitBtn) dashInitBtn.style.display = isMgr ? 'inline-block' : 'none';
+    const headerInitBtn = document.getElementById('eval-header-initiate-btn');
+    if (headerInitBtn) headerInitBtn.style.display = isMgr ? 'inline-block' : 'none';
     
     document.querySelector('#eval-manager-dashboard h3').innerText = "Mes Historiques d'Évaluation";
     document.getElementById('eval-dashboard-loader').style.display = 'block';
@@ -2535,7 +2595,7 @@
 
           const uEmail = (currentUser.username || '').toLowerCase().trim();
           const uName = (currentUser.fullName || '').toLowerCase().trim();
-          const isAdmin = (currentUser.role === 'Admin');
+          const isAdmin = isUserAdmin();
 
           const myEvals = evals.filter(e => {
              if (isAdmin) return true;
@@ -2875,9 +2935,9 @@
      }
      
      // Actions contextuelles en bas de fiche
-     const isPrincipalUser = (ev.principalEvaluatorEmail === currentUser.username || ev.principalEvaluatorName === currentUser.fullName || (!ev.principalEvaluatorEmail && ev.evaluatorName === currentUser.fullName) || currentUser.role === 'Admin');
+     const isPrincipalUser = (ev.principalEvaluatorEmail === currentUser.username || ev.principalEvaluatorName === currentUser.fullName || (!ev.principalEvaluatorEmail && ev.evaluatorName === currentUser.fullName) || isUserAdmin());
      const mySecUser = secList.find(s => s.email === currentUser.username || s.name === currentUser.fullName);
-     const isSecUser = !!mySecUser || currentUser.role === 'Admin';
+     const isSecUser = !!mySecUser || isUserAdmin();
      const secUserDone = mySecUser && mySecUser.status === 'Complété';
 
      if (ev.status === 'Attente Évaluateur Secondaire') {
@@ -4275,7 +4335,7 @@
     );
     
     // Si l'utilisateur est manager, ajouter les auto-évaluées et pré-évaluées en attente
-    if(currentUser.role === 'Manager' || currentUser.role === 'Admin') {
+    if(isUserManagerOrAdmin()) {
        const mgrPending = window.loadedEvals.filter(ev => 
           (ev.status === 'Auto-évaluée' || ev.status === 'Pré-évaluée') && !ev.mgrName
        );

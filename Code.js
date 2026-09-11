@@ -82,10 +82,18 @@ function authenticateUser(username, password) {
         if (data[i][0] === username && data[i][1] === password) {
           const societiesString = data[i][3] || '';
           const societies = societiesString.split(',').map(s => s.trim()).filter(String);
-          let role = data[i][5] || 'Utilisateur';
-          if (data[i][0] === 'mhdicko@kanagaconsulting.com' && (!data[i][5] || data[i][5] === '')) {
+          let role = String(data[i][5] || 'Utilisateur').trim();
+          const cleanRoleLower = role.toLowerCase();
+          if (cleanRoleLower === 'admin' || cleanRoleLower === 'administrateur' || cleanRoleLower === 'superadmin') {
             role = 'Admin';
-            sheet.getRange(i + 1, 6).setValue('Admin');
+          } else if (cleanRoleLower === 'manager' || cleanRoleLower === 'directeur') {
+            role = 'Manager';
+          }
+          if (data[i][0] === 'mhdicko@kanagaconsulting.com') {
+            role = 'Admin';
+            if (!data[i][5] || data[i][5] === '') {
+              sheet.getRange(i + 1, 6).setValue('Admin');
+            }
           }
           const allowedProjectsStr = data[i][6] || '';
           const allowedProjectsList = allowedProjectsStr.split(',').map(p => p.trim()).filter(String);
@@ -2532,8 +2540,10 @@ function checkIfManager(username) {
       const data = sheet.getDataRange().getValues();
       for (let i = 1; i < data.length; i++) {
         if (data[i][0] === username) {
-          const role = data[i][5] || 'Utilisateur';
-          return { isManager: (role === 'Admin' || role === 'Manager'), isAdmin: (role === 'Admin') };
+          const role = String(data[i][5] || 'Utilisateur').trim().toLowerCase();
+          const isAdm = (role === 'admin' || role === 'administrateur' || role === 'superadmin' || data[i][0] === 'mhdicko@kanagaconsulting.com');
+          const isMgr = isAdm || (role === 'manager' || role === 'directeur');
+          return { isManager: isMgr, isAdmin: isAdm };
         }
       }
     }
