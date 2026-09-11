@@ -216,14 +216,14 @@ function submitTimesheet(token, formData) {
     today.setHours(0, 0, 0, 0);
     oneMonthAgo.setHours(0, 0, 0, 0);
     
-    if (entryDate > today) throw new Error("La date ne peut pas ÃƒÆ’Ã‚Âªtre dans le futur.");
-    if (entryDate < oneMonthAgo) throw new Error("La date ne peut pas ÃƒÆ’Ã‚Âªtre antÃƒÆ’Ã‚Â©rieure ÃƒÆ’Ã‚Â  un mois.");
+    if (entryDate > today) throw new Error("La date ne peut pas être dans le futur.");
+    if (entryDate < oneMonthAgo) throw new Error("La date ne peut pas être antérieure à un mois.");
     if (parseFloat(formData.duration) <= 0) {
-      throw new Error("La durÃƒÆ’Ã‚Â©e doit ÃƒÆ’Ã‚Âªtre supÃƒÆ’Ã‚Â©rieure ÃƒÆ’Ã‚Â  0 heure.");
+      throw new Error("La durée doit être supérieure à 0 heure.");
     }
     
     if (!isDurationValid(userObj.username, entryDate, formData.duration)) {
-      throw new Error("La durÃƒÆ’Ã‚Â©e totale pour cette journÃƒÆ’Ã‚Â©e ne peut pas dÃƒÆ’Ã‚Â©passer 15 heures.");
+      throw new Error("La durée totale pour cette journée ne peut pas dépasser 15 heures.");
     }
 
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
@@ -251,7 +251,7 @@ function submitTimesheet(token, formData) {
       sheet = ss.insertSheet(sheetName);
       sheet.appendRow([
         'Timestamp', 'Employee Email', 'Full Name', 'Date of Work', 
-        'Projet', 'Task', 'Description', 'Temps passÃƒÆ’Ã‚Â© (en heures)', 'SociÃƒÆ’Ã‚Â©tÃƒÆ’Ã‚Â©'
+        'Projet', 'Task', 'Description', 'Temps passé (en heures)', 'Société'
       ]);
       sheet.setFrozenRows(1);
       sheet.getRange("A1:I1").setFontWeight("bold");
@@ -368,9 +368,9 @@ function archiveTimesheets() {
     }
     
     if (archivedCount === 0) {
-      return "Aucune ancienne semaine trouvÃƒÆ’Ã‚Â©e ÃƒÆ’Ã‚Â  archiver (la semaine en cours est ignorÃƒÆ’Ã‚Â©e).";
+      return "Aucune ancienne semaine trouvée à archiver (la semaine en cours est ignorée).";
     }
-    return `${archivedCount} semaine(s) archivÃƒÆ’Ã‚Â©e(s) avec succÃƒÆ’Ã‚Â¨s dans le dossier Google Drive.`;
+    return `${archivedCount} semaine(s) archivée(s) avec succès dans le dossier Google Drive.`;
     
   } catch (e) {
     throw new Error("Erreur lors de l'archivage: " + e.message);
@@ -402,7 +402,7 @@ function updateTimesheetEntry(token, updatedData) {
   try {
     const entryDate = new Date(updatedData.entryDate);
     if (parseFloat(updatedData.duration) <= 0) {
-      throw new Error("La durÃƒÆ’Ã‚Â©e doit ÃƒÆ’Ã‚Âªtre supÃƒÆ’Ã‚Â©rieure ÃƒÆ’Ã‚Â  0 heure.");
+      throw new Error("La durée doit être supérieure à 0 heure.");
     }
 
     const today = new Date();
@@ -420,16 +420,16 @@ function updateTimesheetEntry(token, updatedData) {
     }
     return true;
   } catch (e) {
-    throw new Error("Impossible de mettre ÃƒÆ’Ã‚Â  jour la ligne : " + e.message);
+    throw new Error("Impossible de mettre à jour la ligne : " + e.message);
   }
 }
 
 function getEvaluationData() {
   return {
     role: 'manager',
-    selfEvaluation: { achievements: 'J\'ai trÃƒÆ’Ã‚Â¨s bien travaillÃƒÆ’Ã‚Â© ce mois-ci.' },
+    selfEvaluation: { achievements: 'J\'ai très bien travaillé ce mois-ci.' },
     teamEvaluations: [
-      { employeeName: 'Membre Equipe', employeeEmail: 'membre@kanaga.com', selfEval: { achievements: 'Bons rÃƒÆ’Ã‚Â©sultats sur les projets.' }, managerEval: null }
+      { employeeName: 'Membre Equipe', employeeEmail: 'membre@kanaga.com', selfEval: { achievements: 'Bons résultats sur les projets.' }, managerEval: null }
     ]
   };
 }
@@ -867,7 +867,7 @@ function callOdooExecuteKwJson(method, model, args, kwargs = {}, cookie) {
 
 function showAdminReminderSettingsDialog() {
   const html = HtmlService.createHtmlOutputFromFile('AdminReminderSettings').setWidth(600).setHeight(550);
-  SpreadsheetApp.getUi().showModalDialog(html, 'ParamÃƒÆ’Ã‚Â¨tres du Rappel Admin');
+  SpreadsheetApp.getUi().showModalDialog(html, 'Paramètres du Rappel Admin');
 }
 function getAdminReminderSettings() {
   const props = PropertiesService.getUserProperties();
@@ -875,7 +875,7 @@ function getAdminReminderSettings() {
     activation: props.getProperty('admin_reminder_activation') || 'OUI',
     destinataire: props.getProperty('admin_reminder_destinataire') || '',
     sujet: props.getProperty('admin_reminder_sujet') || '[RAPPEL] Feuilles de temps en attente',
-    message: props.getProperty('admin_reminder_message') || 'Bonjour,\\n\\nLes employÃƒÆ’Ã‚Â©s suivants ont encore des feuilles de temps non soumises pour la semaine derniÃƒÆ’Ã‚Â¨re :\\n\\n{liste_utilisateurs}\\n\\nMerci de faire le suivi.'
+    message: props.getProperty('admin_reminder_message') || 'Bonjour,\\n\\nLes employés suivants ont encore des feuilles de temps non soumises pour la semaine dernière :\\n\\n{liste_utilisateurs}\\n\\nMerci de faire le suivi.'
   };
 }
 function saveAdminReminderSettings(settings) {
@@ -908,7 +908,7 @@ function sendAdminLateEntryReminder() {
 
 function showGeneralReminderSettingsDialog() {
   const html = HtmlService.createHtmlOutputFromFile('GeneralReminderSettings').setWidth(600).setHeight(550);
-  SpreadsheetApp.getUi().showModalDialog(html, 'ParamÃƒÆ’Ã‚Â¨tres du Rappel GÃƒÆ’Ã‚Â©nÃƒÆ’Ã‚Â©ral');
+  SpreadsheetApp.getUi().showModalDialog(html, 'Paramètres du Rappel Général');
 }
 function getGeneralReminderSettings(token) {
   const sessionUser = verifySession(token);
@@ -918,7 +918,7 @@ function getGeneralReminderSettings(token) {
     activation: props.getProperty('general_reminder_activation') || 'OUI',
     destinataires: props.getProperty('general_reminder_destinataires') || '',
     sujet: props.getProperty('general_reminder_sujet') || '[RAPPEL] Veuillez remplir vos feuilles de temps',
-    message: props.getProperty('general_reminder_message') || 'Bonjour ÃƒÆ’Ã‚Â  tous,\\n\\nCeci est un rappel amical.'
+    message: props.getProperty('general_reminder_message') || 'Bonjour à tous,\\n\\nCeci est un rappel amical.'
   };
 }
 function saveGeneralReminderSettings(token, settings) {
@@ -935,8 +935,8 @@ function getEvaluationEmailSettings(token) {
 
   const props = PropertiesService.getUserProperties();
   return {
-    sujet: props.getProperty('eval_email_sujet') || 'Nouvelle ÃƒÆ’Ã‚Â©valuation initiÃƒÆ’Ã‚Â©e',
-    message: props.getProperty('eval_email_message') || 'Bonjour,<br><br>Votre manager a initiÃƒÆ’Ã‚Â© une nouvelle ÃƒÆ’Ã‚Â©valuation pour la pÃƒÆ’Ã‚Â©riode <strong>{periode}</strong>.<br><br>Veuillez vous connecter au portail Kanaga pour complÃƒÆ’Ã‚Â©ter votre auto-ÃƒÆ’Ã‚Â©valuation en cliquant sur le lien suivant :<br><a href="{lien_portail}">AccÃƒÆ’Ã‚Â©der au Portail</a><br><br>Cordialement,<br>L\'ÃƒÆ’Ã‚Â©quipe Kanaga'
+    sujet: props.getProperty('eval_email_sujet') || 'Nouvelle évaluation initiée',
+    message: props.getProperty('eval_email_message') || 'Bonjour,<br><br>Votre manager a initié une nouvelle évaluation pour la période <strong>{periode}</strong>.<br><br>Veuillez vous connecter au portail Kanaga pour compléter votre auto-évaluation en cliquant sur le lien suivant :<br><a href="{lien_portail}">Accéder au Portail</a><br><br>Cordialement,<br>L\'équipe Kanaga'
   };
 }
 
@@ -1869,7 +1869,7 @@ function getAllUsers(token) {
 
   try {
     const adminCheck = checkIfManager(adminUsername);
-    if (!adminCheck.isAdmin) throw new Error("AccÃƒÆ’Ã‚Â¨s refusÃƒÆ’Ã‚Â©. RÃƒÆ’Ã‚Â©servÃƒÆ’Ã‚Â© aux administrateurs.");
+    if (!adminCheck.isAdmin) throw new Error("Accès refusé. Réservé aux administrateurs.");
 
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const sheet = ss.getSheetByName('Utilisateurs');
@@ -1961,7 +1961,7 @@ function updateUserRoleAndPassword(token, userEmail, newRole, newPassword, newCo
     if (!found) throw new Error("Utilisateur introuvable.");
     return { success: true };
   } catch (e) {
-    throw new Error("Erreur de mise ÃƒÆ’Ã‚Â  jour: " + e.message);
+    throw new Error("Erreur de mise à jour: " + e.message);
   }
 }
 
@@ -1971,7 +1971,7 @@ function triggerOdooSync(token) {
 
   try {
     const adminCheck = checkIfManager(adminUsername);
-    if (!adminCheck.isAdmin) throw new Error("AccÃƒÆ’Ã‚Â¨s refusÃƒÆ’Ã‚Â©.");
+    if (!adminCheck.isAdmin) throw new Error("Accès refusé.");
     syncOdooEmployees(); // reuse existing function
     syncOdooTasks();
     return { success: true };
