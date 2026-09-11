@@ -137,6 +137,24 @@
       </div>
       <span id="admin-question-count-badge" class="badge badge-primary">0 question(s)</span>
     </div>
+
+    <!-- Barre de pagination du profil (Multi-pages) -->
+    <div id="admin-profile-pages-bar" style="margin-bottom:12px; background:#FAF6EE; padding:10px 14px; border-radius:6px; border:1px solid #E0CC99; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+      <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+        <span style="font-size:12px; font-weight:700; color:#5D4037; text-transform:uppercase; letter-spacing:0.5px;">Pages du profil :</span>
+        <div id="admin-pages-tabs-container" style="display:flex; gap:5px; flex-wrap:wrap;">
+          <!-- Onglets dynamiques [Page 1] [Page 2] ... -->
+        </div>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <button type="button" class="btn btn-outline" style="font-size:12px; padding:4px 10px;" onclick="addAdminProfilePage()" title="Ajouter une nouvelle page à ce profil">
+          + Ajouter une Page
+        </button>
+        <button type="button" class="btn btn-outline" id="btn-delete-page" style="font-size:12px; padding:4px 10px; color:var(--danger-color); border-color:#FEB2B2;" onclick="deleteCurrentAdminProfilePage()" title="Supprimer cette page">
+          Supprimer la Page
+        </button>
+      </div>
+    </div>
     
     <!-- Conteneur des questions -->
     <div id="admin-form-builder-container" style="background:#FAF8F5; padding:18px; border-radius:8px; border:1px solid #E2D9C8; min-height: 120px;">

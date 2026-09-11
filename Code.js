@@ -1057,42 +1057,58 @@ function getEvaluationConfig(token) {
   const defaultScale = "PI, PA, CA, PS, PE, N/A";
   const defaultConfig = {
     fondamentales: [
-      { text: "1. Professionnalisme et éthique", description: "Normes, confidentialité, intégrité, ponctualité, présentation et exemplarité.", type: "scale", options: defaultScale },
-      { text: "2. Communication Orale et Écrite", description: "Clarté, concision, écoute active, adaptation du message aux interlocuteurs.", type: "scale", options: defaultScale },
-      { text: "3. Travail d'équipe et Collaboration", description: "Contribution positive, esprit d'entraide, partage d'informations et soutien aux collègues.", type: "scale", options: defaultScale },
-      { text: "4. Organisation et Gestion du Temps", description: "Planification, priorisation des tâches, respect strict des échéances.", type: "scale", options: defaultScale },
-      { text: "5. Initiative et Proactivité", description: "Capacité à anticiper les besoins, formuler des propositions et résoudre les blocages.", type: "scale", options: defaultScale },
-      { text: "6. Adaptabilité et Apprentissage Continu", description: "Flexibilité face au changement, curiosité intellectuelle, volonté de perfectionnement.", type: "scale", options: defaultScale },
-      { text: "7. Compréhension du Contexte Local", description: "Maîtrise de l'environnement économique, réglementaire et culturel des interventions.", type: "scale", options: defaultScale },
-      { text: "8. Capacité d'Innovation", description: "Recherche de méthodes innovantes, adoption de nouveaux outils et création de valeur.", type: "scale", options: defaultScale }
+      { text: "1. Professionnalisme et éthique", description: "Normes, confidentialité, intégrité, ponctualité, présentation et exemplarité.", type: "scale", options: defaultScale, page: 1 },
+      { text: "2. Communication Orale et Écrite", description: "Clarté, concision, écoute active, adaptation du message aux interlocuteurs.", type: "scale", options: defaultScale, page: 1 },
+      { text: "3. Travail d'équipe et Collaboration", description: "Contribution positive, esprit d'entraide, partage d'informations et soutien aux collègues.", type: "scale", options: defaultScale, page: 1 },
+      { text: "4. Organisation et Gestion du Temps", description: "Planification, priorisation des tâches, respect strict des échéances.", type: "scale", options: defaultScale, page: 1 },
+      { text: "5. Initiative et Proactivité", description: "Capacité à anticiper les besoins, formuler des propositions et résoudre les blocages.", type: "scale", options: defaultScale, page: 1 },
+      { text: "6. Adaptabilité et Apprentissage Continu", description: "Flexibilité face au changement, curiosité intellectuelle, volonté de perfectionnement.", type: "scale", options: defaultScale, page: 1 },
+      { text: "7. Compréhension du Contexte Local", description: "Maîtrise de l'environnement économique, réglementaire et culturel des interventions.", type: "scale", options: defaultScale, page: 1 },
+      { text: "8. Capacité d'Innovation", description: "Recherche de méthodes innovantes, adoption de nouveaux outils et création de valeur.", type: "scale", options: defaultScale, page: 1 }
     ],
     "Junior - Secteur privé": [
-      { text: "1. Compréhension des enjeux business privés", description: "Capacité à cerner le modèle économique, la rentabilité et les priorités du client privé.", type: "scale", options: defaultScale },
-      { text: "2. Rigueur d'exécution et qualité des livrables", description: "Précision, respect des formats attendus, souci du détail et respect des délais clients.", type: "scale", options: defaultScale },
-      { text: "3. Réactivité et orientation service client", description: "Disponibilité, écoute des attentes opérationnelles et relation client de confiance.", type: "scale", options: defaultScale },
-      { text: "4. Maîtrise des outils bureautiques et digitaux", description: "Utilisation efficace d'Excel, PowerPoint, ERP et logiciels métiers.", type: "scale", options: defaultScale },
-      { text: "5. Polyvalence et esprit d'équipe en mission", description: "Capacité à s'intégrer rapidement sur des projets variés du secteur privé.", type: "scale", options: defaultScale }
+      { text: "1. Compréhension des enjeux business privés", description: "Capacité à cerner le modèle économique, la rentabilité et les priorités du client privé.", type: "scale", options: defaultScale, page: 1 },
+      { text: "2. Rigueur d'exécution et qualité des livrables", description: "Précision, respect des formats attendus, souci du détail et respect des délais clients.", type: "scale", options: defaultScale, page: 1 },
+      { text: "3. Réactivité et orientation service client", description: "Disponibilité, écoute des attentes opérationnelles et relation client de confiance.", type: "scale", options: defaultScale, page: 1 },
+      { text: "4. Maîtrise des outils bureautiques et digitaux", description: "Utilisation efficace d'Excel, PowerPoint, ERP et logiciels métiers.", type: "scale", options: defaultScale, page: 2 },
+      { text: "5. Polyvalence et esprit d'équipe en mission", description: "Capacité à s'intégrer rapidement sur des projets variés du secteur privé.", type: "scale", options: defaultScale, page: 2 }
     ],
     "Assistant - Secteur public": [
-      { text: "1. Connaissance des procédures administratives publiques", description: "Respect des circuits de validation, règles de gestion et procédures du secteur public.", type: "scale", options: defaultScale },
-      { text: "2. Conformité réglementaire et archivage", description: "Rigueur documentaire, traçabilité des actes et conformité aux règles des bailleurs.", type: "scale", options: defaultScale },
-      { text: "3. Rédaction administrative et comptes-rendus", description: "Qualité rédactionnelle formelle adaptée à l'administration publique.", type: "scale", options: defaultScale },
-      { text: "4. Suivi d'exécution budgétaire / marchés", description: "Vérification des pièces justificatives, suivi des engagements et mandats.", type: "scale", options: defaultScale },
-      { text: "5. Sens du service public et relation usagers/bailleurs", description: "Déontologie, neutralité et collaboration efficace avec les partenaires institutionnels.", type: "scale", options: defaultScale }
+      { text: "1. Connaissance des procédures administratives publiques", description: "Respect des circuits de validation, règles de gestion et procédures du secteur public.", type: "scale", options: defaultScale, page: 1 },
+      { text: "2. Conformité réglementaire et archivage", description: "Rigueur documentaire, traçabilité des actes et conformité aux règles des bailleurs.", type: "scale", options: defaultScale, page: 1 },
+      { text: "3. Rédaction administrative et comptes-rendus", description: "Qualité rédactionnelle formelle adaptée à l'administration publique.", type: "scale", options: defaultScale, page: 1 },
+      { text: "4. Suivi d'exécution budgétaire / marchés", description: "Vérification des pièces justificatives, suivi des engagements et mandats.", type: "scale", options: defaultScale, page: 2 },
+      { text: "5. Sens du service public et relation usagers/bailleurs", description: "Déontologie, neutralité et collaboration efficace avec les partenaires institutionnels.", type: "scale", options: defaultScale, page: 2 }
     ],
     "Consultant": [
-      { text: "1. Analyse et Résolution de Problèmes", description: "Identifier les enjeux stratégiques, analyser les données et concevoir des solutions pragmatiques.", type: "scale", options: defaultScale },
-      { text: "2. Gestion de Projet / Mission", description: "Cadrage, planification, pilotage des livrables, gestion des risques et respect du budget.", type: "scale", options: defaultScale },
-      { text: "3. Qualité et Pertinence des Livrables", description: "Excellence rédactionnelle, valeur ajoutée des recommandations et professionnalisme.", type: "scale", options: defaultScale },
-      { text: "4. Relation Client et Posture Conseil", description: "Compréhension approfondie des besoins, gestion de la satisfaction et écoute active.", type: "scale", options: defaultScale },
-      { text: "5. Contribution au Développement Commercial", description: "Détection d'opportunités, participation aux propositions commerciales et foisonnement.", type: "scale", options: defaultScale }
+      { text: "1. Analyse et Résolution de Problèmes", description: "Identifier les enjeux stratégiques, analyser les données et concevoir des solutions pragmatiques.", type: "scale", options: defaultScale, page: 1 },
+      { text: "2. Gestion de Projet / Mission", description: "Cadrage, planification, pilotage des livrables, gestion des risques et respect du budget.", type: "scale", options: defaultScale, page: 1 },
+      { text: "3. Qualité et Pertinence des Livrables", description: "Excellence rédactionnelle, valeur ajoutée des recommandations et professionnalisme.", type: "scale", options: defaultScale, page: 1 },
+      { text: "4. Relation Client et Posture Conseil", description: "Compréhension approfondie des besoins, gestion de la satisfaction et écoute active.", type: "scale", options: defaultScale, page: 2 },
+      { text: "5. Contribution au Développement Commercial", description: "Détection d'opportunités, participation aux propositions commerciales et foisonnement.", type: "scale", options: defaultScale, page: 2 }
     ],
     "Comptable": [
-      { text: "1. Rigueur et Exactitude Comptable", description: "Précision dans la saisie, révision des comptes et préparation des états financiers.", type: "scale", options: defaultScale },
-      { text: "2. Respect des Délais et Procédures Légales", description: "Clôtures périodiques, déclarations fiscales et sociales dans les délais prescrits.", type: "scale", options: defaultScale },
-      { text: "3. Analyse et Contrôle de Gestion", description: "Suivi budgétaire, analyse des écarts et propositions d'optimisation financière.", type: "scale", options: defaultScale },
-      { text: "4. Maîtrise des Logiciels Financiers", description: "Utilisation experte des logiciels comptables, ERP et modélisation sous tableur.", type: "scale", options: defaultScale },
-      { text: "5. Veille Réglementaire et Fiscale", description: "Maintien à jour des connaissances en droit fiscal, comptable et social.", type: "scale", options: defaultScale }
+      { text: "1. Rigueur et Exactitude Comptable", description: "Précision dans la saisie, révision des comptes et préparation des états financiers.", type: "scale", options: defaultScale, page: 1 },
+      { text: "2. Respect des Délais et Procédures Légales", description: "Clôtures périodiques, déclarations fiscales et sociales dans les délais prescrits.", type: "scale", options: defaultScale, page: 1 },
+      { text: "3. Analyse et Contrôle de Gestion", description: "Suivi budgétaire, analyse des écarts et propositions d'optimisation financière.", type: "scale", options: defaultScale, page: 1 },
+      { text: "4. Maîtrise des Logiciels Financiers", description: "Utilisation experte des logiciels comptables, ERP et modélisation sous tableur.", type: "scale", options: defaultScale, page: 2 },
+      { text: "5. Veille Réglementaire et Fiscale", description: "Maintien à jour des connaissances en droit fiscal, comptable et social.", type: "scale", options: defaultScale, page: 2 }
+    ],
+    "Chef de Projet": [
+      { text: "1. Cadrage stratégique et définition des objectifs", description: "Compréhension des attentes clients, note de cadrage et alignement des parties prenantes.", type: "scale", options: defaultScale, page: 1 },
+      { text: "2. Planification et gestion des ressources", description: "Établissement du rétroplanning, allocation des compétences et anticipation des charges.", type: "scale", options: defaultScale, page: 1 },
+      { text: "3. Maîtrise des délais, coûts et livrables", description: "Respect des jalons, contrôle budgétaire et garantie de la qualité des livrables.", type: "scale", options: defaultScale, page: 1 },
+      { text: "4. Leadership et animation d'équipe", description: "Coordination des consultants, motivation, délégation efficace et feedback constructif.", type: "scale", options: defaultScale, page: 2 },
+      { text: "5. Gestion des risques et résolution de crises", description: "Identification proactive des risques, plans d'atténuation et arbitrage.", type: "scale", options: defaultScale, page: 2 },
+      { text: "6. Posture conseil et relation de confiance client", description: "Communication executive, comités de pilotage et fidélisation client.", type: "scale", options: defaultScale, page: 2 }
+    ],
+    "Auditeur": [
+      { text: "1. Maîtrise des normes et référentiels d'audit", description: "Application des standards comptables/financiers et réglementations applicables.", type: "scale", options: defaultScale, page: 1 },
+      { text: "2. Évaluation du contrôle interne et cartographie des risques", description: "Analyse des processus, détection des faiblesses et zones de vulnérabilité.", type: "scale", options: defaultScale, page: 1 },
+      { text: "3. Rigueur d'échantillonnage et vérification des données", description: "Collecte des preuves d'audit, exhaustivité des tests de conformité.", type: "scale", options: defaultScale, page: 1 },
+      { text: "4. Qualité rédactionnelle des constats et rapports", description: "Précision des faits, clarté de la synthèse et objectivité.", type: "scale", options: defaultScale, page: 2 },
+      { text: "5. Recommandations pragmatiques à forte valeur ajoutée", description: "Pertinence opérationnelle, faisabilité et hiérarchisation des actions.", type: "scale", options: defaultScale, page: 2 },
+      { text: "6. Posture professionnelle et indépendance", description: "Esprit critique constructif, neutralité et respect de la déontologie.", type: "scale", options: defaultScale, page: 2 }
     ]
   };
 
@@ -1100,16 +1116,31 @@ function getEvaluationConfig(token) {
     try {
       let config = JSON.parse(saved);
       let migrated = false;
+
+      // Fusion automatique des profils standards manquants
+      for (let stdKey in defaultConfig) {
+        if (!config[stdKey]) {
+          config[stdKey] = defaultConfig[stdKey];
+          migrated = true;
+        }
+      }
+
       for (let key in config) {
         if (Array.isArray(config[key])) {
           config[key] = config[key].map(q => {
             if (typeof q === 'string') {
               migrated = true;
-              return { text: q, description: "", type: 'scale', options: defaultScale };
+              return { text: q, description: "", type: 'scale', options: defaultScale, page: 1 };
             }
             if (q.description === undefined) {
                migrated = true;
                q.description = "";
+            }
+            if (q.page === undefined) {
+               migrated = true;
+               q.page = 1;
+            } else {
+               q.page = parseInt(q.page, 10) || 1;
             }
             return q;
           });
@@ -1117,12 +1148,14 @@ function getEvaluationConfig(token) {
       }
       if (migrated) {
          scriptProps.setProperty('eval_config', JSON.stringify(config));
+         userProps.setProperty('eval_config', JSON.stringify(config));
       }
       return config;
     } catch(e) {}
   }
   
   scriptProps.setProperty('eval_config', JSON.stringify(defaultConfig));
+  userProps.setProperty('eval_config', JSON.stringify(defaultConfig));
   return defaultConfig;
 }
 

@@ -1,4 +1,4 @@
-﻿<div class="view-header" style="position: relative;">
+<div class="view-header" style="position: relative;">
   <h2>Portail d'Évaluation</h2>
   <p>Gérez vos objectifs, auto-évaluations et évaluations d'équipe.</p>
   <div id="eval-header-actions" style="display: none; position: absolute; right: 0; top: 0;">
@@ -151,6 +151,18 @@
       <!-- Etape 3 -->
       <div class="wizard-content" id="wizard-step-3">
         <h3 id="step-3-title">Section 2 : Aiguillage - Compétences Spécifiques au Profil</h3>
+        
+        <!-- Sous-navigation multi-pages pour le profil -->
+        <div id="eval-spec-pagination-bar" style="display:none; margin-bottom: 15px; background: #FAF6EE; border: 1px solid #E0CC99; border-radius: 6px; padding: 10px 16px; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+          <div>
+            <span style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #8C6D3B; font-weight: 700; display: block;">Progression Profil</span>
+            <span id="eval-spec-page-label" style="font-weight: 700; color: #5D4037; font-size: 14px;">Page 1 sur 2</span>
+          </div>
+          <div id="eval-spec-page-pills" style="display: flex; gap: 6px; align-items: center;">
+            <!-- Pastilles de pages -->
+          </div>
+        </div>
+
         <div class="eval-rating-scale-card">
           <div class="eval-scale-header">
             <div class="eval-scale-title">
@@ -207,8 +219,8 @@
            <!-- Injected via JS -->
         </div>
         <div class="wizard-actions">
-          <button type="button" class="btn btn-outline" onclick="prevEvalStep(3, 2)">Précédent</button>
-          <button type="button" class="btn btn-primary" onclick="nextEvalStep(3, 4)">Suivant</button>
+          <button type="button" class="btn btn-outline" id="btn-eval-spec-prev" onclick="evalSpecPrev()">Précédent</button>
+          <button type="button" class="btn btn-primary" id="btn-eval-spec-next" onclick="evalSpecNext()">Suivant</button>
         </div>
       </div>
 

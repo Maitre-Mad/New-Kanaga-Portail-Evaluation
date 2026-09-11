@@ -815,6 +815,8 @@
             generateGrid('grid-specifiques', 'spec', specQuestions);
             document.getElementById('step-3-title').innerText = "Section 2 : Aiguillage - " + ev.profile;
             document.getElementById('step-nav-3').style.display = 'inline-block';
+            window.evalCurrentSpecPage = 1;
+            updateSpecPageView();
         } else {
             document.getElementById('step-nav-3').style.display = 'none';
         }
@@ -1028,6 +1030,103 @@
     }
   }
 
+  window.evalCurrentSpecPage = 1;
+
+  function getSpecPageNumbers(specQuestions) {
+    if (!specQuestions || specQuestions.length === 0) return [1];
+    const pages = Array.from(new Set(specQuestions.map(q => parseInt(q.page, 10) || 1))).sort((a,b) => a - b);
+    return pages.length > 0 ? pages : [1];
+  }
+
+  function updateSpecPageView() {
+    const profile = document.getElementById('eval-profile-select').value;
+    const specQuestions = (profile !== 'Autre') ? findProfileQuestions(profile) : null;
+    const pageNumbers = getSpecPageNumbers(specQuestions);
+    const totalPages = pageNumbers.length;
+    
+    if (!pageNumbers.includes(window.evalCurrentSpecPage)) {
+      window.evalCurrentSpecPage = pageNumbers[0] || 1;
+    }
+    
+    const curPage = window.evalCurrentSpecPage;
+    const curIdx = pageNumbers.indexOf(curPage) + 1;
+
+    const paginationBar = document.getElementById('eval-spec-pagination-bar');
+    const pageLabel = document.getElementById('eval-spec-page-label');
+    const pagePills = document.getElementById('eval-spec-page-pills');
+    
+    if (totalPages > 1) {
+      if (paginationBar) paginationBar.style.display = 'flex';
+      if (pageLabel) pageLabel.textContent = `Page ${curIdx} sur ${totalPages}`;
+      if (pagePills) {
+        pagePills.innerHTML = '';
+        pageNumbers.forEach((p, i) => {
+          const pill = document.createElement('span');
+          pill.style.cssText = `display:inline-block; width:28px; height:28px; border-radius:50%; text-align:center; line-height:28px; font-size:12px; font-weight:700; cursor:pointer; ` +
+            (p === curPage 
+              ? `background:var(--primary-color); color:white;` 
+              : `background:#E2D9C8; color:#5D4037;`);
+          pill.textContent = (i + 1);
+          pill.title = `Aller à la page ${i + 1}`;
+          pill.onclick = function() {
+            window.evalCurrentSpecPage = p;
+            updateSpecPageView();
+          };
+          pagePills.appendChild(pill);
+        });
+      }
+    } else {
+      if (paginationBar) paginationBar.style.display = 'none';
+    }
+
+    // Filtrer les questions visibles selon la page courante
+    const rows = document.querySelectorAll('#grid-specifiques .eval-grid-row, #grid-specifiques .eval-section-header');
+    rows.forEach(row => {
+      const qPage = parseInt(row.getAttribute('data-page'), 10) || 1;
+      row.style.display = (totalPages <= 1 || qPage === curPage) ? 'block' : 'none';
+    });
+
+    // Mettre à jour les intitulés des boutons
+    const btnPrev = document.getElementById('btn-eval-spec-prev');
+    const btnNext = document.getElementById('btn-eval-spec-next');
+    if (btnPrev) {
+      btnPrev.textContent = (curIdx === 1) ? 'Précédent' : 'Page Précédente';
+    }
+    if (btnNext) {
+      btnNext.textContent = (curIdx === totalPages) ? 'Suivant' : 'Page Suivante';
+    }
+  }
+
+  function evalSpecPrev() {
+    const profile = document.getElementById('eval-profile-select').value;
+    const specQuestions = (profile !== 'Autre') ? findProfileQuestions(profile) : null;
+    const pageNumbers = getSpecPageNumbers(specQuestions);
+    const curIdx = pageNumbers.indexOf(window.evalCurrentSpecPage);
+    
+    if (curIdx > 0) {
+      window.evalCurrentSpecPage = pageNumbers[curIdx - 1];
+      updateSpecPageView();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      prevEvalStep(3, 2);
+    }
+  }
+
+  function evalSpecNext() {
+    const profile = document.getElementById('eval-profile-select').value;
+    const specQuestions = (profile !== 'Autre') ? findProfileQuestions(profile) : null;
+    const pageNumbers = getSpecPageNumbers(specQuestions);
+    const curIdx = pageNumbers.indexOf(window.evalCurrentSpecPage);
+    
+    if (curIdx < pageNumbers.length - 1) {
+      window.evalCurrentSpecPage = pageNumbers[curIdx + 1];
+      updateSpecPageView();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      nextEvalStep(3, 4);
+    }
+  }
+
   function nextEvalStep(current, next) {
     if (current === 1) {
         if (!document.getElementById('eval-period').value || !document.getElementById('eval-employee-email').value) {
@@ -1048,6 +1147,8 @@
             generateGrid('grid-specifiques', 'spec', specQuestions);
             document.getElementById('step-3-title').innerText = "Section 2 : Aiguillage - " + profile;
             document.getElementById('step-nav-3').style.display = 'inline-block';
+            window.evalCurrentSpecPage = 1;
+            updateSpecPageView();
         }
     }
     showEvalStep(next);
@@ -1059,6 +1160,10 @@
         const specQuestions = (profile !== 'Autre') ? findProfileQuestions(profile) : null;
         if (!specQuestions || specQuestions.length === 0 || profile === 'Autre') {
             prev = 2; // Retour direct au Tronc Commun
+        } else {
+            const pageNumbers = getSpecPageNumbers(specQuestions);
+            window.evalCurrentSpecPage = pageNumbers[pageNumbers.length - 1] || 1;
+            updateSpecPageView();
         }
     }
     showEvalStep(prev);
@@ -1172,14 +1277,14 @@
       }
 
       if (q.type === 'section') {
-          html += `<div class="eval-section-header" style="margin-top: 30px; margin-bottom: 15px; padding: 15px 20px; background: #FAF8F5; border-left: 4px solid var(--secondary-color); border-radius: 4px;">
+          html += `<div class="eval-section-header" data-page="${q.page || 1}" style="margin-top: 30px; margin-bottom: 15px; padding: 15px 20px; background: #FAF8F5; border-left: 4px solid var(--secondary-color); border-radius: 4px;">
                      <h3 style="margin: 0; color: var(--primary-color); font-size: 18px;">${text}</h3>
                      ${q.description ? `<p style="margin: 5px 0 0 0; color: #666; font-size: 13px;">${q.description.replace(/`/g, "'")}</p>` : ''}
                    </div>`;
           return; // Skip the rest of the rendering for this item
       }
 
-      html += `<div class="eval-grid-row">
+      html += `<div class="eval-grid-row" data-page="${q.page || 1}">
                  <div class="eval-grid-question">
                     ${text}
                     ${desc}
@@ -1313,8 +1418,9 @@
       formData.fondamentales = extractItems(evalQuestions.fondamentales, 'fonda');
     }
 
-    if (profile && profile !== 'Autre' && evalQuestions && evalQuestions[profile.toLowerCase()]) {
-      formData.specifiques = extractItems(evalQuestions[profile.toLowerCase()], 'spec');
+    const specQuestions = (profile && profile !== 'Autre') ? findProfileQuestions(profile) : null;
+    if (specQuestions && specQuestions.length > 0) {
+      formData.specifiques = extractItems(specQuestions, 'spec');
     }
 
     return formData;
@@ -2336,10 +2442,17 @@
       renderAdminFormBuilder();
   }
 
+  let adminCurrentPage = 1;
+  let adminLastProfile = null;
+
   function renderAdminFormBuilder() {
       const select = document.getElementById('admin-profile-select');
       if (!select) return;
       const profile = select.value || 'fondamentales';
+      if (adminLastProfile !== profile) {
+          adminLastProfile = profile;
+          adminCurrentPage = 1;
+      }
       const container = document.getElementById('admin-form-builder-container');
       const titleEl = document.getElementById('admin-current-section-title');
       const descEl = document.getElementById('admin-current-section-desc');
@@ -2373,21 +2486,60 @@
       }
       
       const questions = adminEvalConfigData[profile];
-      if (badgeEl) {
-        badgeEl.textContent = `${questions.length} question(s)`;
+      questions.forEach(q => { q.page = parseInt(q.page, 10) || 1; });
+
+      // Gestion des pages du profil
+      let pageNums = Array.from(new Set(questions.map(q => q.page))).sort((a,b) => a - b);
+      if (pageNums.length === 0) pageNums = [1];
+      if (!pageNums.includes(adminCurrentPage)) {
+        adminCurrentPage = pageNums[0] || 1;
       }
 
-      if (questions.length === 0) {
+      // Rendu des onglets de page dans la barre d'administration
+      const tabsContainer = document.getElementById('admin-pages-tabs-container');
+      if (tabsContainer) {
+        tabsContainer.innerHTML = '';
+        pageNums.forEach(p => {
+          const pCount = questions.filter(q => q.page === p).length;
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'btn';
+          btn.style.cssText = `padding: 5px 12px; font-size: 12px; font-weight: 600; border-radius: 4px; cursor: pointer; ` +
+            (p === adminCurrentPage
+              ? `background: var(--primary-color); color: white; border: 1px solid var(--primary-color);`
+              : `background: white; color: #4A5568; border: 1px solid #CBD5E0;`);
+          btn.textContent = `Page ${p} (${pCount})`;
+          btn.onclick = function() {
+            adminCurrentPage = p;
+            renderAdminFormBuilder();
+          };
+          tabsContainer.appendChild(btn);
+        });
+      }
+
+      const btnDeletePage = document.getElementById('btn-delete-page');
+      if (btnDeletePage) {
+        btnDeletePage.style.display = (pageNums.length > 1) ? 'inline-block' : 'none';
+      }
+
+      const pageQuestions = questions.filter(q => q.page === adminCurrentPage);
+
+      if (badgeEl) {
+        badgeEl.textContent = `${questions.length} question(s) au total (Page ${adminCurrentPage} : ${pageQuestions.length})`;
+      }
+
+      if (pageQuestions.length === 0) {
           container.innerHTML = `
             <div style="text-align:center; padding:30px 15px; color:#718096;">
-              <p style="font-size:14px; margin-bottom:6px;">Aucune question spécifique configurée pour cette section.</p>
-              <p style="font-size:12px;">Cliquez sur <strong>"+ Ajouter une question à cette section"</strong> ci-dessous pour ajouter une compétence.</p>
+              <p style="font-size:14px; margin-bottom:6px;">Aucune question sur la <strong>Page ${adminCurrentPage}</strong>.</p>
+              <p style="font-size:12px;">Cliquez sur <strong>"+ Ajouter une question à cette section"</strong> ci-dessous pour ajouter une question sur cette page.</p>
             </div>
           `;
           return;
       }
       
-      questions.forEach((q, idx) => {
+      pageQuestions.forEach((q) => {
+          const globalIdx = questions.indexOf(q);
           const card = document.createElement('div');
           card.className = 'admin-q-card';
           
@@ -2396,36 +2548,88 @@
               optionsHtml = `
               <div style="margin-top:10px; background:#FAF6EE; padding:10px; border-radius:6px; border:1px solid #E0CC99;">
                   <label style="font-size:12px; font-weight:600; color:#5D4037; display:block; margin-bottom:4px;">Options du barème de notation (séparées par des virgules) :</label>
-                  <input type="text" class="form-control" value="${escapeHtml(q.options || 'PI, PA, CA, PS, PE, N/A')}" onchange="updateAdminQuestion(${idx}, 'options', this.value)" placeholder="ex: PI, PA, CA, PS, PE, N/A">
+                  <input type="text" class="form-control" value="${escapeHtml(q.options || 'PI, PA, CA, PS, PE, N/A')}" onchange="updateAdminQuestion(${globalIdx}, 'options', this.value)" placeholder="ex: PI, PA, CA, PS, PE, N/A">
               </div>`;
           }
           
-          const isFirst = (idx === 0);
-          const isLast = (idx === questions.length - 1);
+          const isFirst = (pageQuestions.indexOf(q) === 0);
+          const isLast = (pageQuestions.indexOf(q) === pageQuestions.length - 1);
+
+          let pageSelectOptions = '';
+          pageNums.forEach(p => {
+            pageSelectOptions += `<option value="${p}" ${p === (q.page || 1) ? 'selected' : ''}>Page ${p}</option>`;
+          });
 
           card.innerHTML = `
             <div class="admin-q-header">
-               <span class="admin-q-num">#${idx + 1}</span>
-               <input type="text" class="form-control" style="flex:1; font-weight:600;" value="${escapeHtml(q.text)}" onchange="updateAdminQuestion(${idx}, 'text', this.value)" placeholder="Titre de la compétence ou question *">
-               <select class="form-control" style="width:190px;" onchange="updateAdminQuestion(${idx}, 'type', this.value)">
+               <span class="admin-q-num">#${globalIdx + 1}</span>
+               <input type="text" class="form-control" style="flex:1; font-weight:600;" value="${escapeHtml(q.text)}" onchange="updateAdminQuestion(${globalIdx}, 'text', this.value)" placeholder="Titre de la compétence ou question *">
+               <select class="form-control" style="width:170px;" onchange="updateAdminQuestion(${globalIdx}, 'type', this.value)">
                   <option value="scale" ${q.type === 'scale' ? 'selected' : ''}>Choix Multiple (Barème)</option>
                   <option value="text" ${q.type === 'text' ? 'selected' : ''}>Texte libre</option>
                   <option value="boolean" ${q.type === 'boolean' ? 'selected' : ''}>Oui / Non</option>
                   <option value="section" ${q.type === 'section' ? 'selected' : ''}>Section (Titre / Séparateur)</option>
                </select>
+               <select class="form-control" style="width:105px; font-size:12px; font-weight:600;" onchange="changeQuestionPage(${globalIdx}, this.value)" title="Changer la page de cette question">
+                  ${pageSelectOptions}
+               </select>
                <div class="admin-q-actions">
-                 <button type="button" class="btn-q-tool" ${isFirst ? 'disabled style="opacity:0.3; cursor:not-allowed;"' : `onclick="moveAdminQuestion(${idx}, -1)"`} title="Monter">↑</button>
-                 <button type="button" class="btn-q-tool" ${isLast ? 'disabled style="opacity:0.3; cursor:not-allowed;"' : `onclick="moveAdminQuestion(${idx}, 1)"`} title="Descendre">↓</button>
-                 <button type="button" class="btn-q-tool btn-q-del" onclick="deleteAdminFormQuestion(${idx})" title="Supprimer">Supprimer</button>
+                 <button type="button" class="btn-q-tool" ${isFirst ? 'disabled style="opacity:0.3; cursor:not-allowed;"' : `onclick="moveAdminQuestion(${globalIdx}, -1)"`} title="Monter">↑</button>
+                 <button type="button" class="btn-q-tool" ${isLast ? 'disabled style="opacity:0.3; cursor:not-allowed;"' : `onclick="moveAdminQuestion(${globalIdx}, 1)"`} title="Descendre">↓</button>
+                 <button type="button" class="btn-q-tool btn-q-del" onclick="deleteAdminFormQuestion(${globalIdx})" title="Supprimer">Supprimer</button>
                </div>
             </div>
             <div>
-               <input type="text" class="form-control" style="width:100%; font-size:13px;" value="${escapeHtml(q.description || '')}" onchange="updateAdminQuestion(${idx}, 'description', this.value)" placeholder="Description, consignes ou critères attendus (Optionnel)">
+               <input type="text" class="form-control" style="width:100%; font-size:13px;" value="${escapeHtml(q.description || '')}" onchange="updateAdminQuestion(${globalIdx}, 'description', this.value)" placeholder="Description, consignes ou critères attendus (Optionnel)">
             </div>
             ${optionsHtml}
           `;
           container.appendChild(card);
       });
+  }
+
+  function addAdminProfilePage() {
+      const profile = document.getElementById('admin-profile-select').value;
+      if (!profile || !adminEvalConfigData[profile]) return;
+      const questions = adminEvalConfigData[profile];
+      const maxPage = questions.reduce((max, q) => Math.max(max, parseInt(q.page, 10) || 1), 1);
+      const newPage = maxPage + 1;
+      adminCurrentPage = newPage;
+      questions.push({
+          text: "Nouvelle compétence (Page " + newPage + ")",
+          description: "",
+          type: "scale",
+          options: "PI, PA, CA, PS, PE, N/A",
+          page: newPage
+      });
+      renderAdminFormBuilder();
+  }
+
+  function deleteCurrentAdminProfilePage() {
+      const profile = document.getElementById('admin-profile-select').value;
+      if (!profile || !adminEvalConfigData[profile]) return;
+      const questions = adminEvalConfigData[profile];
+      const pageNums = Array.from(new Set(questions.map(q => parseInt(q.page, 10) || 1))).sort((a,b) => a - b);
+      if (pageNums.length <= 1) {
+          alert("Le profil doit comporter au moins une page.");
+          return;
+      }
+      if (confirm("Voulez-vous supprimer la Page " + adminCurrentPage + " ? Les questions de cette page seront déplacées vers la Page 1.")) {
+          questions.forEach(q => {
+              if ((parseInt(q.page, 10) || 1) === adminCurrentPage) {
+                  q.page = 1;
+              }
+          });
+          adminCurrentPage = 1;
+          renderAdminFormBuilder();
+      }
+  }
+
+  function changeQuestionPage(globalIdx, newPage) {
+      const profile = document.getElementById('admin-profile-select').value;
+      if (!profile || !adminEvalConfigData[profile] || !adminEvalConfigData[profile][globalIdx]) return;
+      adminEvalConfigData[profile][globalIdx].page = parseInt(newPage, 10) || 1;
+      renderAdminFormBuilder();
   }
 
   function moveAdminQuestion(idx, direction) {
@@ -2444,7 +2648,7 @@
       const profile = document.getElementById('admin-profile-select').value;
       if (adminEvalConfigData[profile] && adminEvalConfigData[profile][idx]) {
           adminEvalConfigData[profile][idx][field] = value;
-          if (field === 'type') {
+          if (field === 'type' || field === 'page') {
               renderAdminFormBuilder();
           }
       }
@@ -2458,7 +2662,8 @@
           text: "Nouvelle compétence spécifique",
           description: "",
           type: "scale",
-          options: "PI, PA, CA, PS, PE, N/A"
+          options: "PI, PA, CA, PS, PE, N/A",
+          page: adminCurrentPage
       });
       renderAdminFormBuilder();
   }
