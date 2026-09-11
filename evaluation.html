@@ -1,9 +1,9 @@
-<div class="view-header" style="position: relative;">
-  <h2>Portail d'Évaluation</h2>
-  <p>Gérez vos objectifs, auto-évaluations et évaluations d'équipe.</p>
+﻿<div class="view-header" style="position: relative;">
+  <h2>Portail d'Ã‰valuation</h2>
+  <p>GÃ©rez vos objectifs, auto-Ã©valuations et Ã©valuations d'Ã©quipe.</p>
   <div id="eval-header-actions" style="display: none; position: absolute; right: 0; top: 0;">
-    <button class="btn btn-outline" style="margin-right: 8px;" onclick="toggleEvalScaleModal(true)">📖 Barème & Légende</button>
-    <button class="btn btn-outline" onclick="showEvalSelectionScreen()">Retour à l'accueil</button>
+    <button class="btn btn-outline" style="margin-right: 8px;" onclick="toggleEvalScaleModal(true)">BarÃ¨me & LÃ©gende</button>
+    <button class="btn btn-outline" onclick="showEvalSelectionScreen()">Retour Ã  l'accueil</button>
   </div>
 </div>
 
@@ -14,18 +14,18 @@
 
   <div class="grid-col form-col">
     <div class="panel">
-      <h3>Mes Évaluations</h3>
-      <p class="text-muted" style="margin-bottom:20px; font-size:14px;">Consultez vos évaluations initiées et vos historiques.</p>
-      <button class="btn btn-outline" onclick="showEmployeeDashboard()" style="width: 100%;">Consulter mes évaluations</button>
+      <h3>Mes Ã‰valuations</h3>
+      <p class="text-muted" style="margin-bottom:20px; font-size:14px;">Consultez vos Ã©valuations initiÃ©es et vos historiques.</p>
+      <button class="btn btn-outline" onclick="showEmployeeDashboard()" style="width: 100%;">Consulter mes Ã©valuations</button>
     </div>
   </div>
 
   <div class="grid-col data-col" id="manager-eval-portal" style="display: none;">
     <div class="panel">
       <h3>Portail Manager</h3>
-      <p class="text-muted" style="margin-bottom:20px; font-size:14px;">Initiez des évaluations pour votre équipe et consultez leurs auto-évaluations.</p>
-      <button class="btn btn-success" onclick="startEvaluationWizard('Initiation')" style="width: 100%; margin-bottom: 10px;">Initier une Évaluation</button>
-      <button class="btn btn-outline" onclick="showManagerDashboard()" style="width: 100%; margin-bottom: 20px;">Tableau de bord des Évaluations</button>
+      <p class="text-muted" style="margin-bottom:20px; font-size:14px;">Initiez des Ã©valuations pour votre Ã©quipe et consultez leurs auto-Ã©valuations.</p>
+      <button class="btn btn-success" onclick="startEvaluationWizard('Initiation')" style="width: 100%; margin-bottom: 10px;">Initier une Ã‰valuation</button>
+      <button class="btn btn-outline" onclick="showManagerDashboard()" style="width: 100%; margin-bottom: 20px;">Tableau de bord des Ã‰valuations</button>
     </div>
   </div>
 </div>
@@ -37,45 +37,45 @@
       <div class="wizard-step active" id="step-nav-1">1. Entonnoir (Infos)</div>
       <div class="wizard-step" id="step-nav-2">2. Tronc Commun</div>
       <div class="wizard-step" id="step-nav-3">3. Aiguillage Profil</div>
-      <div class="wizard-step" id="step-nav-4">4. Réunion Finale</div>
+      <div class="wizard-step" id="step-nav-4">4. RÃ©union Finale</div>
     </div>
 
     <form id="eval-wizard-form">
-      <!-- Etape 1 : Entonnoir de départ -->
+      <!-- Etape 1 : Entonnoir de dÃ©part -->
       <div class="wizard-content active" id="wizard-step-1">
-        <h3 id="step-1-title">Section 0 : Entonnoir de départ (Informations Générales)</h3>
+        <h3 id="step-1-title">Section 0 : Entonnoir de dÃ©part (Informations GÃ©nÃ©rales)</h3>
         <div class="form-group">
-          <label>Type d'évaluation</label>
+          <label>Type d'Ã©valuation</label>
           <input type="text" id="eval-type" class="form-control" readonly>
         </div>
         <div class="form-group">
-          <label>Période d'évaluation (Ex: Du 01/01 au 31/12) *</label>
+          <label>PÃ©riode d'Ã©valuation (Ex: Du 01/01 au 31/12) *</label>
           <input type="text" id="eval-period" class="form-control" required>
         </div>
         <div class="form-group">
-          <label>Employé(e)(s) évalué(e)(s) *</label>
+          <label>EmployÃ©(e)(s) Ã©valuÃ©(e)(s) *</label>
           <select id="eval-employee-email" class="form-control" multiple required></select>
         </div>
         <div class="form-group" style="margin-top: 15px;">
-          <label>Quel est le profil de poste de l'employé(e) ? *</label>
-          <p class="text-muted" style="font-size:12px; margin-bottom: 4px;">Détermine les questions de l'évaluation.</p>
+          <label>Quel est le profil de poste de l'employÃ©(e) ? *</label>
+          <p class="text-muted" style="font-size:12px; margin-bottom: 4px;">DÃ©termine les questions de l'Ã©valuation.</p>
           <select id="eval-profile-select" class="form-control" required onchange="handleEvalProfileChange()">
             <option value="">-- Choisir --</option>
             <option value="Autre">Autre profil</option>
           </select>
           <div style="font-size:12px; color:#7C4C26; background:#FAF6EE; padding:8px 12px; border-radius:6px; border:1px solid #E0CC99; margin-top:8px; line-height:1.4;">
-            ⏳ <strong>Modèle en Y (Sablier) :</strong> Après le tronc commun des compétences fondamentales, le système aiguillera automatiquement le questionnaire vers les questions spécifiques adaptées à ce profil.
+            <strong>ModÃ¨le en Y (Sablier) :</strong> AprÃ¨s le tronc commun des compÃ©tences fondamentales, le systÃ¨me aiguillera automatiquement le questionnaire vers les questions spÃ©cifiques adaptÃ©es Ã  ce profil.
           </div>
         </div>
         <div id="eval-evaluators-group" style="margin-top: 15px;">
           <div class="form-group">
-            <label>Évaluateur Principal *</label>
-            <p class="text-muted" style="font-size:12px;">Responsable de la validation finale et de la synthèse de l'évaluation.</p>
+            <label>Ã‰valuateur Principal *</label>
+            <p class="text-muted" style="font-size:12px;">Responsable de la validation finale et de la synthÃ¨se de l'Ã©valuation.</p>
             <select id="eval-principal-evaluator" class="form-control" required></select>
           </div>
           <div class="form-group" style="margin-top: 15px;">
-            <label>Évaluateur(s) Secondaire(s) (Optionnel)</label>
-            <p class="text-muted" style="font-size:12px;">Évaluent après l'auto-évaluation et avant l'évaluateur principal.</p>
+            <label>Ã‰valuateur(s) Secondaire(s) (Optionnel)</label>
+            <p class="text-muted" style="font-size:12px;">Ã‰valuent aprÃ¨s l'auto-Ã©valuation et avant l'Ã©valuateur principal.</p>
             <select id="eval-secondary-evaluators" class="form-control" multiple></select>
           </div>
         </div>
@@ -86,12 +86,12 @@
 
       <!-- Etape 2 -->
       <div class="wizard-content" id="wizard-step-2">
-        <h3>Section 1 : Tronc Commun - Compétences Fondamentales</h3>
+        <h3>Section 1 : Tronc Commun - CompÃ©tences Fondamentales</h3>
         <div class="eval-rating-scale-card">
           <div class="eval-scale-header">
             <div class="eval-scale-title">
-              <span>📊</span>
-              <span>Barème d'évaluation de la performance</span>
+              <span></span>
+              <span>BarÃ¨me d'Ã©valuation de la performance</span>
             </div>
           </div>
           <div class="eval-scale-items">
@@ -99,14 +99,14 @@
               <span class="eval-badge eval-badge-pe">5 - PE</span>
               <div>
                 <strong>Performance Exceptionnelle</strong>
-                <div class="text-muted">Dépasse constamment les attentes et constitue une référence.</div>
+                <div class="text-muted">DÃ©passe constamment les attentes et constitue une rÃ©fÃ©rence.</div>
               </div>
             </div>
             <div class="eval-scale-item">
               <span class="eval-badge eval-badge-ps">4 - PS</span>
               <div>
-                <strong>Performance Supérieure</strong>
-                <div class="text-muted">Dépasse régulièrement les attentes dans les domaines clés.</div>
+                <strong>Performance SupÃ©rieure</strong>
+                <div class="text-muted">DÃ©passe rÃ©guliÃ¨rement les attentes dans les domaines clÃ©s.</div>
               </div>
             </div>
             <div class="eval-scale-item">
@@ -119,22 +119,22 @@
             <div class="eval-scale-item">
               <span class="eval-badge eval-badge-pa">2 - PA</span>
               <div>
-                <strong>Performance à Améliorer</strong>
-                <div class="text-muted">N'atteint pas toujours les objectifs et nécessite une amélioration dans certains domaines.</div>
+                <strong>Performance Ã  AmÃ©liorer</strong>
+                <div class="text-muted">N'atteint pas toujours les objectifs et nÃ©cessite une amÃ©lioration dans certains domaines.</div>
               </div>
             </div>
             <div class="eval-scale-item">
               <span class="eval-badge eval-badge-pi">1 - PI</span>
               <div>
                 <strong>Performance Insatisfaisante</strong>
-                <div class="text-muted">N'atteint pas les objectifs de manière significative et nécessite une amélioration immédiate.</div>
+                <div class="text-muted">N'atteint pas les objectifs de maniÃ¨re significative et nÃ©cessite une amÃ©lioration immÃ©diate.</div>
               </div>
             </div>
             <div class="eval-scale-item">
               <span class="eval-badge eval-badge-na">N/A</span>
               <div>
                 <strong>Non Applicable</strong>
-                <div class="text-muted">Non applicable au poste ou non évaluable sur la période.</div>
+                <div class="text-muted">Non applicable au poste ou non Ã©valuable sur la pÃ©riode.</div>
               </div>
             </div>
           </div>
@@ -143,19 +143,19 @@
            <!-- Injected via JS -->
         </div>
         <div class="wizard-actions">
-          <button type="button" class="btn btn-outline" onclick="prevEvalStep(2, 1)">Précédent</button>
+          <button type="button" class="btn btn-outline" onclick="prevEvalStep(2, 1)">PrÃ©cÃ©dent</button>
           <button type="button" class="btn btn-primary" onclick="nextEvalStep(2, 3)">Suivant</button>
         </div>
       </div>
 
       <!-- Etape 3 -->
       <div class="wizard-content" id="wizard-step-3">
-        <h3 id="step-3-title">Section 2 : Aiguillage - Compétences Spécifiques au Profil</h3>
+        <h3 id="step-3-title">Section 2 : Aiguillage - CompÃ©tences SpÃ©cifiques au Profil</h3>
         <div class="eval-rating-scale-card">
           <div class="eval-scale-header">
             <div class="eval-scale-title">
-              <span>📊</span>
-              <span>Barème d'évaluation de la performance</span>
+              <span></span>
+              <span>BarÃ¨me d'Ã©valuation de la performance</span>
             </div>
           </div>
           <div class="eval-scale-items">
@@ -163,14 +163,14 @@
               <span class="eval-badge eval-badge-pe">5 - PE</span>
               <div>
                 <strong>Performance Exceptionnelle</strong>
-                <div class="text-muted">Dépasse constamment les attentes et constitue une référence.</div>
+                <div class="text-muted">DÃ©passe constamment les attentes et constitue une rÃ©fÃ©rence.</div>
               </div>
             </div>
             <div class="eval-scale-item">
               <span class="eval-badge eval-badge-ps">4 - PS</span>
               <div>
-                <strong>Performance Supérieure</strong>
-                <div class="text-muted">Dépasse régulièrement les attentes dans les domaines clés.</div>
+                <strong>Performance SupÃ©rieure</strong>
+                <div class="text-muted">DÃ©passe rÃ©guliÃ¨rement les attentes dans les domaines clÃ©s.</div>
               </div>
             </div>
             <div class="eval-scale-item">
@@ -183,22 +183,22 @@
             <div class="eval-scale-item">
               <span class="eval-badge eval-badge-pa">2 - PA</span>
               <div>
-                <strong>Performance à Améliorer</strong>
-                <div class="text-muted">N'atteint pas toujours les objectifs et nécessite une amélioration dans certains domaines.</div>
+                <strong>Performance Ã  AmÃ©liorer</strong>
+                <div class="text-muted">N'atteint pas toujours les objectifs et nÃ©cessite une amÃ©lioration dans certains domaines.</div>
               </div>
             </div>
             <div class="eval-scale-item">
               <span class="eval-badge eval-badge-pi">1 - PI</span>
               <div>
                 <strong>Performance Insatisfaisante</strong>
-                <div class="text-muted">N'atteint pas les objectifs de manière significative et nécessite une amélioration immédiate.</div>
+                <div class="text-muted">N'atteint pas les objectifs de maniÃ¨re significative et nÃ©cessite une amÃ©lioration immÃ©diate.</div>
               </div>
             </div>
             <div class="eval-scale-item">
               <span class="eval-badge eval-badge-na">N/A</span>
               <div>
                 <strong>Non Applicable</strong>
-                <div class="text-muted">Non applicable au poste ou non évaluable sur la période.</div>
+                <div class="text-muted">Non applicable au poste ou non Ã©valuable sur la pÃ©riode.</div>
               </div>
             </div>
           </div>
@@ -207,44 +207,44 @@
            <!-- Injected via JS -->
         </div>
         <div class="wizard-actions">
-          <button type="button" class="btn btn-outline" onclick="prevEvalStep(3, 2)">Précédent</button>
+          <button type="button" class="btn btn-outline" onclick="prevEvalStep(3, 2)">PrÃ©cÃ©dent</button>
           <button type="button" class="btn btn-primary" onclick="nextEvalStep(3, 4)">Suivant</button>
         </div>
       </div>
 
       <!-- Etape 4 -->
       <div class="wizard-content" id="wizard-step-4">
-        <h3>Section 3 : Réunion Finale - Objectifs et Synthèse Globale</h3>
+        <h3>Section 3 : RÃ©union Finale - Objectifs et SynthÃ¨se Globale</h3>
         <div class="form-group">
-          <label>Réalisation des Objectifs de la période écoulée</label>
-          <textarea id="eval-past-goals" class="form-control" rows="3" placeholder="Détaillez les objectifs fixés, résultats atteints..."></textarea>
+          <label>RÃ©alisation des Objectifs de la pÃ©riode Ã©coulÃ©e</label>
+          <textarea id="eval-past-goals" class="form-control" rows="3" placeholder="DÃ©taillez les objectifs fixÃ©s, rÃ©sultats atteints..."></textarea>
         </div>
         <div class="form-group">
-          <label>1. Principaux Points Forts de l'Employé(e)</label>
+          <label>1. Principaux Points Forts de l'EmployÃ©(e)</label>
           <textarea id="eval-strengths" class="form-control" rows="3"></textarea>
         </div>
         <div class="form-group">
-          <label>2. Axes d'Amélioration Prioritaires</label>
+          <label>2. Axes d'AmÃ©lioration Prioritaires</label>
           <textarea id="eval-improvements" class="form-control" rows="3"></textarea>
         </div>
         <div class="form-group">
-          <label>3. Commentaire Général sur la Performance Globale *</label>
+          <label>3. Commentaire GÃ©nÃ©ral sur la Performance Globale *</label>
           <select id="eval-global-rating" class="form-control" required>
             <option value="">-- Choisir --</option>
             <option value="PI">PI - Performance Insatisfaisante</option>
-            <option value="PA">PA - Performance à Améliorer</option>
+            <option value="PA">PA - Performance Ã  AmÃ©liorer</option>
             <option value="CA">CA - Performance Conforme aux Attentes</option>
-            <option value="PS">PS - Performance Supérieure</option>
+            <option value="PS">PS - Performance SupÃ©rieure</option>
             <option value="PE">PE - Performance Exceptionnelle</option>
           </select>
         </div>
-        <h3 style="margin-top:30px;">VI. Plan de Développement</h3>
+        <h3 style="margin-top:30px;">VI. Plan de DÃ©veloppement</h3>
         <div class="form-group">
           <label>VI. 1. Besoins en Formation</label>
           <textarea id="eval-training" class="form-control" rows="2"></textarea>
         </div>
         <div class="form-group">
-          <label>VI. 2. Objectifs SMART Prochaine Période</label>
+          <label>VI. 2. Objectifs SMART Prochaine PÃ©riode</label>
           <textarea id="eval-smart-goals" class="form-control" rows="3"></textarea>
         </div>
         <div class="form-group">
@@ -252,13 +252,13 @@
           <textarea id="eval-aspirations" class="form-control" rows="2"></textarea>
         </div>
         <div class="form-group">
-          <label>VII. Commentaires de l'Employé(e) Évalué(e)</label>
+          <label>VII. Commentaires de l'EmployÃ©(e) Ã‰valuÃ©(e)</label>
           <textarea id="eval-emp-comments" class="form-control" rows="3"></textarea>
         </div>
         <div class="wizard-actions">
-          <button type="button" class="btn btn-outline" onclick="prevEvalStep(4, 3)">Précédent</button>
-          <button type="button" class="btn btn-primary" id="btn-pre-eval" style="display:none;" onclick="submitPreEvaluation()">Pré-évaluer (pour réunion)</button>
-          <button type="submit" class="btn btn-success" id="btn-submit-eval">Soumettre l'Évaluation</button>
+          <button type="button" class="btn btn-outline" onclick="prevEvalStep(4, 3)">PrÃ©cÃ©dent</button>
+          <button type="button" class="btn btn-primary" id="btn-pre-eval" style="display:none;" onclick="submitPreEvaluation()">PrÃ©-Ã©valuer (pour rÃ©union)</button>
+          <button type="submit" class="btn btn-success" id="btn-submit-eval">Soumettre l'Ã‰valuation</button>
         </div>
         <div id="eval-submit-status" class="status-msg" style="margin-top: 15px;"></div>
       </div>
@@ -269,16 +269,16 @@
 <!-- MANAGER DASHBOARD SCREEN (Single Page View) -->
 <div id="eval-manager-dashboard" style="display: none;">
   <div class="panel">
-    <h3>Dossiers d'Évaluation</h3>
-    <div id="eval-dashboard-loader" class="status-msg" style="color:var(--primary-color);">Chargement des évaluations...</div>
+    <h3>Dossiers d'Ã‰valuation</h3>
+    <div id="eval-dashboard-loader" class="status-msg" style="color:var(--primary-color);">Chargement des Ã©valuations...</div>
     <div class="table-responsive" style="margin-top:20px;">
       <table class="modern-table" id="evals-table">
         <thead>
           <tr>
             <th>Date</th>
             <th>Type</th>
-            <th>Employé</th>
-            <th>Évaluateur</th>
+            <th>EmployÃ©</th>
+            <th>Ã‰valuateur</th>
             <th>Note Globale</th>
             <th>Action</th>
           </tr>
@@ -293,9 +293,9 @@
 <div id="eval-viewer-screen" style="display: none;">
   <div class="panel" style="max-width: 900px; margin: 0 auto; background-color: var(--surface-1);">
     <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--primary-color); padding-bottom: 15px; margin-bottom: 25px;">
-      <h2 style="margin: 0; color: var(--primary-color);">Fiche d'Évaluation</h2>
+      <h2 style="margin: 0; color: var(--primary-color);">Fiche d'Ã‰valuation</h2>
       <div>
-        <button class="btn btn-outline" style="margin-right: 8px;" onclick="toggleEvalScaleModal(true)">📖 Barème & Légende</button>
+        <button class="btn btn-outline" style="margin-right: 8px;" onclick="toggleEvalScaleModal(true)">BarÃ¨me & LÃ©gende</button>
         <button class="btn btn-outline" onclick="showManagerDashboard()">Fermer</button>
       </div>
     </div>
@@ -311,14 +311,14 @@
   <div class="eval-modal-content">
     <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; margin-bottom: 16px;">
       <h3 style="margin: 0; display: flex; align-items: center; gap: 8px;">
-        <span>📊</span>
-        <span>Guide & Barème d'Évaluation de la Performance</span>
+        <span></span>
+        <span>Guide & BarÃ¨me d'Ã‰valuation de la Performance</span>
       </h3>
-      <button class="btn btn-outline" style="padding: 4px 10px; font-size: 14px;" onclick="toggleEvalScaleModal(false)">✕</button>
+      <button class="btn btn-outline" style="padding: 4px 10px; font-size: 14px;" onclick="toggleEvalScaleModal(false)">âœ•</button>
     </div>
 
     <p class="text-muted" style="font-size: 13px; margin-bottom: 16px;">
-      Ce barème sert de référence commune pour l'ensemble des questions d'évaluation (auto-évaluation et évaluation managériale).
+      Ce barÃ¨me sert de rÃ©fÃ©rence commune pour l'ensemble des questions d'Ã©valuation (auto-Ã©valuation et Ã©valuation managÃ©riale).
     </p>
 
     <div style="display: flex; flex-direction: column; gap: 12px;">
@@ -326,15 +326,15 @@
         <span class="eval-badge eval-badge-pe" style="font-size: 13px; padding: 4px 10px;">5 - PE</span>
         <div>
           <strong style="font-size: 14px; color: #1e7e34;">Performance Exceptionnelle (PE)</strong>
-          <div style="color: #444; margin-top: 3px; font-size: 13px;">Dépasse constamment les attentes et constitue une référence.</div>
+          <div style="color: #444; margin-top: 3px; font-size: 13px;">DÃ©passe constamment les attentes et constitue une rÃ©fÃ©rence.</div>
         </div>
       </div>
 
       <div class="eval-scale-item" style="padding: 12px;">
         <span class="eval-badge eval-badge-ps" style="font-size: 13px; padding: 4px 10px;">4 - PS</span>
         <div>
-          <strong style="font-size: 14px; color: #0c63e4;">Performance Supérieure (PS)</strong>
-          <div style="color: #444; margin-top: 3px; font-size: 13px;">Dépasse régulièrement les attentes dans les domaines clés.</div>
+          <strong style="font-size: 14px; color: #0c63e4;">Performance SupÃ©rieure (PS)</strong>
+          <div style="color: #444; margin-top: 3px; font-size: 13px;">DÃ©passe rÃ©guliÃ¨rement les attentes dans les domaines clÃ©s.</div>
         </div>
       </div>
 
@@ -349,8 +349,8 @@
       <div class="eval-scale-item" style="padding: 12px;">
         <span class="eval-badge eval-badge-pa" style="font-size: 13px; padding: 4px 10px;">2 - PA</span>
         <div>
-          <strong style="font-size: 14px; color: #856404;">Performance à Améliorer (PA)</strong>
-          <div style="color: #444; margin-top: 3px; font-size: 13px;">N'atteint pas toujours les objectifs et nécessite une amélioration dans certains domaines.</div>
+          <strong style="font-size: 14px; color: #856404;">Performance Ã  AmÃ©liorer (PA)</strong>
+          <div style="color: #444; margin-top: 3px; font-size: 13px;">N'atteint pas toujours les objectifs et nÃ©cessite une amÃ©lioration dans certains domaines.</div>
         </div>
       </div>
 
@@ -358,7 +358,7 @@
         <span class="eval-badge eval-badge-pi" style="font-size: 13px; padding: 4px 10px;">1 - PI</span>
         <div>
           <strong style="font-size: 14px; color: #842029;">Performance Insatisfaisante (PI)</strong>
-          <div style="color: #444; margin-top: 3px; font-size: 13px;">N'atteint pas les objectifs de manière significative et nécessite une amélioration immédiate.</div>
+          <div style="color: #444; margin-top: 3px; font-size: 13px;">N'atteint pas les objectifs de maniÃ¨re significative et nÃ©cessite une amÃ©lioration immÃ©diate.</div>
         </div>
       </div>
 
@@ -366,7 +366,7 @@
         <span class="eval-badge eval-badge-na" style="font-size: 13px; padding: 4px 10px;">N/A</span>
         <div>
           <strong style="font-size: 14px; color: #555;">Non Applicable (N/A)</strong>
-          <div style="color: #444; margin-top: 3px; font-size: 13px;">Non applicable au poste ou non évaluable sur la période.</div>
+          <div style="color: #444; margin-top: 3px; font-size: 13px;">Non applicable au poste ou non Ã©valuable sur la pÃ©riode.</div>
         </div>
       </div>
     </div>

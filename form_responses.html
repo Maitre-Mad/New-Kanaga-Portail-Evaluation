@@ -1,6 +1,6 @@
-<div class="view-header">
-  <h2>Réponses au Formulaire</h2>
-  <p>Consultez et filtrez les réponses enregistrées selon votre bureau Kanaga ou votre niveau d'accès.</p>
+﻿<div class="view-header">
+  <h2>RÃ©ponses au Formulaire</h2>
+  <p>Consultez et filtrez les rÃ©ponses enregistrÃ©es selon votre bureau Kanaga ou votre niveau d'accÃ¨s.</p>
 </div>
 
 <div class="panel" style="margin-bottom: 20px;">
@@ -8,7 +8,7 @@
     <!-- Search & Filters -->
     <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; flex: 1; min-width: 280px;">
       <div style="position: relative; flex: 1; min-width: 200px;">
-        <input type="text" id="responses-search-input" class="form-control" placeholder="Rechercher dans les réponses..." oninput="handleResponsesSearch()" style="padding-left: 35px;" />
+        <input type="text" id="responses-search-input" class="form-control" placeholder="Rechercher dans les rÃ©ponses..." oninput="handleResponsesSearch()" style="padding-left: 35px;" />
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #888;">
           <circle cx="11" cy="11" r="8"></circle>
           <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
@@ -24,7 +24,7 @@
 
     <!-- Actions -->
     <div style="display: flex; gap: 10px; align-items: center;">
-      <span id="responses-count-badge" class="badge" style="background: var(--primary-color); font-size: 13px; padding: 6px 12px;">0 réponses</span>
+      <span id="responses-count-badge" class="badge" style="background: var(--primary-color); font-size: 13px; padding: 6px 12px;">0 rÃ©ponses</span>
       <button class="btn btn-outline btn-sm" onclick="loadFormResponsesData()">
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; vertical-align: middle;"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
         Actualiser
@@ -38,7 +38,7 @@
   <div style="display: flex; align-items: center; gap: 8px; margin-top: 12px; padding-top: 10px; border-top: 1px dashed #e2e8f0;">
     <label style="font-size: 13px; color: #4a5568; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; user-select: none;">
       <input type="checkbox" id="responses-hide-empty-pdf" style="width: 16px; height: 16px; accent-color: var(--primary-color);" />
-      Masquer les questions non renseignées dans l'export PDF
+      Masquer les questions non renseignÃ©es dans l'export PDF
     </label>
   </div>
 </div>
@@ -46,7 +46,7 @@
 <div class="panel">
   <div id="responses-loader" class="status-msg" style="color: var(--primary-color); text-align: center; padding: 30px;">
     <div class="spinner" style="width: 24px; height: 24px; border-width: 3px; display: inline-block; vertical-align: middle; margin-right: 10px;"></div>
-    Chargement des réponses du formulaire...
+    Chargement des rÃ©ponses du formulaire...
   </div>
 
   <div id="responses-error-msg" class="status-msg" style="display: none; color: var(--danger-color); text-align: center; padding: 20px; background: #fff5f5; border-radius: 8px; border: 1px solid #fed7d7;"></div>
@@ -57,7 +57,7 @@
         <tr id="responses-table-header">
           <th>Horodateur</th>
           <th>Bureau Kanaga (Col AF)</th>
-          <th>Détails</th>
+          <th>DÃ©tails</th>
         </tr>
       </thead>
       <tbody id="responses-table-body">
@@ -66,11 +66,11 @@
   </div>
 </div>
 
-<!-- Modal Détail d'une réponse -->
+<!-- Modal DÃ©tail d'une rÃ©ponse -->
 <div id="response-detail-modal" class="modal">
   <div class="modal-content" style="max-width: 800px; width: 90%; max-height: 85vh; display: flex; flex-direction: column;">
     <div class="modal-header">
-      <h3 id="response-modal-title" style="margin: 0;">Détails de la Réponse</h3>
+      <h3 id="response-modal-title" style="margin: 0;">DÃ©tails de la RÃ©ponse</h3>
       <span class="close-button" onclick="closeResponseDetailModal()">&times;</span>
     </div>
     <div class="modal-body" id="response-modal-body" style="overflow-y: auto; flex: 1; padding: 20px;">

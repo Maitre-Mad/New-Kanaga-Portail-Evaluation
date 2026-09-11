@@ -1,4 +1,4 @@
-<div class="view-header">
+﻿<div class="view-header">
   <h2>Portail de Feuille de Temps</h2>
   <p>Enregistrez vos heures de travail et consultez votre historique.</p>
 </div>
@@ -7,7 +7,7 @@
   <!-- Left Column: Form -->
   <div class="grid-col form-col">
     <div class="panel" id="form-container">
-      <h3>Enregistrer une nouvelle entrée</h3>
+      <h3>Enregistrer une nouvelle entrÃ©e</h3>
       <form id="timesheet-form">
         <div class="form-group">
           <label for="entryDate">Date</label>
@@ -20,32 +20,32 @@
         </div>
         
         <div class="form-group">
-          <label for="task">Tâche <span class="text-muted">(Optionnel)</span></label>
+          <label for="task">TÃ¢che <span class="text-muted">(Optionnel)</span></label>
           <div style="margin-bottom: 8px; font-size: 13px; color: var(--text-color);">
             <label style="display:flex; align-items:center; gap:5px; font-weight:normal; cursor:pointer;">
               <input type="checkbox" id="hide-completed-tasks" checked onchange="updateTaskDropdown('project', 'task', 'sub-task')">
-              Masquer les tâches terminées
+              Masquer les tÃ¢ches terminÃ©es
             </label>
           </div>
           <select id="task" name="task"></select>
         </div>
         
         <div class="form-group" id="sub-task-group" style="display: none;">
-          <label for="sub-task">Sous-tâche</label>
+          <label for="sub-task">Sous-tÃ¢che</label>
           <select id="sub-task" name="sub-task"></select>
         </div>
         
         <div class="form-group">
           <label for="description">Description <span class="text-muted">(Optionnel)</span></label>
-          <input type="text" id="description" name="description" placeholder="Ex: Réunion de synchronisation">
+          <input type="text" id="description" name="description" placeholder="Ex: RÃ©union de synchronisation">
         </div>
         
         <div class="form-group">
-          <label for="duration">Durée (en heures)</label>
+          <label for="duration">DurÃ©e (en heures)</label>
           <input type="number" id="duration" name="duration" step="0.25" min="0" required placeholder="Ex: 2.5">
         </div>
         
-        <button type="submit" class="btn btn-primary btn-block">Enregistrer l'entrée</button>
+        <button type="submit" class="btn btn-primary btn-block">Enregistrer l'entrÃ©e</button>
         <div id="status" class="status-msg"></div>
       </form>
     </div>
@@ -55,9 +55,9 @@
   <div class="grid-col data-col">
     <div class="panel" id="data-container">
       <div class="panel-header">
-        <h3>Vos Entrées de la Semaine</h3>
+        <h3>Vos EntrÃ©es de la Semaine</h3>
       </div>
-      <div id="timesheet-loader" class="local-loader" style="display: none;">Chargement des données...</div>
+      <div id="timesheet-loader" class="local-loader" style="display: none;">Chargement des donnÃ©es...</div>
       
       <div class="tabs">
         <button class="tab-btn active" onclick="switchTimesheetTab('list')">Vue Liste</button>
@@ -72,9 +72,9 @@
               <tr>
                 <th>Date</th>
                 <th>Projet</th>
-                <th>Tâche</th>
+                <th>TÃ¢che</th>
                 <th>Description</th>
-                <th>Durée</th>
+                <th>DurÃ©e</th>
                 <th class="actions-cell">Actions</th>
               </tr>
             </thead>
@@ -109,7 +109,7 @@
 <div id="edit-modal" class="modal">
   <div class="modal-content">
     <div class="modal-header">
-      <h3>Modifier l'entrée</h3>
+      <h3>Modifier l'entrÃ©e</h3>
       <span class="close-button" onclick="closeModal('edit-modal')">&times;</span>
     </div>
     <div class="modal-body">
@@ -124,17 +124,17 @@
           <select id="edit-project" required></select>
         </div>
         <div class="form-group">
-          <label for="edit-task">Tâche <span class="text-muted">(Optionnel)</span></label>
+          <label for="edit-task">TÃ¢che <span class="text-muted">(Optionnel)</span></label>
           <div style="margin-bottom: 8px; font-size: 13px; color: var(--text-color);">
             <label style="display:flex; align-items:center; gap:5px; font-weight:normal; cursor:pointer;">
               <input type="checkbox" id="edit-hide-completed-tasks" checked onchange="updateTaskDropdown('edit-project', 'edit-task', 'edit-sub-task')">
-              Masquer les tâches terminées
+              Masquer les tÃ¢ches terminÃ©es
             </label>
           </div>
           <select id="edit-task"></select>
         </div>
         <div class="form-group" id="edit-sub-task-group" style="display: none;">
-          <label for="edit-sub-task">Sous-tâche</label>
+          <label for="edit-sub-task">Sous-tÃ¢che</label>
           <select id="edit-sub-task"></select>
         </div>
         <div class="form-group">
@@ -142,7 +142,7 @@
           <input type="text" id="edit-description">
         </div>
         <div class="form-group">
-          <label for="edit-duration">Durée (en heures)</label>
+          <label for="edit-duration">DurÃ©e (en heures)</label>
           <input type="number" id="edit-duration" step="0.25" min="0" required>
         </div>
         <button type="submit" class="btn btn-warning btn-block">Enregistrer les modifications</button>

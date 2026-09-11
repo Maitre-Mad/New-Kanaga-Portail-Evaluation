@@ -1,4 +1,4 @@
-<script>
+﻿<script>
   let currentUser = null;
   let projectData = {};
   let choicesInstances = { project: null, task: null, editProject: null, editTask: null };
@@ -93,7 +93,7 @@
       .authenticateUser(username, password);
   }
 
-  // Gérer la sauvegarde du modèle d'e-mail
+  // GÃ©rer la sauvegarde du modÃ¨le d'e-mail
   document.getElementById('admin-eval-email-form').addEventListener('submit', function(e) {
     e.preventDefault();
     const btn = document.getElementById('btn-save-eval-email');
@@ -110,7 +110,7 @@
     google.script.run
       .withSuccessHandler(function() {
          btn.disabled = false;
-         statusMsg.innerText = "Modèle enregistré avec succès.";
+         statusMsg.innerText = "ModÃ¨le enregistrÃ© avec succÃ¨s.";
          statusMsg.style.color = "green";
          setTimeout(() => statusMsg.innerText = "", 3000);
       })
@@ -142,7 +142,7 @@
       if (hubCard) hubCard.style.display = 'none';
     }
 
-    // Modules retirés visuellement sur cette version (IT Dashboard, Support IT, Réponses Formulaire)
+    // Modules retirÃ©s visuellement sur cette version (IT Dashboard, Support IT, RÃ©ponses Formulaire)
     const navTickets = document.getElementById('nav-tickets');
     if (navTickets) navTickets.style.display = 'none';
 
@@ -241,7 +241,7 @@
   }
 
   function handleArchiveTimesheets() {
-    if (!confirm("Voulez-vous vraiment archiver toutes les feuilles de temps précédentes vers Google Drive ? L'opération peut prendre quelques instants.")) return;
+    if (!confirm("Voulez-vous vraiment archiver toutes les feuilles de temps prÃ©cÃ©dentes vers Google Drive ? L'opÃ©ration peut prendre quelques instants.")) return;
     
     const btnText = document.querySelector('#btn-archive-timesheets .btn-text');
     const btnLoader = document.querySelector('#btn-archive-timesheets .btn-loader');
@@ -282,7 +282,7 @@
     if (choicesInstances.project) choicesInstances.project.destroy();
     if (choicesInstances.editProject) choicesInstances.editProject.destroy();
     
-    choicesInstances.project = new Choices(mainSelect, { removeItemButton: true, placeholder: true, placeholderValue: 'Sélectionnez un projet' });
+    choicesInstances.project = new Choices(mainSelect, { removeItemButton: true, placeholder: true, placeholderValue: 'SÃ©lectionnez un projet' });
     choicesInstances.project.setChoices(projects.map(p => ({ value: p, label: p })), 'value', 'label', true);
     mainSelect.addEventListener('change', () => updateTaskDropdown('project', 'task', 'sub-task'));
     
@@ -319,7 +319,7 @@
     const choicesKey = (taskElementId === 'task') ? 'task' : 'editTask';
 
     if (!choicesInstances[choicesKey]) {
-      choicesInstances[choicesKey] = new Choices(taskSelect, { placeholder: true, placeholderValue: 'Sélectionnez une tâche' });
+      choicesInstances[choicesKey] = new Choices(taskSelect, { placeholder: true, placeholderValue: 'SÃ©lectionnez une tÃ¢che' });
       taskSelect.addEventListener('change', () => {
          if (subTaskElementId) updateSubTaskDropdown(projectElementId, taskElementId, subTaskElementId);
       });
@@ -367,7 +367,7 @@
     if (subTasks.length > 0) {
         subTaskGroup.style.display = 'block';
         if (!choicesInstances[choicesKey]) {
-            choicesInstances[choicesKey] = new Choices(subTaskSelect, { placeholder: true, placeholderValue: 'Sélectionnez une sous-tâche' });
+            choicesInstances[choicesKey] = new Choices(subTaskSelect, { placeholder: true, placeholderValue: 'SÃ©lectionnez une sous-tÃ¢che' });
         }
         choicesInstances[choicesKey].setChoices(
             [{ value: '', label: 'Aucune' }].concat(subTasks.map(t => ({ value: t, label: t }))),
@@ -402,14 +402,14 @@
     };
 
     if (!formData.project) {
-      statusDiv.innerText = 'Erreur : Veuillez sélectionner un projet.';
+      statusDiv.innerText = 'Erreur : Veuillez sÃ©lectionner un projet.';
       statusDiv.style.color = 'var(--danger-color)';
       return;
     }
 
     google.script.run
       .withSuccessHandler(() => {
-        statusDiv.innerText = 'Entrée enregistrée !';
+        statusDiv.innerText = 'EntrÃ©e enregistrÃ©e !';
         statusDiv.style.color = 'var(--secondary-color)';
         document.getElementById('timesheet-form').reset();
         setDateValidation();
@@ -444,11 +444,11 @@
     }
 
     if (data.error || !Array.isArray(data)) {
-        tableBody.innerHTML = `<tr><td colspan="6">Erreur: ${data.error || 'Données invalides.'}</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="6">Erreur: ${data.error || 'DonnÃ©es invalides.'}</td></tr>`;
         return;
     }
     if (data.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Aucune entrée pour cette semaine.</td></tr>';
+        tableBody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Aucune entrÃ©e pour cette semaine.</td></tr>';
         return;
     }
 
@@ -458,7 +458,7 @@
         
         // Check for sub-task
         const isSubtask = entry.task && entry.task.includes(" > ");
-        const taskText = isSubtask ? entry.task.split(" > ").pop().trim() : (entry.task ? entry.task.replace("↳", "").trim() : '');
+        const taskText = isSubtask ? entry.task.split(" > ").pop().trim() : (entry.task ? entry.task.replace("â†³", "").trim() : '');
 
         // List View
         const newRow = tableBody.insertRow();
@@ -510,8 +510,8 @@
          const parts = mainTask.split(' > ');
          mainTask = parts[0].trim();
          subTask = parts[1].trim();
-      } else if (mainTask.includes('↳')) { 
-         mainTask = mainTask.replace('↳', '').trim();
+      } else if (mainTask.includes('â†³')) { 
+         mainTask = mainTask.replace('â†³', '').trim();
       }
       
       choicesInstances.editProject.setChoiceByValue(entry.project || '');
@@ -560,7 +560,7 @@
   }
 
   function handleDelete(rowId) {
-    if (confirm("Êtes-vous sûr de vouloir supprimer cette entrée ?")) {
+    if (confirm("ÃŠtes-vous sÃ»r de vouloir supprimer cette entrÃ©e ?")) {
       google.script.run
         .withSuccessHandler(fetchUserTimesheets)
         .withFailureHandler(err => alert("Erreur: " + err.message))
@@ -622,7 +622,7 @@
          
          const autreOpt = document.createElement('option');
          autreOpt.value = "Autre";
-         autreOpt.text = "Autre profil (aucun profil spécifique)";
+         autreOpt.text = "Autre profil (aucun profil spÃ©cifique)";
          select.appendChild(autreOpt);
       })
       .getEvaluationConfig(window.kanagaToken);
@@ -645,15 +645,15 @@
     const pendingContainer = document.getElementById('employee-pending-evals');
     if (pendingContainer && window.loadedEvals && currentUser) {
       const pendingAutoEvals = window.loadedEvals.filter(ev => 
-        (ev.employeeEmail === currentUser.username || ev.employeeName === currentUser.fullName) && ev.status === 'Initiée'
+        (ev.employeeEmail === currentUser.username || ev.employeeName === currentUser.fullName) && ev.status === 'InitiÃ©e'
       );
 
       const pendingSecondaryEvals = window.loadedEvals.filter(ev => {
-        if (ev.status !== 'Attente Évaluateur Secondaire') return false;
+        if (ev.status !== 'Attente Ã‰valuateur Secondaire') return false;
         let secList = [];
         try { secList = JSON.parse(ev.secondaryEvaluators || '[]'); } catch(e){}
         const entry = secList.find(s => s.email === currentUser.username || s.name === currentUser.fullName);
-        return entry && entry.status !== 'Complété';
+        return entry && entry.status !== 'ComplÃ©tÃ©';
       });
       
       const totalPending = pendingAutoEvals.length + pendingSecondaryEvals.length;
@@ -662,13 +662,13 @@
         let html = `
           <div class="panel" style="border: 2px solid var(--secondary-color); background: #fdfdfd;">
             <h3 style="color: var(--secondary-color);">Action Requise</h3>
-            <p class="text-muted" style="margin-bottom:15px; font-size:14px;">Vous avez ${totalPending} action(s) d'évaluation en attente de votre intervention.</p>
+            <p class="text-muted" style="margin-bottom:15px; font-size:14px;">Vous avez ${totalPending} action(s) d'Ã©valuation en attente de votre intervention.</p>
         `;
         pendingAutoEvals.forEach(ev => {
-          html += `<button class="btn btn-primary" onclick="startEvaluationWizard('Auto-évaluation', ${ev.rowId})" style="width: 100%; margin-bottom: 10px; background-color: var(--secondary-color);">Auto-évaluer (${ev.period})</button>`;
+          html += `<button class="btn btn-primary" onclick="startEvaluationWizard('Auto-Ã©valuation', ${ev.rowId})" style="width: 100%; margin-bottom: 10px; background-color: var(--secondary-color);">Auto-Ã©valuer (${ev.period})</button>`;
         });
         pendingSecondaryEvals.forEach(ev => {
-          html += `<button class="btn" onclick="startEvaluationWizard('Évaluation Secondaire', ${ev.rowId})" style="width: 100%; margin-bottom: 10px; background-color: #ff9800; color: #fff;">Évaluation secondaire : ${escapeHtml(ev.employeeName)} (${escapeHtml(ev.period)})</button>`;
+          html += `<button class="btn" onclick="startEvaluationWizard('Ã‰valuation Secondaire', ${ev.rowId})" style="width: 100%; margin-bottom: 10px; background-color: #ff9800; color: #fff;">Ã‰valuation secondaire : ${escapeHtml(ev.employeeName)} (${escapeHtml(ev.period)})</button>`;
         });
         html += `</div>`;
         pendingContainer.innerHTML = html;
@@ -695,7 +695,7 @@
     document.getElementById('eval-wizard-form').reset();
     document.getElementById('eval-type').value = type;
     
-    if (type === 'Évaluation Manager') {
+    if (type === 'Ã‰valuation Manager') {
         document.getElementById('btn-pre-eval').style.display = 'inline-block';
     } else {
         document.getElementById('btn-pre-eval').style.display = 'none';
@@ -714,7 +714,7 @@
         window.empChoices = null;
     }
     if (type === 'Initiation') {
-        window.empChoices = new Choices(empSelect, { removeItemButton: true, searchEnabled: true, placeholder: true, placeholderValue: "Sélectionner les employés" });
+        window.empChoices = new Choices(empSelect, { removeItemButton: true, searchEnabled: true, placeholder: true, placeholderValue: "SÃ©lectionner les employÃ©s" });
     }
     
     // UI Resets
@@ -730,7 +730,7 @@
         
         const princSelect = document.getElementById('eval-principal-evaluator');
         if (princSelect) {
-            princSelect.innerHTML = '<option value="">-- Choisir l\'évaluateur principal --</option>';
+            princSelect.innerHTML = '<option value="">-- Choisir l\'Ã©valuateur principal --</option>';
             if (window.employeeList) {
                 window.employeeList.forEach(emp => {
                     const isDefault = (currentUser && emp.email === currentUser.username);
@@ -755,7 +755,7 @@
                 removeItemButton: true,
                 searchEnabled: true,
                 placeholder: true,
-                placeholderValue: "Sélectionner les évaluateurs secondaires (optionnel)"
+                placeholderValue: "SÃ©lectionner les Ã©valuateurs secondaires (optionnel)"
             });
         }
     } else {
@@ -772,7 +772,7 @@
     if (type === 'Initiation') {
         empSelect.disabled = false;
         
-        document.getElementById('step-1-title').innerText = "Initiation d'une nouvelle évaluation";
+        document.getElementById('step-1-title').innerText = "Initiation d'une nouvelle Ã©valuation";
         document.getElementById('eval-wizard-progress').style.display = 'none';
         document.getElementById('btn-next-step1').style.display = 'none';
         
@@ -786,14 +786,14 @@
            submitBtn.type = 'button';
            submitBtn.className = 'btn btn-success';
            submitBtn.id = 'btn-submit-initiation';
-           submitBtn.innerText = "Initier l'évaluation";
+           submitBtn.innerText = "Initier l'Ã©valuation";
            submitBtn.onclick = submitInitiation;
            actionsDiv.appendChild(submitBtn);
         }
         submitBtn.style.display = 'inline-block';
         showEvalStep(1);
     } else {
-        document.getElementById('step-1-title').innerText = "I. Informations Générales";
+        document.getElementById('step-1-title').innerText = "I. Informations GÃ©nÃ©rales";
         document.getElementById('eval-wizard-progress').style.display = 'flex';
         document.getElementById('btn-next-step1').style.display = 'inline-block';
         
@@ -819,8 +819,8 @@
             document.getElementById('step-nav-3').style.display = 'none';
         }
         
-        // Pré-remplissage pour l'auto-évaluation (si brouillon existant)
-        if (type === 'Auto-évaluation' && ev) {
+        // PrÃ©-remplissage pour l'auto-Ã©valuation (si brouillon existant)
+        if (type === 'Auto-Ã©valuation' && ev) {
             document.getElementById('eval-past-goals').value = ev.pastGoals || '';
             document.getElementById('eval-strengths').value = ev.strengths || '';
             document.getElementById('eval-improvements').value = ev.improvements || '';
@@ -852,8 +852,8 @@
             } catch(e) {}
         }
 
-        // Pré-remplissage pour l'évaluation secondaire (si déjà saisi)
-        if (type === 'Évaluation Secondaire' && ev) {
+        // PrÃ©-remplissage pour l'Ã©valuation secondaire (si dÃ©jÃ  saisi)
+        if (type === 'Ã‰valuation Secondaire' && ev) {
             document.getElementById('eval-past-goals').value = ev.pastGoals || '';
             document.getElementById('eval-aspirations').value = ev.aspirations || '';
             
@@ -906,8 +906,8 @@
             } catch(e){}
         }
 
-        // Pré-remplissage pour l'évaluation manager / principale (si déjà pré-évalué ou évalué)
-        if (type === 'Évaluation Manager' && ev) {
+        // PrÃ©-remplissage pour l'Ã©valuation manager / principale (si dÃ©jÃ  prÃ©-Ã©valuÃ© ou Ã©valuÃ©)
+        if (type === 'Ã‰valuation Manager' && ev) {
             document.getElementById('eval-past-goals').value = ev.pastGoals || '';
             document.getElementById('eval-aspirations').value = ev.aspirations || '';
             document.getElementById('eval-strengths').value = ev.mgrStrengths || ev.strengths || '';
@@ -954,12 +954,12 @@
       
       const princEmail = document.getElementById('eval-principal-evaluator').value;
       if (!princEmail) {
-          alert("Veuillez sélectionner un évaluateur principal.");
+          alert("Veuillez sÃ©lectionner un Ã©valuateur principal.");
           return;
       }
 
       if (!profile || !period || !selectedEmployees || selectedEmployees.length === 0) {
-          alert('Veuillez remplir tous les champs obligatoires et sélectionner au moins un employé.');
+          alert('Veuillez remplir tous les champs obligatoires et sÃ©lectionner au moins un employÃ©.');
           return;
       }
       
@@ -1005,15 +1005,15 @@
       
       google.script.run
         .withSuccessHandler(() => {
-           alert('Évaluation(s) initiée(s) avec succès.');
+           alert('Ã‰valuation(s) initiÃ©e(s) avec succÃ¨s.');
            showManagerDashboard();
            btn.disabled = false;
-           btn.innerText = "Initier l'évaluation";
+           btn.innerText = "Initier l'Ã©valuation";
         })
         .withFailureHandler(err => {
            alert('Erreur: ' + err.message);
            btn.disabled = false;
-           btn.innerText = "Initier l'évaluation";
+           btn.innerText = "Initier l'Ã©valuation";
         })
         .initiateEvaluationsBatch(window.kanagaToken, formData);
   }
@@ -1038,12 +1038,12 @@
     if (current === 2) {
         const profile = document.getElementById('eval-profile-select').value;
         if (!profile) {
-            alert('Veuillez sélectionner un profil.');
+            alert('Veuillez sÃ©lectionner un profil.');
             return;
         }
         const specQuestions = (profile !== 'Autre') ? findProfileQuestions(profile) : null;
         if (!specQuestions || specQuestions.length === 0 || profile === 'Autre') {
-            next = 4; // Aiguillage: pas de questions spécifiques, saut vers la Réunion Finale
+            next = 4; // Aiguillage: pas de questions spÃ©cifiques, saut vers la RÃ©union Finale
         } else if(window.evalCurrentMode !== 'Initiation') {
             generateGrid('grid-specifiques', 'spec', specQuestions);
             document.getElementById('step-3-title').innerText = "Section 2 : Aiguillage - " + profile;
@@ -1105,12 +1105,12 @@
     let html = '';
     if(!questions) return;
     questions.forEach((qObj, idx) => {
-      // Pour la compatibilité arrière si d'anciens formats sont passés
+      // Pour la compatibilitÃ© arriÃ¨re si d'anciens formats sont passÃ©s
       const q = typeof qObj === 'string' ? { text: qObj, type: 'scale', options: 'PI, PA, CA, PS, PE, N/A', description: "" } : qObj;
       const text = q.text.replace(/`/g, "'");
       const desc = q.description ? `<div style="font-size:12px; color:#666; margin-top:4px;">${q.description.replace(/`/g, "'")}</div>` : '';
       
-      // Données existantes du collaborateur si consultation / évaluation manager
+      // DonnÃ©es existantes du collaborateur si consultation / Ã©valuation manager
       let collabAnswer = '';
       let collabComment = '';
       if (window.evalCurrentEv) {
@@ -1127,14 +1127,14 @@
       }
 
       let collabSummaryHtml = '';
-      if (window.evalCurrentMode === 'Évaluation Manager' || window.evalCurrentMode === 'Évaluation Secondaire') {
+      if (window.evalCurrentMode === 'Ã‰valuation Manager' || window.evalCurrentMode === 'Ã‰valuation Secondaire') {
         const badgeCls = getEvalBadgeClass(collabAnswer);
-        const commentDisplay = collabComment ? escapeHtml(collabComment) : '<em>Aucun commentaire renseigné par le collaborateur</em>';
+        const commentDisplay = collabComment ? escapeHtml(collabComment) : '<em>Aucun commentaire renseignÃ© par le collaborateur</em>';
         collabSummaryHtml = `
           <div class="eval-collab-summary">
             <div class="eval-collab-summary-header">
-              <span>👤 Auto-évaluation du Collaborateur</span>
-              <span class="eval-badge eval-badge-${badgeCls}">${collabAnswer || 'Non renseignée'}</span>
+              <span>ðŸ‘¤ Auto-Ã©valuation du Collaborateur</span>
+              <span class="eval-badge eval-badge-${badgeCls}">${collabAnswer || 'Non renseignÃ©e'}</span>
             </div>
             <div class="eval-collab-comment-content">
               <strong>Commentaire collaborateur :</strong> ${commentDisplay}
@@ -1144,7 +1144,7 @@
       }
 
       let secondarySummaryHtml = '';
-      if (window.evalCurrentMode === 'Évaluation Manager' && window.evalCurrentEv) {
+      if (window.evalCurrentMode === 'Ã‰valuation Manager' && window.evalCurrentEv) {
         try {
           const secListStr = prefix === 'fonda' ? window.evalCurrentEv.secondaryFondamentales : window.evalCurrentEv.secondarySpecifiques;
           if (secListStr) {
@@ -1158,7 +1158,7 @@
                   secondarySummaryHtml += `
                     <div class="eval-collab-summary" style="border-left: 3px solid #ff9800; background: #fffcf5; margin-top: 6px;">
                       <div class="eval-collab-summary-header">
-                        <span style="color:#b25900;">👥 Évaluateur Secondaire (${escapeHtml(entry.evaluatorName || entry.evaluatorEmail)})</span>
+                        <span style="color:#b25900;">ðŸ‘¥ Ã‰valuateur Secondaire (${escapeHtml(entry.evaluatorName || entry.evaluatorEmail)})</span>
                         <span class="eval-badge eval-badge-${bCls}">${escapeHtml(resp.answer)}</span>
                       </div>
                       ${comm ? `<div class="eval-collab-comment-content"><strong>Commentaire :</strong> ${escapeHtml(comm)}</div>` : ''}
@@ -1192,33 +1192,33 @@
           html += `<label class="eval-radio-label"><input type="radio" name="${prefix}_q${idx}" value="Oui"> Oui</label>`;
           html += `<label class="eval-radio-label"><input type="radio" name="${prefix}_q${idx}" value="Non"> Non</label>`;
       } else if (q.type === 'text') {
-          html += `<textarea name="${prefix}_q${idx}" class="form-control" rows="3" placeholder="Votre réponse..."></textarea>`;
+          html += `<textarea name="${prefix}_q${idx}" class="form-control" rows="3" placeholder="Votre rÃ©ponse..."></textarea>`;
       }
       
       html += `</div>`;
 
-      // Commentaires collaborateur et évaluateur
+      // Commentaires collaborateur et Ã©valuateur
       if (q.type === 'scale' || q.type === 'boolean') {
           html += `<div class="eval-question-comments">`;
-          if (window.evalCurrentMode === 'Évaluation Manager') {
+          if (window.evalCurrentMode === 'Ã‰valuation Manager') {
               html += `
                 <div class="eval-comment-group">
-                  <label class="eval-comment-label">📝 Commentaire de l'évaluateur principal :</label>
-                  <textarea name="${prefix}_mgr_comment_${idx}" class="eval-comment-box" rows="2" placeholder="Saisissez votre appréciation, remarques ou justifications..."></textarea>
+                  <label class="eval-comment-label">ðŸ“ Commentaire de l'Ã©valuateur principal :</label>
+                  <textarea name="${prefix}_mgr_comment_${idx}" class="eval-comment-box" rows="2" placeholder="Saisissez votre apprÃ©ciation, remarques ou justifications..."></textarea>
                 </div>
               `;
-          } else if (window.evalCurrentMode === 'Évaluation Secondaire') {
+          } else if (window.evalCurrentMode === 'Ã‰valuation Secondaire') {
               html += `
                 <div class="eval-comment-group">
-                  <label class="eval-comment-label">📝 Commentaire de l'évaluateur secondaire :</label>
-                  <textarea name="${prefix}_sec_comment_${idx}" class="eval-comment-box" rows="2" placeholder="Saisissez votre appréciation, remarques ou justifications..."></textarea>
+                  <label class="eval-comment-label">ðŸ“ Commentaire de l'Ã©valuateur secondaire :</label>
+                  <textarea name="${prefix}_sec_comment_${idx}" class="eval-comment-box" rows="2" placeholder="Saisissez votre apprÃ©ciation, remarques ou justifications..."></textarea>
                 </div>
               `;
           } else {
               html += `
                 <div class="eval-comment-group">
-                  <label class="eval-comment-label">💬 Commentaire du collaborateur :</label>
-                  <textarea name="${prefix}_emp_comment_${idx}" class="eval-comment-box" rows="2" placeholder="Vos explications, exemples de réalisations ou faits marquants..."></textarea>
+                  <label class="eval-comment-label">ðŸ’¬ Commentaire du collaborateur :</label>
+                  <textarea name="${prefix}_emp_comment_${idx}" class="eval-comment-box" rows="2" placeholder="Vos explications, exemples de rÃ©alisations ou faits marquants..."></textarea>
                 </div>
               `;
           }
@@ -1267,7 +1267,7 @@
         let secComment = secCommentEl ? secCommentEl.value : '';
         let mgrComment = mgrCommentEl ? mgrCommentEl.value : '';
 
-        // Si non présent dans le formulaire actuel, récupérer les données du collaborateur
+        // Si non prÃ©sent dans le formulaire actuel, rÃ©cupÃ©rer les donnÃ©es du collaborateur
         if (window.evalCurrentEv) {
           try {
             const listStr = prefix === 'fonda' ? window.evalCurrentEv.fondamentales : window.evalCurrentEv.specifiques;
@@ -1326,7 +1326,7 @@
       const formData = getEvaluationFormData();
       const status = document.getElementById('eval-submit-status');
       
-      if (window.evalCurrentMode === 'Évaluation Manager') {
+      if (window.evalCurrentMode === 'Ã‰valuation Manager') {
           const mgrData = {
             mgrFondamentales: formData.fondamentales,
             mgrSpecifiques: formData.specifiques,
@@ -1339,16 +1339,16 @@
           };
           google.script.run
             .withSuccessHandler(() => {
-                status.innerText = 'Brouillon sauvegardé.';
+                status.innerText = 'Brouillon sauvegardÃ©.';
                 status.style.color = 'gray';
             })
             .saveAttachedManagerEvaluationDraft(window.kanagaToken, window.evalAttachedRowId, mgrData, currentUser.fullName);
-      } else if (window.evalCurrentMode === 'Évaluation Secondaire') {
+      } else if (window.evalCurrentMode === 'Ã‰valuation Secondaire') {
           // Brouillon secondaire optionnel
       } else {
           google.script.run
             .withSuccessHandler(() => {
-                status.innerText = 'Brouillon sauvegardé.';
+                status.innerText = 'Brouillon sauvegardÃ©.';
                 status.style.color = 'gray';
             })
             .saveSelfEvaluationDraft(window.kanagaToken, window.evalAttachedRowId, formData);
@@ -1368,7 +1368,7 @@
     
     const formData = getEvaluationFormData();
 
-    if (window.evalCurrentMode === 'Évaluation Manager') {
+    if (window.evalCurrentMode === 'Ã‰valuation Manager') {
       const mgrData = {
         mgrFondamentales: formData.fondamentales,
         mgrSpecifiques: formData.specifiques,
@@ -1382,12 +1382,12 @@
       
       google.script.run
         .withSuccessHandler(() => {
-           status.innerText = 'Évaluation manager enregistrée avec succès.';
+           status.innerText = 'Ã‰valuation manager enregistrÃ©e avec succÃ¨s.';
            status.style.color = 'var(--secondary-color)';
            setTimeout(() => {
                showManagerDashboard();
                btn.disabled = false;
-               btn.innerText = "Soumettre l'Évaluation";
+               btn.innerText = "Soumettre l'Ã‰valuation";
                status.innerText = '';
            }, 2000);
         })
@@ -1395,19 +1395,19 @@
            status.innerText = 'Erreur : ' + err.message;
            status.style.color = 'var(--danger-color)';
            btn.disabled = false;
-           btn.innerText = "Soumettre l'Évaluation";
+           btn.innerText = "Soumettre l'Ã‰valuation";
         })
         .submitAttachedManagerEvaluation(window.kanagaToken, window.evalAttachedRowId, mgrData, currentUser.fullName);
-    } else if (window.evalCurrentMode === 'Évaluation Secondaire') {
+    } else if (window.evalCurrentMode === 'Ã‰valuation Secondaire') {
       google.script.run
         .withSuccessHandler(() => {
-           status.innerText = 'Évaluation secondaire enregistrée avec succès.';
+           status.innerText = 'Ã‰valuation secondaire enregistrÃ©e avec succÃ¨s.';
            status.style.color = 'var(--secondary-color)';
            setTimeout(() => {
                if (currentUser.role === 'Manager' || currentUser.role === 'Admin') showManagerDashboard();
                else showEmployeeDashboard();
                btn.disabled = false;
-               btn.innerText = "Soumettre l'Évaluation";
+               btn.innerText = "Soumettre l'Ã‰valuation";
                status.innerText = '';
            }, 2000);
         })
@@ -1415,18 +1415,18 @@
            status.innerText = 'Erreur : ' + err.message;
            status.style.color = 'var(--danger-color)';
            btn.disabled = false;
-           btn.innerText = "Soumettre l'Évaluation";
+           btn.innerText = "Soumettre l'Ã‰valuation";
         })
         .submitSecondaryEvaluation(window.kanagaToken, window.evalAttachedRowId, formData);
     } else {
       google.script.run
         .withSuccessHandler(() => {
-           status.innerText = 'Auto-évaluation enregistrée avec succès.';
+           status.innerText = 'Auto-Ã©valuation enregistrÃ©e avec succÃ¨s.';
            status.style.color = 'var(--secondary-color)';
            setTimeout(() => {
                showEmployeeDashboard();
                btn.disabled = false;
-               btn.innerText = "Soumettre l'Évaluation";
+               btn.innerText = "Soumettre l'Ã‰valuation";
                status.innerText = '';
            }, 2000);
         })
@@ -1434,7 +1434,7 @@
            status.innerText = 'Erreur : ' + err.message;
            status.style.color = 'var(--danger-color)';
            btn.disabled = false;
-           btn.innerText = "Soumettre l'Évaluation";
+           btn.innerText = "Soumettre l'Ã‰valuation";
         })
         .submitSelfEvaluation(window.kanagaToken, window.evalAttachedRowId, formData);
     }
@@ -1449,7 +1449,7 @@
     
     const formData = getEvaluationFormData();
 
-    if (window.evalCurrentMode === 'Évaluation Manager') {
+    if (window.evalCurrentMode === 'Ã‰valuation Manager') {
       const mgrData = {
         mgrFondamentales: formData.fondamentales,
         mgrSpecifiques: formData.specifiques,
@@ -1464,8 +1464,8 @@
       google.script.run
         .withSuccessHandler(function() {
           btn.disabled = false;
-          btn.innerText = 'Pré-évaluer (pour réunion)';
-          status.innerHTML = '<span style="color:green;">Pré-évaluation sauvegardée !</span>';
+          btn.innerText = 'PrÃ©-Ã©valuer (pour rÃ©union)';
+          status.innerHTML = '<span style="color:green;">PrÃ©-Ã©valuation sauvegardÃ©e !</span>';
           setTimeout(() => {
              document.getElementById('eval-wizard-screen').style.display = 'none';
              if (currentUser.role === 'Manager' || currentUser.role === 'Admin') showManagerDashboard();
@@ -1474,7 +1474,7 @@
         })
         .withFailureHandler(function(err) {
           btn.disabled = false;
-          btn.innerText = 'Pré-évaluer (pour réunion)';
+          btn.innerText = 'PrÃ©-Ã©valuer (pour rÃ©union)';
           status.innerHTML = '<span style="color:red;">Erreur: ' + err.message + '</span>';
         })
         .savePreEvaluation(window.kanagaToken, window.evalAttachedRowId, mgrData, currentUser.fullName);
@@ -1482,14 +1482,14 @@
   };
 
   window.quickAttachManagerEval = function(rowId) {
-    startEvaluationWizard('Évaluation Manager', rowId);
+    startEvaluationWizard('Ã‰valuation Manager', rowId);
   };
 
   window.advanceToPrincipal = function(rowId) {
-    if (!confirm("Voulez-vous clôturer la phase d'évaluation secondaire et passer immédiatement à l'évaluation principale ?")) return;
+    if (!confirm("Voulez-vous clÃ´turer la phase d'Ã©valuation secondaire et passer immÃ©diatement Ã  l'Ã©valuation principale ?")) return;
     google.script.run
       .withSuccessHandler(function() {
-        alert("L'évaluation est désormais en attente de l'évaluateur principal.");
+        alert("L'Ã©valuation est dÃ©sormais en attente de l'Ã©valuateur principal.");
         if (currentUser.role === 'Manager' || currentUser.role === 'Admin') showManagerDashboard();
         else showEmployeeDashboard();
       })
@@ -1507,43 +1507,43 @@
     try { secList = JSON.parse(ev.secondaryEvaluators || '[]'); } catch(e){}
     const mySecEntry = secList.find(s => s.email === currentUser.username || s.name === currentUser.fullName);
     const isSecondary = !!mySecEntry || currentUser.role === 'Admin';
-    const secDone = mySecEntry && mySecEntry.status === 'Complété';
+    const secDone = mySecEntry && mySecEntry.status === 'ComplÃ©tÃ©';
 
     let badgeClass = 'badge-primary';
     let displayStatus = ev.status;
-    if (ev.status === 'Initiée') {
+    if (ev.status === 'InitiÃ©e') {
       badgeClass = 'badge-warning';
-    } else if (ev.status === 'Attente Évaluateur Secondaire') {
+    } else if (ev.status === 'Attente Ã‰valuateur Secondaire') {
       badgeClass = 'badge-info';
-    } else if (ev.status === 'Attente Évaluateur Principal' || ev.status === 'Auto-évaluée') {
+    } else if (ev.status === 'Attente Ã‰valuateur Principal' || ev.status === 'Auto-Ã©valuÃ©e') {
       badgeClass = 'badge-primary';
-    } else if (ev.status === 'Pré-évaluée') {
+    } else if (ev.status === 'PrÃ©-Ã©valuÃ©e') {
       badgeClass = 'badge-info';
-    } else if (ev.status === 'Complétée') {
+    } else if (ev.status === 'ComplÃ©tÃ©e') {
       badgeClass = 'badge-success';
     }
 
     let actionBtns = `<button class="btn btn-outline" style="padding:5px 10px; font-size:12px;" onclick="viewEvaluation(${idx})">Consulter</button>`;
 
-    if (ev.status === 'Initiée') {
+    if (ev.status === 'InitiÃ©e') {
       if (isCollab) {
-        actionBtns += ` <button class="btn btn-primary" style="padding:5px 10px; font-size:12px; margin-left:5px; background-color:var(--secondary-color);" onclick="startEvaluationWizard('Auto-évaluation', ${ev.rowId})">Auto-évaluer</button>`;
+        actionBtns += ` <button class="btn btn-primary" style="padding:5px 10px; font-size:12px; margin-left:5px; background-color:var(--secondary-color);" onclick="startEvaluationWizard('Auto-Ã©valuation', ${ev.rowId})">Auto-Ã©valuer</button>`;
       }
-    } else if (ev.status === 'Attente Évaluateur Secondaire') {
+    } else if (ev.status === 'Attente Ã‰valuateur Secondaire') {
       if (isSecondary && !secDone) {
-        actionBtns += ` <button class="btn" style="padding:5px 10px; font-size:12px; margin-left:5px; background-color:#ff9800; color:#fff;" onclick="startEvaluationWizard('Évaluation Secondaire', ${ev.rowId})">Évaluer (Secondaire)</button>`;
+        actionBtns += ` <button class="btn" style="padding:5px 10px; font-size:12px; margin-left:5px; background-color:#ff9800; color:#fff;" onclick="startEvaluationWizard('Ã‰valuation Secondaire', ${ev.rowId})">Ã‰valuer (Secondaire)</button>`;
       }
       if (isPrincipal || currentUser.role === 'Admin') {
-        actionBtns += ` <button class="btn btn-outline" style="padding:5px 10px; font-size:12px; margin-left:5px;" onclick="advanceToPrincipal(${ev.rowId})" title="Clôturer l'étape secondaire et passer à l'évaluation principale">Passer au Principal ➔</button>`;
+        actionBtns += ` <button class="btn btn-outline" style="padding:5px 10px; font-size:12px; margin-left:5px;" onclick="advanceToPrincipal(${ev.rowId})" title="ClÃ´turer l'Ã©tape secondaire et passer Ã  l'Ã©valuation principale">Passer au Principal âž”</button>`;
       }
-    } else if (ev.status === 'Attente Évaluateur Principal' || ev.status === 'Auto-évaluée' || ev.status === 'Pré-évaluée') {
+    } else if (ev.status === 'Attente Ã‰valuateur Principal' || ev.status === 'Auto-Ã©valuÃ©e' || ev.status === 'PrÃ©-Ã©valuÃ©e') {
       if (isPrincipal || currentUser.role === 'Admin') {
-        actionBtns += ` <button class="btn" style="padding:5px 10px; font-size:12px; margin-left:5px; background-color:var(--secondary-color); color:#fff;" onclick="startEvaluationWizard('Évaluation Manager', ${ev.rowId})">Évaluer (Principal)</button>`;
+        actionBtns += ` <button class="btn" style="padding:5px 10px; font-size:12px; margin-left:5px; background-color:var(--secondary-color); color:#fff;" onclick="startEvaluationWizard('Ã‰valuation Manager', ${ev.rowId})">Ã‰valuer (Principal)</button>`;
       }
     }
 
-    if (ev.status === 'Complétée' && ev.pdfUrl) {
-      actionBtns += ` <a href="${ev.pdfUrl}" target="_blank" class="btn btn-outline" style="padding:5px 10px; font-size:12px; margin-left:5px;">Télécharger PDF</a>`;
+    if (ev.status === 'ComplÃ©tÃ©e' && ev.pdfUrl) {
+      actionBtns += ` <a href="${ev.pdfUrl}" target="_blank" class="btn btn-outline" style="padding:5px 10px; font-size:12px; margin-left:5px;">TÃ©lÃ©charger PDF</a>`;
     }
 
     return {
@@ -1570,7 +1570,7 @@
           const evals = JSON.parse(evalsStr);
           tbody.innerHTML = '';
           if(!evals || evals.length === 0) {
-             tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Aucune évaluation trouvée.</td></tr>';
+             tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Aucune Ã©valuation trouvÃ©e.</td></tr>';
              return;
           }
           
@@ -1615,7 +1615,7 @@
     document.getElementById('eval-viewer-screen').style.display = 'none';
     document.getElementById('eval-header-actions').style.display = 'block';
     
-    document.querySelector('#eval-manager-dashboard h3').innerText = "Mes Historiques d'Évaluation";
+    document.querySelector('#eval-manager-dashboard h3').innerText = "Mes Historiques d'Ã‰valuation";
     document.getElementById('eval-dashboard-loader').style.display = 'block';
     const tbody = document.querySelector('#evals-table tbody');
     if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Chargement en cours...</td></tr>';
@@ -1629,7 +1629,7 @@
           tbody.innerHTML = '';
           
           if(!evals || (evals.length > 0 && evals[0].error)) {
-             tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:red;">Erreur technique: ${evals ? evals[0].error : 'Données nulles'}</td></tr>`;
+             tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:red;">Erreur technique: ${evals ? evals[0].error : 'DonnÃ©es nulles'}</td></tr>`;
              return;
           }
 
@@ -1646,7 +1646,7 @@
           updateNotifications();
           
           if(myEvals.length === 0) {
-             tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Aucune évaluation trouvée.</td></tr>';
+             tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Aucune Ã©valuation trouvÃ©e.</td></tr>';
              return;
           }
           
@@ -1683,17 +1683,17 @@
      
      let pdfButton = '';
      if(ev.pdfUrl) {
-         pdfButton = `<a href="${ev.pdfUrl}" target="_blank" class="btn btn-primary" style="margin-top: 15px; display: inline-block;">Télécharger PDF</a>`;
+         pdfButton = `<a href="${ev.pdfUrl}" target="_blank" class="btn btn-primary" style="margin-top: 15px; display: inline-block;">TÃ©lÃ©charger PDF</a>`;
      }
 
      let secList = [];
      try { secList = JSON.parse(ev.secondaryEvaluators || '[]'); } catch(e){}
-     let secListDisplay = '<span class="text-muted">Aucun évaluateur secondaire désigné</span>';
+     let secListDisplay = '<span class="text-muted">Aucun Ã©valuateur secondaire dÃ©signÃ©</span>';
      if (secList.length > 0) {
        secListDisplay = secList.map(s => {
-         const isDone = (s.status === 'Complété');
+         const isDone = (s.status === 'ComplÃ©tÃ©');
          const badgeBg = isDone ? '#28a745' : '#ff9800';
-         return `${escapeHtml(s.name || s.email)} <span style="font-size:11px; padding:2px 7px; border-radius:10px; background:${badgeBg}; color:#fff; font-weight:500;">${isDone ? 'Complété' : 'En attente'}</span>`;
+         return `${escapeHtml(s.name || s.email)} <span style="font-size:11px; padding:2px 7px; border-radius:10px; background:${badgeBg}; color:#fff; font-weight:500;">${isDone ? 'ComplÃ©tÃ©' : 'En attente'}</span>`;
        }).join(', ');
      }
 
@@ -1701,23 +1701,23 @@
        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
          <div class="eval-viewer-grid" style="flex: 1;">
            <div class="eval-viewer-box"><strong>Statut:</strong> ${ev.status || ev.type}</div>
-           <div class="eval-viewer-box"><strong>Période:</strong> ${ev.period}</div>
-           <div class="eval-viewer-box"><strong>Employé:</strong> ${ev.employeeName}</div>
-           <div class="eval-viewer-box"><strong>Département:</strong> ${ev.dept || '-'}</div>
-           <div class="eval-viewer-box"><strong>Évaluateur Principal:</strong> ${ev.principalEvaluatorName || ev.evaluatorName}</div>
+           <div class="eval-viewer-box"><strong>PÃ©riode:</strong> ${ev.period}</div>
+           <div class="eval-viewer-box"><strong>EmployÃ©:</strong> ${ev.employeeName}</div>
+           <div class="eval-viewer-box"><strong>DÃ©partement:</strong> ${ev.dept || '-'}</div>
+           <div class="eval-viewer-box"><strong>Ã‰valuateur Principal:</strong> ${ev.principalEvaluatorName || ev.evaluatorName}</div>
            <div class="eval-viewer-box"><strong>Profil:</strong> ${ev.profile}</div>
-           <div class="eval-viewer-box" style="grid-column: span 2;"><strong>Évaluateurs Secondaires:</strong><br>${secListDisplay}</div>
+           <div class="eval-viewer-box" style="grid-column: span 2;"><strong>Ã‰valuateurs Secondaires:</strong><br>${secListDisplay}</div>
          </div>
          <div style="margin-left: 20px;">
            ${pdfButton}
          </div>
        </div>`;
 
-       if (ev.status === 'Initiée') {
+       if (ev.status === 'InitiÃ©e') {
            html += `
              <div style="margin-top: 40px; padding: 30px; background: #fff3cd; color: #856404; text-align: center; border-radius: 8px; border: 1px solid #ffeeba;">
-               <h4 style="margin-bottom: 10px;">En attente d'auto-évaluation</h4>
-               <p>Le processus d'évaluation a été initié pour <strong>${ev.employeeName}</strong>. Le dossier d'évaluation ne sera consultable et modifiable qu'après que l'employé aura soumis son auto-évaluation.</p>
+               <h4 style="margin-bottom: 10px;">En attente d'auto-Ã©valuation</h4>
+               <p>Le processus d'Ã©valuation a Ã©tÃ© initiÃ© pour <strong>${ev.employeeName}</strong>. Le dossier d'Ã©valuation ne sera consultable et modifiable qu'aprÃ¨s que l'employÃ© aura soumis son auto-Ã©valuation.</p>
              </div>
            `;
        } else {
@@ -1749,15 +1749,15 @@
            };
 
            html += `
-       <h4 style="margin-top:25px; border-bottom:1px solid #ddd; padding-bottom:5px;">Synthèse Globale</h4>
+       <h4 style="margin-top:25px; border-bottom:1px solid #ddd; padding-bottom:5px;">SynthÃ¨se Globale</h4>
        <div class="table-responsive">
          <table class="modern-table" style="width:100%;">
            <thead>
              <tr>
                <th style="width:20%;">Rubrique</th>
-               <th style="width:26%;">Auto-évaluation (Employé)</th>
-               <th style="width:28%;">Évaluation(s) Secondaire(s)</th>
-               <th style="width:26%;">Évaluation Principale</th>
+               <th style="width:26%;">Auto-Ã©valuation (EmployÃ©)</th>
+               <th style="width:28%;">Ã‰valuation(s) Secondaire(s)</th>
+               <th style="width:26%;">Ã‰valuation Principale</th>
              </tr>
            </thead>
            <tbody>
@@ -1774,7 +1774,7 @@
                <td>${(ev.mgrStrengths || '-').replace(/\n/g, '<br>')}</td>
              </tr>
              <tr>
-               <td><strong>Axes d'Amélioration</strong></td>
+               <td><strong>Axes d'AmÃ©lioration</strong></td>
                <td>${(ev.improvements || '-').replace(/\n/g, '<br>')}</td>
                <td>${formatSecSynthField('improvements')}</td>
                <td>${(ev.mgrImprovements || '-').replace(/\n/g, '<br>')}</td>
@@ -1798,8 +1798,8 @@
         <div class="eval-rating-scale-card" style="margin-top: 25px;">
           <div class="eval-scale-header">
             <div class="eval-scale-title">
-              <span>📊</span>
-              <span>Barème d'évaluation de la performance</span>
+              <span>ðŸ“Š</span>
+              <span>BarÃ¨me d'Ã©valuation de la performance</span>
             </div>
           </div>
           <div class="eval-scale-items">
@@ -1807,14 +1807,14 @@
               <span class="eval-badge eval-badge-pe">5 - PE</span>
               <div>
                 <strong>Performance Exceptionnelle</strong>
-                <div class="text-muted">Dépasse constamment les attentes et constitue une référence.</div>
+                <div class="text-muted">DÃ©passe constamment les attentes et constitue une rÃ©fÃ©rence.</div>
               </div>
             </div>
             <div class="eval-scale-item">
               <span class="eval-badge eval-badge-ps">4 - PS</span>
               <div>
-                <strong>Performance Supérieure</strong>
-                <div class="text-muted">Dépasse régulièrement les attentes dans les domaines clés.</div>
+                <strong>Performance SupÃ©rieure</strong>
+                <div class="text-muted">DÃ©passe rÃ©guliÃ¨rement les attentes dans les domaines clÃ©s.</div>
               </div>
             </div>
             <div class="eval-scale-item">
@@ -1827,36 +1827,36 @@
             <div class="eval-scale-item">
               <span class="eval-badge eval-badge-pa">2 - PA</span>
               <div>
-                <strong>Performance à Améliorer</strong>
-                <div class="text-muted">N'atteint pas toujours les objectifs et nécessite une amélioration dans certains domaines.</div>
+                <strong>Performance Ã  AmÃ©liorer</strong>
+                <div class="text-muted">N'atteint pas toujours les objectifs et nÃ©cessite une amÃ©lioration dans certains domaines.</div>
               </div>
             </div>
             <div class="eval-scale-item">
               <span class="eval-badge eval-badge-pi">1 - PI</span>
               <div>
                 <strong>Performance Insatisfaisante</strong>
-                <div class="text-muted">N'atteint pas les objectifs de manière significative et nécessite une amélioration immédiate.</div>
+                <div class="text-muted">N'atteint pas les objectifs de maniÃ¨re significative et nÃ©cessite une amÃ©lioration immÃ©diate.</div>
               </div>
             </div>
             <div class="eval-scale-item">
               <span class="eval-badge eval-badge-na">N/A</span>
               <div>
                 <strong>Non Applicable</strong>
-                <div class="text-muted">Non applicable au poste ou non évaluable sur la période.</div>
+                <div class="text-muted">Non applicable au poste ou non Ã©valuable sur la pÃ©riode.</div>
               </div>
             </div>
           </div>
         </div>
 
-        <h4 style="margin-top:25px; border-bottom:1px solid #ddd; padding-bottom:5px;">Détail des Compétences</h4>
+        <h4 style="margin-top:25px; border-bottom:1px solid #ddd; padding-bottom:5px;">DÃ©tail des CompÃ©tences</h4>
         <div class="table-responsive">
           <table class="modern-table" style="width:100%;">
             <thead>
               <tr>
-                <th style="width:34%;">Compétence</th>
-                <th style="width:22%;">Auto-évaluation (Employé)</th>
-                <th style="width:22%;">Évaluation(s) Secondaire(s)</th>
-                <th style="width:22%;">Évaluation Principale</th>
+                <th style="width:34%;">CompÃ©tence</th>
+                <th style="width:22%;">Auto-Ã©valuation (EmployÃ©)</th>
+                <th style="width:22%;">Ã‰valuation(s) Secondaire(s)</th>
+                <th style="width:22%;">Ã‰valuation Principale</th>
               </tr>
             </thead>
             <tbody>
@@ -1925,7 +1925,7 @@
       try { if(ev.secondarySpecifiques && ev.secondarySpecifiques !== "[]") secSpec = JSON.parse(ev.secondarySpecifiques); } catch(e){}
       
       if (empSpec.length > 0 || mgrSpec.length > 0 || secSpec.length > 0) {
-          html += `<tr><td colspan="4" style="background:#f5f5f5; font-weight:bold;">Spécifiques (${escapeHtml(ev.profile || 'Profil')})</td></tr>`;
+          html += `<tr><td colspan="4" style="background:#f5f5f5; font-weight:bold;">SpÃ©cifiques (${escapeHtml(ev.profile || 'Profil')})</td></tr>`;
           const maxLen = Math.max(empSpec.length, mgrSpec.length);
           for(let i=0; i<maxLen; i++) {
               const empQ = empSpec[i] || {};
@@ -1959,8 +1959,8 @@
       html += `</tbody></table></div>`;
       
       html += `
-        <div class="eval-viewer-box" style="margin-top:20px;"><strong>Commentaires Généraux Employé:</strong><br>${(ev.empComments || '-').replace(/\n/g, '<br>')}</div>
-        <div class="eval-viewer-box" style="margin-bottom:10px;"><strong>Commentaires Généraux Manager / Principal:</strong><br>${(ev.mgrComments || '-').replace(/\n/g, '<br>')}</div>
+        <div class="eval-viewer-box" style="margin-top:20px;"><strong>Commentaires GÃ©nÃ©raux EmployÃ©:</strong><br>${(ev.empComments || '-').replace(/\n/g, '<br>')}</div>
+        <div class="eval-viewer-box" style="margin-bottom:10px;"><strong>Commentaires GÃ©nÃ©raux Manager / Principal:</strong><br>${(ev.mgrComments || '-').replace(/\n/g, '<br>')}</div>
       `;
      }
      
@@ -1968,38 +1968,38 @@
      const isPrincipalUser = (ev.principalEvaluatorEmail === currentUser.username || ev.principalEvaluatorName === currentUser.fullName || (!ev.principalEvaluatorEmail && ev.evaluatorName === currentUser.fullName) || currentUser.role === 'Admin');
      const mySecUser = secList.find(s => s.email === currentUser.username || s.name === currentUser.fullName);
      const isSecUser = !!mySecUser || currentUser.role === 'Admin';
-     const secUserDone = mySecUser && mySecUser.status === 'Complété';
+     const secUserDone = mySecUser && mySecUser.status === 'ComplÃ©tÃ©';
 
-     if (ev.status === 'Attente Évaluateur Secondaire') {
+     if (ev.status === 'Attente Ã‰valuateur Secondaire') {
        let bottomActions = '';
        if (isSecUser && !secUserDone) {
-         bottomActions += `<button class="btn" style="background-color:#ff9800; color:#fff; margin-right:10px;" onclick="startEvaluationWizard('Évaluation Secondaire', ${ev.rowId})">Évaluer en tant qu'évaluateur secondaire</button>`;
+         bottomActions += `<button class="btn" style="background-color:#ff9800; color:#fff; margin-right:10px;" onclick="startEvaluationWizard('Ã‰valuation Secondaire', ${ev.rowId})">Ã‰valuer en tant qu'Ã©valuateur secondaire</button>`;
        }
        if (isPrincipalUser) {
-         bottomActions += `<button class="btn btn-outline" onclick="advanceToPrincipal(${ev.rowId})">Passer immédiatement à l'évaluation principale ➔</button>`;
+         bottomActions += `<button class="btn btn-outline" onclick="advanceToPrincipal(${ev.rowId})">Passer immÃ©diatement Ã  l'Ã©valuation principale âž”</button>`;
        }
        if (bottomActions) {
          html += `
            <div style="margin-top:30px; padding:20px; background:#fffcf5; text-align:center; border:1px dashed #ff9800; border-radius:6px;">
-             <p style="margin-bottom:15px; color:#555;">Phase d'évaluation secondaire en cours.</p>
+             <p style="margin-bottom:15px; color:#555;">Phase d'Ã©valuation secondaire en cours.</p>
              ${bottomActions}
            </div>
          `;
        }
-     } else if (ev.status === 'Attente Évaluateur Principal' || ev.status === 'Auto-évaluée') {
+     } else if (ev.status === 'Attente Ã‰valuateur Principal' || ev.status === 'Auto-Ã©valuÃ©e') {
        if (isPrincipalUser) {
          html += `
            <div style="margin-top:30px; padding:20px; background:#f0f5fc; text-align:center; border:1px dashed var(--primary-color); border-radius:6px;">
-             <p style="margin-bottom:15px; color:#555;">Ce dossier est prêt pour votre évaluation finale.</p>
-             <button class="btn btn-success" onclick="startEvaluationWizard('Évaluation Manager', ${ev.rowId})">Évaluer en tant qu'évaluateur principal</button>
+             <p style="margin-bottom:15px; color:#555;">Ce dossier est prÃªt pour votre Ã©valuation finale.</p>
+             <button class="btn btn-success" onclick="startEvaluationWizard('Ã‰valuation Manager', ${ev.rowId})">Ã‰valuer en tant qu'Ã©valuateur principal</button>
            </div>
          `;
        }
-     } else if (ev.status === 'Complétée' && isPrincipalUser) {
+     } else if (ev.status === 'ComplÃ©tÃ©e' && isPrincipalUser) {
        html += `
          <div style="margin-top:30px; padding:20px; background:#f9f9f9; text-align:center; border:1px dashed #ccc; border-radius:6px;">
-           <p style="margin-bottom:15px; color:#555;">Ce dossier est complété (Évaluateur principal: ${ev.principalEvaluatorName || ev.mgrName || ev.evaluatorName}).</p>
-           <button class="btn btn-outline" onclick="startEvaluationWizard('Évaluation Manager', ${ev.rowId})">Modifier / Compléter l'évaluation</button>
+           <p style="margin-bottom:15px; color:#555;">Ce dossier est complÃ©tÃ© (Ã‰valuateur principal: ${ev.principalEvaluatorName || ev.mgrName || ev.evaluatorName}).</p>
+           <button class="btn btn-outline" onclick="startEvaluationWizard('Ã‰valuation Manager', ${ev.rowId})">Modifier / ComplÃ©ter l'Ã©valuation</button>
          </div>
        `;
      }
@@ -2066,7 +2066,7 @@
     const countryKeys = Object.keys(groups);
 
     if (countryKeys.length === 0) {
-      container.innerHTML = '<p style="color:#718096; font-style:italic;">Aucun groupe de pays configuré. Cliquez sur "+ Ajouter un Pays / Bureau" ci-dessous.</p>';
+      container.innerHTML = '<p style="color:#718096; font-style:italic;">Aucun groupe de pays configurÃ©. Cliquez sur "+ Ajouter un Pays / Bureau" ci-dessous.</p>';
       return;
     }
 
@@ -2080,7 +2080,7 @@
             <button class="btn btn-sm" style="background: var(--danger-color); color: white;" onclick="deleteCountryAdminGroup('${escapeHtml(country)}')">Supprimer</button>
           </div>
           <div class="form-group" style="margin-bottom: 0;">
-            <label style="font-size: 12px; color: #4a5568;">Membres autorisés (adresses e-mail séparées par des virgules) :</label>
+            <label style="font-size: 12px; color: #4a5568;">Membres autorisÃ©s (adresses e-mail sÃ©parÃ©es par des virgules) :</label>
             <textarea class="form-control" rows="2" style="font-size: 13px;" onchange="updateCountryEmails('${escapeHtml(country)}', this.value)" placeholder="exemple1@kanagaconsulting.com, exemple2@kanagaconsulting.com">${escapeHtml(emailsList)}</textarea>
           </div>
         </div>
@@ -2094,7 +2094,7 @@
     newKey = newKey.trim();
     if (!newKey || oldKey === newKey) return;
     if (window.adminCountryGroupsState[newKey]) {
-      alert("Ce nom de pays/bureau existe déjà.");
+      alert("Ce nom de pays/bureau existe dÃ©jÃ .");
       renderAdminCountryGroups();
       return;
     }
@@ -2115,7 +2115,7 @@
     if (!newCountry || !newCountry.trim()) return;
     const key = newCountry.trim();
     if (window.adminCountryGroupsState[key]) {
-      alert("Ce pays / bureau existe déjà.");
+      alert("Ce pays / bureau existe dÃ©jÃ .");
       return;
     }
     window.adminCountryGroupsState[key] = [];
@@ -2143,7 +2143,7 @@
       .withSuccessHandler(() => {
         if (btn) btn.disabled = false;
         if (statusMsg) {
-          statusMsg.textContent = "Groupes d'administration par pays enregistrés avec succès !";
+          statusMsg.textContent = "Groupes d'administration par pays enregistrÃ©s avec succÃ¨s !";
           statusMsg.style.color = "green";
           setTimeout(() => { if (statusMsg) statusMsg.textContent = ''; }, 3000);
         }
@@ -2179,7 +2179,7 @@
     // Charger les questions et profils
     populateAdminQuestionsConfig();
     
-    // Charger les paramètres de l'e-mail d'évaluation
+    // Charger les paramÃ¨tres de l'e-mail d'Ã©valuation
     google.script.run.withSuccessHandler(function(settings) {
        document.getElementById('eval-email-subject').value = settings.sujet;
        document.getElementById('eval-email-message').value = settings.message;
@@ -2246,7 +2246,7 @@
       projectsGroup.style.display = 'block';
       if (!window.adminProjectsChoices) {
         const select = document.getElementById('admin-edit-projects');
-        window.adminProjectsChoices = new Choices(select, { removeItemButton: true, placeholder: true, placeholderValue: 'Sélectionnez des projets' });
+        window.adminProjectsChoices = new Choices(select, { removeItemButton: true, placeholder: true, placeholderValue: 'SÃ©lectionnez des projets' });
       }
       if (window.adminAllProjects) {
         window.adminProjectsChoices.clearChoices();
@@ -2289,12 +2289,12 @@
       
       const fondaOpt = document.createElement('option');
       fondaOpt.value = 'fondamentales';
-      fondaOpt.text = '📌 Tronc Commun : Fondamentales (Communes à tous)';
+      fondaOpt.text = 'ðŸ“Œ Tronc Commun : Fondamentales (Communes Ã  tous)';
       select.appendChild(fondaOpt);
       
       const cloneSelect = document.getElementById('admin-clone-profile-select');
       if (cloneSelect) {
-        cloneSelect.innerHTML = '<option value="">-- Démarrer avec une question vierge --</option>';
+        cloneSelect.innerHTML = '<option value="">-- DÃ©marrer avec une question vierge --</option>';
         const fondaClone = document.createElement('option');
         fondaClone.value = 'fondamentales';
         fondaClone.text = 'Copier depuis : Fondamentales (Communes)';
@@ -2305,7 +2305,7 @@
          if (key.toLowerCase() !== 'fondamentales') {
             const opt = document.createElement('option');
             opt.value = key;
-            opt.text = "🎯 Profil : " + key;
+            opt.text = "ðŸŽ¯ Profil : " + key;
             select.appendChild(opt);
 
             if (cloneSelect) {
@@ -2345,13 +2345,13 @@
       
       if (titleEl) {
         titleEl.textContent = isFonda 
-          ? "Tronc Commun : Compétences Fondamentales" 
-          : `Aiguillage Spécifique : Profil "${profile}"`;
+          ? "Tronc Commun : CompÃ©tences Fondamentales" 
+          : `Aiguillage SpÃ©cifique : Profil "${profile}"`;
       }
       if (descEl) {
         descEl.textContent = isFonda
-          ? "Section 1 du Sablier : Posée obligatoirement à tous les collaborateurs, quel que soit leur métier."
-          : `Section 2 du Sablier : Posée uniquement aux collaborateurs avec le profil "${profile}".`;
+          ? "Section 1 du Sablier : PosÃ©e obligatoirement Ã  tous les collaborateurs, quel que soit leur mÃ©tier."
+          : `Section 2 du Sablier : PosÃ©e uniquement aux collaborateurs avec le profil "${profile}".`;
       }
 
       if (!container) return;
@@ -2370,8 +2370,8 @@
       if (questions.length === 0) {
           container.innerHTML = `
             <div style="text-align:center; padding:30px 15px; color:#718096;">
-              <p style="font-size:14px; margin-bottom:6px;">Aucune question spécifique configurée pour cette section.</p>
-              <p style="font-size:12px;">Cliquez sur <strong>"+ Ajouter une question à cette section"</strong> ci-dessous pour ajouter une compétence.</p>
+              <p style="font-size:14px; margin-bottom:6px;">Aucune question spÃ©cifique configurÃ©e pour cette section.</p>
+              <p style="font-size:12px;">Cliquez sur <strong>"+ Ajouter une question Ã  cette section"</strong> ci-dessous pour ajouter une compÃ©tence.</p>
             </div>
           `;
           return;
@@ -2385,7 +2385,7 @@
           if (q.type === 'scale') {
               optionsHtml = `
               <div style="margin-top:10px; background:#FAF6EE; padding:10px; border-radius:6px; border:1px solid #E0CC99;">
-                  <label style="font-size:12px; font-weight:600; color:#5D4037; display:block; margin-bottom:4px;">Options du barème de notation (séparées par des virgules) :</label>
+                  <label style="font-size:12px; font-weight:600; color:#5D4037; display:block; margin-bottom:4px;">Options du barÃ¨me de notation (sÃ©parÃ©es par des virgules) :</label>
                   <input type="text" class="form-control" value="${escapeHtml(q.options || 'PI, PA, CA, PS, PE, N/A')}" onchange="updateAdminQuestion(${idx}, 'options', this.value)" placeholder="ex: PI, PA, CA, PS, PE, N/A">
               </div>`;
           }
@@ -2396,20 +2396,20 @@
           card.innerHTML = `
             <div class="admin-q-header">
                <span class="admin-q-num">#${idx + 1}</span>
-               <input type="text" class="form-control" style="flex:1; font-weight:600;" value="${escapeHtml(q.text)}" onchange="updateAdminQuestion(${idx}, 'text', this.value)" placeholder="Titre de la compétence ou question *">
+               <input type="text" class="form-control" style="flex:1; font-weight:600;" value="${escapeHtml(q.text)}" onchange="updateAdminQuestion(${idx}, 'text', this.value)" placeholder="Titre de la compÃ©tence ou question *">
                <select class="form-control" style="width:190px;" onchange="updateAdminQuestion(${idx}, 'type', this.value)">
-                  <option value="scale" ${q.type === 'scale' ? 'selected' : ''}>Choix Multiple (Barème)</option>
+                  <option value="scale" ${q.type === 'scale' ? 'selected' : ''}>Choix Multiple (BarÃ¨me)</option>
                   <option value="text" ${q.type === 'text' ? 'selected' : ''}>Texte libre</option>
                   <option value="boolean" ${q.type === 'boolean' ? 'selected' : ''}>Oui / Non</option>
                </select>
                <div class="admin-q-actions">
-                 <button type="button" class="btn-q-tool" ${isFirst ? 'disabled style="opacity:0.3; cursor:not-allowed;"' : `onclick="moveAdminQuestion(${idx}, -1)"`} title="Monter">▲</button>
-                 <button type="button" class="btn-q-tool" ${isLast ? 'disabled style="opacity:0.3; cursor:not-allowed;"' : `onclick="moveAdminQuestion(${idx}, 1)"`} title="Descendre">▼</button>
-                 <button type="button" class="btn-q-tool btn-q-del" onclick="deleteAdminFormQuestion(${idx})" title="Supprimer">🗑️</button>
+                 <button type="button" class="btn-q-tool" ${isFirst ? 'disabled style="opacity:0.3; cursor:not-allowed;"' : `onclick="moveAdminQuestion(${idx}, -1)"`} title="Monter">â–²</button>
+                 <button type="button" class="btn-q-tool" ${isLast ? 'disabled style="opacity:0.3; cursor:not-allowed;"' : `onclick="moveAdminQuestion(${idx}, 1)"`} title="Descendre">â–¼</button>
+                 <button type="button" class="btn-q-tool btn-q-del" onclick="deleteAdminFormQuestion(${idx})" title="Supprimer">ðŸ—‘ï¸</button>
                </div>
             </div>
             <div>
-               <input type="text" class="form-control" style="width:100%; font-size:13px;" value="${escapeHtml(q.description || '')}" onchange="updateAdminQuestion(${idx}, 'description', this.value)" placeholder="Description, consignes ou critères attendus (Optionnel)">
+               <input type="text" class="form-control" style="width:100%; font-size:13px;" value="${escapeHtml(q.description || '')}" onchange="updateAdminQuestion(${idx}, 'description', this.value)" placeholder="Description, consignes ou critÃ¨res attendus (Optionnel)">
             </div>
             ${optionsHtml}
           `;
@@ -2444,7 +2444,7 @@
       if (!profile || !adminEvalConfigData[profile]) return;
       
       adminEvalConfigData[profile].push({
-          text: "Nouvelle compétence spécifique",
+          text: "Nouvelle compÃ©tence spÃ©cifique",
           description: "",
           type: "scale",
           options: "PI, PA, CA, PS, PE, N/A"
@@ -2456,7 +2456,7 @@
       const profile = document.getElementById('admin-profile-select').value;
       if (!profile || !adminEvalConfigData[profile]) return;
       
-      if (confirm(`Voulez-vous supprimer la question n° ${idx + 1} ?`)) {
+      if (confirm(`Voulez-vous supprimer la question nÂ° ${idx + 1} ?`)) {
         adminEvalConfigData[profile].splice(idx, 1);
         renderAdminFormBuilder();
       }
@@ -2482,12 +2482,12 @@
           return;
       }
       if (name.toLowerCase() === 'fondamentales' || name.toLowerCase() === 'autre') {
-          alert("Ce nom de profil est réservé par le système.");
+          alert("Ce nom de profil est rÃ©servÃ© par le systÃ¨me.");
           return;
       }
       for (const key in adminEvalConfigData) {
           if (key.toLowerCase().trim() === name.toLowerCase().trim()) {
-              alert(`Le profil "${key}" existe déjà.`);
+              alert(`Le profil "${key}" existe dÃ©jÃ .`);
               return;
           }
       }
@@ -2498,8 +2498,8 @@
           adminEvalConfigData[name] = JSON.parse(JSON.stringify(adminEvalConfigData[cloneFrom]));
       } else {
           adminEvalConfigData[name] = [{
-              text: "1. Compétence technique / métier",
-              description: "Critères d'évaluation de la performance attendue pour ce poste",
+              text: "1. CompÃ©tence technique / mÃ©tier",
+              description: "CritÃ¨res d'Ã©valuation de la performance attendue pour ce poste",
               type: "scale",
               options: "PI, PA, CA, PS, PE, N/A"
           }];
@@ -2514,12 +2514,12 @@
       const current = select.value;
       if (!current || current === 'fondamentales' || !adminEvalConfigData[current]) return;
       
-      let cloneName = prompt(`Nom du nouveau profil dupliqué depuis "${current}" :`, `${current} (Copie)`);
+      let cloneName = prompt(`Nom du nouveau profil dupliquÃ© depuis "${current}" :`, `${current} (Copie)`);
       if (!cloneName) return;
       cloneName = cloneName.trim();
       for (const key in adminEvalConfigData) {
           if (key.toLowerCase().trim() === cloneName.toLowerCase().trim()) {
-              alert("Un profil portant ce nom existe déjà.");
+              alert("Un profil portant ce nom existe dÃ©jÃ .");
               return;
           }
       }
@@ -2552,12 +2552,12 @@
           return;
       }
       if (newKey.toLowerCase() === 'fondamentales' || newKey.toLowerCase() === 'autre') {
-          alert("Ce nom de profil est réservé par le système.");
+          alert("Ce nom de profil est rÃ©servÃ© par le systÃ¨me.");
           return;
       }
       for (const k in adminEvalConfigData) {
           if (k !== oldKey && k.toLowerCase().trim() === newKey.toLowerCase().trim()) {
-              alert(`Un profil portant le nom "${k}" existe déjà.`);
+              alert(`Un profil portant le nom "${k}" existe dÃ©jÃ .`);
               return;
           }
       }
@@ -2580,7 +2580,7 @@
       const val = select.value;
       if (!val || val === 'fondamentales' || !adminEvalConfigData[val]) return;
       
-      if (confirm(`Voulez-vous vraiment supprimer définitivement le profil "${val}" et toutes ses questions spécifiques ?`)) {
+      if (confirm(`Voulez-vous vraiment supprimer dÃ©finitivement le profil "${val}" et toutes ses questions spÃ©cifiques ?`)) {
           delete adminEvalConfigData[val];
           updateAdminProfileSelect('fondamentales');
       }
@@ -2591,7 +2591,7 @@
       const status = document.getElementById('questions-status-msg');
       if (btn) btn.disabled = true;
       if (status) {
-        status.innerText = "⏳ Enregistrement de la configuration des profils et questions...";
+        status.innerText = "â³ Enregistrement de la configuration des profils et questions...";
         status.style.color = "var(--primary-color)";
       }
       
@@ -2599,19 +2599,19 @@
         .withSuccessHandler(function() {
             if (btn) btn.disabled = false;
             if (status) {
-              status.innerText = "✅ Configuration des profils et questions enregistrée avec succès !";
+              status.innerText = "âœ… Configuration des profils et questions enregistrÃ©e avec succÃ¨s !";
               status.style.color = "green";
               setTimeout(() => { if (status) status.innerText = ""; }, 4000);
             }
             google.script.run.withSuccessHandler(function(c) {
                 evalQuestions = c;
-                loadEvaluationData(); // Rafraîchit les options du sélecteur de profils du formulaire
+                loadEvaluationData(); // RafraÃ®chit les options du sÃ©lecteur de profils du formulaire
             }).getEvaluationConfig(window.kanagaToken);
         })
         .withFailureHandler(function(err) {
             if (btn) btn.disabled = false;
             if (status) {
-              status.innerText = "❌ Erreur : " + err.message;
+              status.innerText = "âŒ Erreur : " + err.message;
               status.style.color = "var(--danger-color)";
             }
         })
@@ -2645,7 +2645,7 @@
     
     google.script.run
       .withSuccessHandler(function() {
-        status.innerText = 'Utilisateur mis à jour.';
+        status.innerText = 'Utilisateur mis Ã  jour.';
         status.style.color = 'var(--secondary-color)';
         setTimeout(() => {
           closeAdminModal();
@@ -2680,9 +2680,9 @@
         loaderSpan.style.display = 'none';
         
         if (res && res.success) {
-            alert("Rapport de débogage Odoo :\n\n" + res.report);
+            alert("Rapport de dÃ©bogage Odoo :\n\n" + res.report);
         } else {
-            alert("Erreur de débogage : " + (res ? res.error : 'Erreur inconnue'));
+            alert("Erreur de dÃ©bogage : " + (res ? res.error : 'Erreur inconnue'));
         }
       })
       .withFailureHandler(err => {
@@ -2708,7 +2708,7 @@
         btn.disabled = false;
         btnText.style.display = 'inline';
         btnLoader.style.display = 'none';
-        alert("Synchronisation Odoo terminée.");
+        alert("Synchronisation Odoo terminÃ©e.");
         loadAdminData();
       })
       .withFailureHandler(function(err) {
@@ -2803,16 +2803,16 @@
     const avatarBadge = document.getElementById('avatar-notification-badge');
     const list = document.getElementById('dropdown-notifications-list');
     
-    if (!badge || !avatarBadge || !list) return; // Protection si les éléments DOM sont absents
+    if (!badge || !avatarBadge || !list) return; // Protection si les Ã©lÃ©ments DOM sont absents
     
     let pendingEvals = window.loadedEvals.filter(ev => 
-      ev.employeeEmail === currentUser.username && ev.status === 'Initiée'
+      ev.employeeEmail === currentUser.username && ev.status === 'InitiÃ©e'
     );
     
-    // Si l'utilisateur est manager, ajouter les auto-évaluées et pré-évaluées en attente
+    // Si l'utilisateur est manager, ajouter les auto-Ã©valuÃ©es et prÃ©-Ã©valuÃ©es en attente
     if(currentUser.role === 'Manager' || currentUser.role === 'Admin') {
        const mgrPending = window.loadedEvals.filter(ev => 
-          (ev.status === 'Auto-évaluée' || ev.status === 'Pré-évaluée') && !ev.mgrName
+          (ev.status === 'Auto-Ã©valuÃ©e' || ev.status === 'PrÃ©-Ã©valuÃ©e') && !ev.mgrName
        );
        pendingEvals = pendingEvals.concat(mgrPending);
     }
@@ -2827,10 +2827,10 @@
       let html = '';
       pendingEvals.forEach(ev => {
          let msg = '';
-         if(ev.employeeEmail === currentUser.username && ev.status === 'Initiée') {
-            msg = `Évaluation (${ev.period}) en attente de votre auto-évaluation.`;
+         if(ev.employeeEmail === currentUser.username && ev.status === 'InitiÃ©e') {
+            msg = `Ã‰valuation (${ev.period}) en attente de votre auto-Ã©valuation.`;
          } else {
-            msg = `Auto-évaluation de ${ev.employeeName} (${ev.period}) en attente de votre revue.`;
+            msg = `Auto-Ã©valuation de ${ev.employeeName} (${ev.period}) en attente de votre revue.`;
          }
          html += `<div style="padding:10px 15px; border-bottom:1px solid #eee; cursor:pointer;" onclick="navigateTo('evaluation'); toggleProfileMenu();">
                     ${msg}
@@ -2866,7 +2866,7 @@
          btnText.style.display = 'inline';
          btnLoader.style.display = 'none';
          if (res.success) {
-           alert("Ticket soumis avec succès !");
+           alert("Ticket soumis avec succÃ¨s !");
            document.getElementById('ticket-form').reset();
            loadUserTickets();
          } else {
@@ -2886,7 +2886,7 @@
       .withSuccessHandler(data => {
         const tbody = document.getElementById('user-tickets-tbody');
         if (!data || data.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">Aucun ticket trouvé.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">Aucun ticket trouvÃ©.</td></tr>';
           return;
         }
         let html = '';
@@ -2912,7 +2912,7 @@
       .withSuccessHandler(data => {
         const tbody = document.getElementById('all-tickets-tbody');
         if (!data || data.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">Aucun ticket trouvé.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">Aucun ticket trouvÃ©.</td></tr>';
           return;
         }
         let html = '';
@@ -2924,7 +2924,7 @@
             <td>${t.priority}</td>
             <td><span class="badge" style="background: ${getTicketStatusColor(t.status)}">${t.status}</span></td>
             <td>
-               <button class="btn btn-outline btn-sm" onclick="openUpdateTicketModal('${t.id}', '${t.status}', '${(t.comment || '').replace(/'/g, "\\'")}')">Mettre à jour</button>
+               <button class="btn btn-outline btn-sm" onclick="openUpdateTicketModal('${t.id}', '${t.status}', '${(t.comment || '').replace(/'/g, "\\'")}')">Mettre Ã  jour</button>
             </td>
           </tr>`;
         });
@@ -2939,7 +2939,7 @@
   function getTicketStatusColor(status) {
     if (status === 'Ouvert') return 'var(--danger-color)';
     if (status === 'En cours') return 'var(--warning-color)';
-    if (status === 'Fermé') return 'var(--success-color)';
+    if (status === 'FermÃ©') return 'var(--success-color)';
     return '#ccc';
   }
 
@@ -2978,7 +2978,7 @@
       .withFailureHandler(err => {
          btnText.style.display = 'inline';
          btnLoader.style.display = 'none';
-         alert("Erreur de mise à jour : " + err.message);
+         alert("Erreur de mise Ã  jour : " + err.message);
       })
       .updateTicket(window.kanagaToken, id, status, comment);
   }
@@ -3012,7 +3012,7 @@
         if (data && data.hasAccess === false) {
           if (errorMsg) {
             errorMsg.style.display = 'block';
-            errorMsg.textContent = "Accès restreint : Votre compte ne fait pas partie du groupe d'administration autorisé pour ce pays.";
+            errorMsg.textContent = "AccÃ¨s restreint : Votre compte ne fait pas partie du groupe d'administration autorisÃ© pour ce pays.";
           }
           return;
         }
@@ -3087,12 +3087,12 @@
     const afIndex = window.responsesState.afColIndex;
 
     if (badge) {
-      badge.textContent = responses.length + (responses.length > 1 ? ' réponses' : ' réponse');
+      badge.textContent = responses.length + (responses.length > 1 ? ' rÃ©ponses' : ' rÃ©ponse');
     }
 
     if (headers.length === 0 || responses.length === 0) {
       if (tableContainer) tableContainer.style.display = 'block';
-      tbody.innerHTML = '<tr><td colspan="10" style="text-align: center; color: #888; padding: 20px;">Aucune réponse trouvée pour les critères choisis.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="10" style="text-align: center; color: #888; padding: 20px;">Aucune rÃ©ponse trouvÃ©e pour les critÃ¨res choisis.</td></tr>';
       return;
     }
 
@@ -3132,7 +3132,7 @@
       bodyHtml += `<td style="text-align: center;">
         <button class="btn btn-outline btn-sm" onclick="openResponseDetailModal(${rIdx})">
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 3px; vertical-align: middle;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-          Détails
+          DÃ©tails
         </button>
       </td>`;
       bodyHtml += `</tr>`;
@@ -3156,11 +3156,11 @@
       const val = String(values[idx] || '').trim();
       if (!val) return;
 
-      if (lower.includes('nom complet') || lower.includes('nom et prénom') || lower.includes('nom et prenom') || lower.includes('nom & prénom')) {
+      if (lower.includes('nom complet') || lower.includes('nom et prÃ©nom') || lower.includes('nom et prenom') || lower.includes('nom & prÃ©nom')) {
         if (!fullName) fullName = val;
       } else if (lower === 'nom' || lower.includes('votre nom') || lower.endsWith(' nom')) {
         if (!nom) nom = val;
-      } else if (lower.includes('prénom') || lower.includes('prenom')) {
+      } else if (lower.includes('prÃ©nom') || lower.includes('prenom')) {
         if (!prenom) prenom = val;
       } else if (lower.includes('email') || lower.includes('e-mail') || lower.includes('courriel')) {
         if (!email) email = val;
@@ -3190,7 +3190,7 @@
     const bureauVal = item.bureau || (window.responsesState.afColIndex >= 0 ? values[window.responsesState.afColIndex] : '');
 
     if (modalTitle) {
-      modalTitle.textContent = personName ? `${personName} — Réponse #${item.rowIndex} (${bureauVal || 'Kanaga'})` : `Réponse #${item.rowIndex} - ${bureauVal || 'Formulaire'}`;
+      modalTitle.textContent = personName ? `${personName} â€” RÃ©ponse #${item.rowIndex} (${bureauVal || 'Kanaga'})` : `RÃ©ponse #${item.rowIndex} - ${bureauVal || 'Formulaire'}`;
     }
 
     let detailHtml = '<div style="display: flex; flex-direction: column; gap: 12px;">';
@@ -3205,7 +3205,7 @@
             ${escapeHtml(h || ('Question ' + (idx + 1)))}
           </div>
           <div style="font-size: 14px; color: #2D1A0A; white-space: pre-wrap; word-break: break-word;">
-            ${val ? escapeHtml(val) : '<em style="color: #a0aec0;">Non renseigné</em>'}
+            ${val ? escapeHtml(val) : '<em style="color: #a0aec0;">Non renseignÃ©</em>'}
           </div>
         </div>
       `;
@@ -3231,13 +3231,13 @@
     const hideEmpty = hideEmptyCheckbox ? hideEmptyCheckbox.checked : false;
 
     if (!headers || headers.length === 0 || !responses || responses.length === 0) {
-      alert("Aucune donnée à exporter.");
+      alert("Aucune donnÃ©e Ã  exporter.");
       return;
     }
 
     const printWin = window.open('', '_blank');
     if (!printWin) {
-      alert("Veuillez autoriser les fenêtres surgissantes (pop-ups) pour exporter le document PDF.");
+      alert("Veuillez autoriser les fenÃªtres surgissantes (pop-ups) pour exporter le document PDF.");
       return;
     }
 
@@ -3249,14 +3249,14 @@
       const timestamp = item.values[0] || '';
       const bureauVal = item.bureau || (afIndex >= 0 ? item.values[afIndex] : 'Kanaga');
       const personName = getRespondentName(headers, item.values);
-      const titleName = personName ? `${personName} (${bureauVal})` : `Réponse #${item.rowIndex} — ${bureauVal}`;
+      const titleName = personName ? `${personName} (${bureauVal})` : `RÃ©ponse #${item.rowIndex} â€” ${bureauVal}`;
 
       let questionsBlockHtml = '';
       headers.forEach((h, qIdx) => {
         const rawVal = item.values[qIdx];
         const valStr = String(rawVal !== null && rawVal !== undefined ? rawVal : '').trim();
 
-        if (hideEmpty && (!valStr || valStr === 'Non renseigné')) {
+        if (hideEmpty && (!valStr || valStr === 'Non renseignÃ©')) {
           return;
         }
 
@@ -3266,7 +3266,7 @@
         questionsBlockHtml += `
           <div class="qa-item" style="${cardStyle}">
             <div class="q-title">${escapeHtml(h || ('Question ' + (qIdx + 1)))}</div>
-            <div class="a-text">${valStr ? escapeHtml(valStr) : '<em style="color: #a0aec0;">Non renseigné</em>'}</div>
+            <div class="a-text">${valStr ? escapeHtml(valStr) : '<em style="color: #a0aec0;">Non renseignÃ©</em>'}</div>
           </div>
         `;
       });
@@ -3275,10 +3275,10 @@
         <div class="response-card">
           <div class="card-header">
             <div class="card-title">${escapeHtml(titleName)}</div>
-            <div class="card-date">Date: ${escapeHtml(timestamp)} | N° #${item.rowIndex}</div>
+            <div class="card-date">Date: ${escapeHtml(timestamp)} | NÂ° #${item.rowIndex}</div>
           </div>
           <div class="card-body">
-            ${questionsBlockHtml || '<p style="color: #a0aec0; font-style: italic;">Toutes les questions sont non renseignées.</p>'}
+            ${questionsBlockHtml || '<p style="color: #a0aec0; font-style: italic;">Toutes les questions sont non renseignÃ©es.</p>'}
           </div>
         </div>
       `;
@@ -3289,7 +3289,7 @@
       <html lang="fr">
       <head>
         <meta charset="UTF-8">
-        <title>Rapport PDF - Réponses au Formulaire Kanaga Consulting</title>
+        <title>Rapport PDF - RÃ©ponses au Formulaire Kanaga Consulting</title>
         <style>
           @page { size: A4 portrait; margin: 15mm; }
           body { font-family: 'Segoe UI', 'Inter', Arial, sans-serif; font-size: 12px; color: #2D1A0A; margin: 0; padding: 20px; background: #F8F6F0; }
@@ -3316,24 +3316,24 @@
       </head>
       <body>
         <div class="no-print">
-          <span style="font-weight: 600; color: #7C4C26; font-size: 14px;">📄 Rapport d'export PDF Kanaga Consulting (${responses.length} réponses)</span>
-          <button onclick="window.print()" style="background: #7C4C26; color: white; border: none; padding: 10px 22px; font-size: 13px; font-weight: bold; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 8px;">💾 Enregistrer au format PDF / Imprimer</button>
+          <span style="font-weight: 600; color: #7C4C26; font-size: 14px;">ðŸ“„ Rapport d'export PDF Kanaga Consulting (${responses.length} rÃ©ponses)</span>
+          <button onclick="window.print()" style="background: #7C4C26; color: white; border: none; padding: 10px 22px; font-size: 13px; font-weight: bold; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 8px;">ðŸ’¾ Enregistrer au format PDF / Imprimer</button>
         </div>
 
         <div class="doc-header">
           <div>
-            <h1 class="doc-title">Kanaga Consulting — Rapport des Réponses</h1>
-            <div class="doc-subtitle">Bureau: <strong>${escapeHtml(bureauText)}</strong> ${hideEmpty ? '<span style="color:#ef4444; margin-left:10px;">(Questions non renseignées masquées)</span>' : ''}</div>
+            <h1 class="doc-title">Kanaga Consulting â€” Rapport des RÃ©ponses</h1>
+            <div class="doc-subtitle">Bureau: <strong>${escapeHtml(bureauText)}</strong> ${hideEmpty ? '<span style="color:#ef4444; margin-left:10px;">(Questions non renseignÃ©es masquÃ©es)</span>' : ''}</div>
           </div>
           <div>
-            <span class="badge">${responses.length} réponse(s) — ${dateStr}</span>
+            <span class="badge">${responses.length} rÃ©ponse(s) â€” ${dateStr}</span>
           </div>
         </div>
 
         ${responsesHtml}
 
         <div class="footer">
-          Document officiel généré depuis le Portail Kanaga Consulting
+          Document officiel gÃ©nÃ©rÃ© depuis le Portail Kanaga Consulting
         </div>
       </body>
       </html>
@@ -3369,19 +3369,19 @@
 
     const printWin = window.open('', '_blank');
     if (!printWin) {
-      alert("Veuillez autoriser les fenêtres surgissantes (pop-ups) pour imprimer / exporter en PDF.");
+      alert("Veuillez autoriser les fenÃªtres surgissantes (pop-ups) pour imprimer / exporter en PDF.");
       return;
     }
 
     const dateStr = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-    const displayName = personName || (`Réponse #${item.rowIndex}`);
+    const displayName = personName || (`RÃ©ponse #${item.rowIndex}`);
 
     let qaPairsHtml = '';
     headers.forEach((h, qIdx) => {
       const rawVal = values[qIdx];
       const valStr = String(rawVal !== null && rawVal !== undefined ? rawVal : '').trim();
 
-      if (hideEmpty && (!valStr || valStr === 'Non renseigné')) {
+      if (hideEmpty && (!valStr || valStr === 'Non renseignÃ©')) {
         return;
       }
 
@@ -3391,7 +3391,7 @@
       qaPairsHtml += `
         <div class="qa-item" style="${cardStyle}">
           <div class="q-title">${escapeHtml(h || ('Question ' + (qIdx + 1)))}</div>
-          <div class="a-text">${valStr ? escapeHtml(valStr) : '<em style="color: #a0aec0;">Non renseigné</em>'}</div>
+          <div class="a-text">${valStr ? escapeHtml(valStr) : '<em style="color: #a0aec0;">Non renseignÃ©</em>'}</div>
         </div>
       `;
     });
@@ -3401,7 +3401,7 @@
       <html lang="fr">
       <head>
         <meta charset="UTF-8">
-        <title>Fiche Individuelle de Réponse - ${escapeHtml(displayName)}</title>
+        <title>Fiche Individuelle de RÃ©ponse - ${escapeHtml(displayName)}</title>
         <style>
           @page { size: A4 portrait; margin: 15mm; }
           body { font-family: 'Segoe UI', 'Inter', Arial, sans-serif; font-size: 12px; color: #2D1A0A; margin: 0; padding: 20px; background: #F8F6F0; }
@@ -3424,14 +3424,14 @@
       </head>
       <body>
         <div class="no-print">
-          <span style="font-weight: 600; color: #7C4C26; font-size: 14px;">📄 Fiche Individuelle: ${escapeHtml(displayName)}</span>
-          <button onclick="window.print()" style="background: #7C4C26; color: white; border: none; padding: 10px 22px; font-size: 13px; font-weight: bold; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 8px;">💾 Enregistrer au format PDF / Imprimer</button>
+          <span style="font-weight: 600; color: #7C4C26; font-size: 14px;">ðŸ“„ Fiche Individuelle: ${escapeHtml(displayName)}</span>
+          <button onclick="window.print()" style="background: #7C4C26; color: white; border: none; padding: 10px 22px; font-size: 13px; font-weight: bold; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 8px;">ðŸ’¾ Enregistrer au format PDF / Imprimer</button>
         </div>
 
         <div class="doc-header">
           <div>
-            <h1 class="doc-title">${escapeHtml(personName ? 'Fiche de : ' + personName : 'Fiche Individuelle de Réponse')}</h1>
-            <div class="doc-subtitle">Nom complet: <strong>${escapeHtml(personName || 'Non renseigné')}</strong> | Bureau Kanaga: <strong>${escapeHtml(bureauVal)}</strong> | Ligne #${item.rowIndex} ${hideEmpty ? '<span style="color:#ef4444; margin-left:10px;">(Masqué si non renseigné)</span>' : ''}</div>
+            <h1 class="doc-title">${escapeHtml(personName ? 'Fiche de : ' + personName : 'Fiche Individuelle de RÃ©ponse')}</h1>
+            <div class="doc-subtitle">Nom complet: <strong>${escapeHtml(personName || 'Non renseignÃ©')}</strong> | Bureau Kanaga: <strong>${escapeHtml(bureauVal)}</strong> | Ligne #${item.rowIndex} ${hideEmpty ? '<span style="color:#ef4444; margin-left:10px;">(MasquÃ© si non renseignÃ©)</span>' : ''}</div>
           </div>
           <div>
             <span class="badge">${escapeHtml(bureauVal)}</span>
@@ -3439,11 +3439,11 @@
         </div>
 
         <div class="qa-container">
-          ${qaPairsHtml || '<p style="color: #a0aec0; font-style: italic;">Toutes les questions sont non renseignées.</p>'}
+          ${qaPairsHtml || '<p style="color: #a0aec0; font-style: italic;">Toutes les questions sont non renseignÃ©es.</p>'}
         </div>
 
         <div class="footer">
-          Document officiel généré le ${dateStr} via Portail Kanaga Consulting
+          Document officiel gÃ©nÃ©rÃ© le ${dateStr} via Portail Kanaga Consulting
         </div>
       </body>
       </html>

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html>
   <head>
     <base target="_top">
@@ -28,8 +28,8 @@
     </style>
   </head>
   <body>
-    <h2>Paramètres du Rappel Général (Pour tous)</h2>
-    <p>Ce rappel envoie un e-mail générique à un groupe (par exemple, "tous@societe.com") pour leur rappeler de remplir leurs feuilles de temps. Il ne vérifie aucune donnée.</p>
+    <h2>ParamÃ¨tres du Rappel GÃ©nÃ©ral (Pour tous)</h2>
+    <p>Ce rappel envoie un e-mail gÃ©nÃ©rique Ã  un groupe (par exemple, "tous@societe.com") pour leur rappeler de remplir leurs feuilles de temps. Il ne vÃ©rifie aucune donnÃ©e.</p>
 
     <form id="settings-form">
       <label for="activation">Activer ce rappel ?</label>
@@ -38,13 +38,13 @@
         <option value="NON">NON</option>
       </select>
 
-      <label for="destinataires">Groupe(s) de destinataires (séparés par une virgule)</label>
+      <label for="destinataires">Groupe(s) de destinataires (sÃ©parÃ©s par une virgule)</label>
       <input type="text" id="destinataires" name="destinataires">
 
       <label for="sujet">Sujet de l'e-mail</label>
       <input type="text" id="sujet" name="sujet">
 
-      <label for="message">Message (HTML autorisé pour les liens)</label>
+      <label for="message">Message (HTML autorisÃ© pour les liens)</label>
       <textarea id="message" name="message"></textarea>
 
       <button type="submit">Enregistrer</button>
@@ -94,7 +94,7 @@
 
       // 5. Success/Error helpers
       function onSaveSuccess() {
-        document.getElementById('status').innerText = "Paramètres enregistrés !";
+        document.getElementById('status').innerText = "ParamÃ¨tres enregistrÃ©s !";
         setTimeout(function() {
           google.script.host.close();
         }, 1500);
