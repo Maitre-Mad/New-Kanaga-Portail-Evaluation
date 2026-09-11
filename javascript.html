@@ -658,15 +658,20 @@
     // Handle pending evaluations card
     const pendingContainer = document.getElementById('employee-pending-evals');
     if (pendingContainer && window.loadedEvals && currentUser) {
-      const pendingAutoEvals = window.loadedEvals.filter(ev => 
-        (ev.employeeEmail === currentUser.username || ev.employeeName === currentUser.fullName) && ev.status === 'Initiée'
-      );
+      const uEmail = (currentUser.username || '').toLowerCase().trim();
+      const uName = (currentUser.fullName || '').toLowerCase().trim();
+
+      const pendingAutoEvals = window.loadedEvals.filter(ev => {
+        const empEmail = (ev.employeeEmail || '').toLowerCase().trim();
+        const empName = (ev.employeeName || '').toLowerCase().trim();
+        return (empEmail === uEmail || empName === uName) && ev.status === 'Initiée';
+      });
 
       const pendingSecondaryEvals = window.loadedEvals.filter(ev => {
         if (ev.status !== 'Attente Évaluateur Secondaire') return false;
         let secList = [];
         try { secList = JSON.parse(ev.secondaryEvaluators || '[]'); } catch(e){}
-        const entry = secList.find(s => s.email === currentUser.username || s.name === currentUser.fullName);
+        const entry = secList.find(s => (s.email || '').toLowerCase().trim() === uEmail || (s.name || '').toLowerCase().trim() === uName);
         return entry && entry.status !== 'Complété';
       });
       
@@ -2364,12 +2369,22 @@
              return;
           }
 
+          const uEmail = (currentUser.username || '').toLowerCase().trim();
+          const uName = (currentUser.fullName || '').toLowerCase().trim();
+          const isAdmin = (currentUser.role === 'Admin');
+
           const myEvals = evals.filter(e => {
-             if (e.employeeEmail === currentUser.username || e.employeeName === currentUser.fullName) return true;
-             if (e.principalEvaluatorEmail === currentUser.username || e.principalEvaluatorName === currentUser.fullName || e.evaluatorName === currentUser.fullName) return true;
+             if (isAdmin) return true;
+             const empEmail = (e.employeeEmail || '').toLowerCase().trim();
+             const empName = (e.employeeName || '').toLowerCase().trim();
+             const princEmail = (e.principalEvaluatorEmail || '').toLowerCase().trim();
+             const princName = (e.principalEvaluatorName || e.evaluatorName || '').toLowerCase().trim();
+
+             if (empEmail === uEmail || empName === uName) return true;
+             if (princEmail === uEmail || princName === uName) return true;
              let secList = [];
              try { secList = JSON.parse(e.secondaryEvaluators || '[]'); } catch(err){}
-             if (secList.some(s => s.email === currentUser.username || s.name === currentUser.fullName)) return true;
+             if (secList.some(s => (s.email || '').toLowerCase().trim() === uEmail || (s.name || '').toLowerCase().trim() === uName)) return true;
              return false;
           });
 
