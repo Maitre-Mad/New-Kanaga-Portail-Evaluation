@@ -64,6 +64,18 @@
             <option value="Autre">Autre profil</option>
           </select>
         </div>
+        <div id="eval-evaluators-group" style="margin-top: 15px;">
+          <div class="form-group">
+            <label>Évaluateur Principal *</label>
+            <p class="text-muted" style="font-size:12px;">Responsable de la validation finale et de la synthèse de l'évaluation.</p>
+            <select id="eval-principal-evaluator" class="form-control" required></select>
+          </div>
+          <div class="form-group" style="margin-top: 15px;">
+            <label>Évaluateur(s) Secondaire(s) (Optionnel)</label>
+            <p class="text-muted" style="font-size:12px;">Évaluent après l'auto-évaluation et avant l'évaluateur principal.</p>
+            <select id="eval-secondary-evaluators" class="form-control" multiple></select>
+          </div>
+        </div>
         <div class="wizard-actions">
           <button type="button" class="btn btn-primary" id="btn-next-step1" onclick="nextEvalStep(1, 2)">Suivant</button>
         </div>

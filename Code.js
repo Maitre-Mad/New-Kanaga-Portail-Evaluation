@@ -1088,7 +1088,7 @@ function getEvaluationConfig(token) {
           config[key] = config[key].map(q => {
             if (typeof q === 'string') {
               migrated = true;
-              return { text: q, description: "", description: "", type: 'scale', options: defaultScale };
+              return { text: q, description: "", type: 'scale', options: defaultScale };
             }
             if (q.description === undefined) {
                migrated = true;
@@ -1111,7 +1111,6 @@ function getEvaluationConfig(token) {
 
 function saveEvaluationConfig(token, config) {
   const sessionUser = verifySession(token);
-
   PropertiesService.getUserProperties().setProperty('eval_config', JSON.stringify(config));
 }
 
@@ -1123,58 +1122,89 @@ function initiateEvaluationsBatch(token, formData) {
     let sheet = ss.getSheetByName('Evaluations');
     if (!sheet) {
       sheet = ss.insertSheet('Evaluations');
-      sheet.appendRow(['Timestamp', 'Statut', 'PÃƒÆ’Ã‚Â©riode', 'EmployÃƒÆ’Ã‚Â©', 'DÃƒÆ’Ã‚Â©partement', 'Date EntrÃƒÆ’Ã‚Â©e', 'ÃƒÆ’Ã¢â‚¬Â°valuateur', 'Poste ÃƒÆ’Ã¢â‚¬Â°valuateur', 'Date Entretien', 'Profil', 'Fondamentales', 'SpÃƒÆ’Ã‚Â©cifiques', 'Objectifs PassÃƒÆ’Ã‚Â©s', 'Points Forts', 'AmÃƒÆ’Ã‚Â©liorations', 'Note Globale', 'Formation', 'Objectifs SMART', 'Aspirations', 'Commentaires EmployÃƒÆ’Ã‚Â©', 'Mgr Name', 'Mgr Fondamentales', 'Mgr SpÃƒÆ’Ã‚Â©cifiques', 'Mgr Points Forts', 'Mgr AmÃƒÆ’Ã‚Â©liorations', 'Mgr Note Globale', 'Mgr Formation', 'Mgr Objectifs SMART', 'Mgr Commentaires', 'Employee Email', 'PDF URL']);
-      sheet.getRange("A1:AE1").setFontWeight("bold").setBackground("#f3f3f3");
+      sheet.appendRow(['Timestamp', 'Statut', 'Période', 'Employé', 'Département', 'Date Entrée', 'Évaluateur', 'Poste Évaluateur', 'Date Entretien', 'Profil', 'Fondamentales', 'Spécifiques', 'Objectifs Passés', 'Points Forts', 'Améliorations', 'Note Globale', 'Formation', 'Objectifs SMART', 'Aspirations', 'Commentaires Employé', 'Mgr Name', 'Mgr Fondamentales', 'Mgr Spécifiques', 'Mgr Points Forts', 'Mgr Améliorations', 'Mgr Note Globale', 'Mgr Formation', 'Mgr Objectifs SMART', 'Mgr Commentaires', 'Employee Email', 'PDF URL', 'Principal Evaluator Email', 'Principal Evaluator Name', 'Secondary Evaluators', 'Secondary Fondamentales', 'Secondary Specifiques', 'Secondary Synthese']);
+      sheet.getRange("A1:AK1").setFontWeight("bold").setBackground("#f3f3f3");
+    }
+
+    const maxRequiredCol = 37;
+    if (sheet.getMaxColumns() < maxRequiredCol) {
+      sheet.insertColumnsAfter(sheet.getMaxColumns(), maxRequiredCol - sheet.getMaxColumns());
     }
 
     const timestamp = new Date().toLocaleString('fr-FR');
     const employees = formData.employees || [];
     
+    const principalEmail = (formData.principalEvaluator && formData.principalEvaluator.email) || (sessionUser ? sessionUser.username : '');
+    const principalName = (formData.principalEvaluator && formData.principalEvaluator.name) || (sessionUser ? sessionUser.fullName : formData.evaluatorName) || 'Évaluateur Principal';
+    
+    const secondaryList = (formData.secondaryEvaluators || []).map(s => ({
+      email: s.email,
+      name: s.name,
+      status: 'En attente',
+      submittedAt: ''
+    }));
+
     employees.forEach(emp => {
         const rowData = [
           timestamp,
-          'Initi\u00E9e',
+          'Initiée',
           formData.period || '',
           emp.name || '',
           '', // dept
           '', // entryDate
-          formData.evaluatorName || '',
+          principalName,
           '', // evaluatorJob
           '', // interviewDate
           formData.profile || '',
           '', '', '', '', '', '', '', '', '', '', 
           '', '', '', '', '', '', '', '', '', 
           emp.email || '',
-          ''
+          '', // PDF URL (col 31)
+          principalEmail, // col 32
+          principalName,  // col 33
+          JSON.stringify(secondaryList), // col 34
+          JSON.stringify([]), // col 35 (Secondary Fondamentales)
+          JSON.stringify([]), // col 36 (Secondary Specifiques)
+          JSON.stringify([])  // col 37 (Secondary Synthese)
         ];
 
         sheet.appendRow(rowData);
         
-        // Envoi d'email de notification
+        // Envoi d'email de notification au collaborateur
         if (emp.email) {
-           const emailSettings = getEvaluationEmailSettings();
-           const portailUrl = ScriptApp.getService().getUrl();
-           const subject = emailSettings.sujet.replace('{periode}', formData.period || "");
-           const bodyHtml = emailSettings.message
-                              .replace(/{periode}/g, formData.period || "")
-                              .replace(/{lien_portail}/g, portailUrl);
-                              
-           MailApp.sendEmail({
-             to: emp.email,
-             subject: subject,
-             htmlBody: bodyHtml
-           });
+           try {
+             const emailSettings = getEvaluationEmailSettings();
+             const portailUrl = ScriptApp.getService().getUrl();
+             const subject = emailSettings.sujet.replace('{periode}', formData.period || "");
+             const bodyHtml = emailSettings.message
+                                .replace(/{periode}/g, formData.period || "")
+                                .replace(/{lien_portail}/g, portailUrl);
+                                
+             MailApp.sendEmail({
+               to: emp.email,
+               subject: subject,
+               htmlBody: bodyHtml
+             });
+           } catch(mailErr) {
+             console.error("Erreur envoi email: " + mailErr.message);
+           }
         }
     });
     
     return { success: true };
   } catch (e) {
-    throw new Error("Erreur lors de l'initiation de l'ÃƒÆ’Ã‚Â©valuation en lot: " + e.message);
+    throw new Error("Erreur lors de l'initiation de l'évaluation: " + e.message);
   }
 }
 
 function submitSelfEvaluation(token, rowId, formData) {
-  const sessionUser = verifySession(token);
+  let userEmail = '';
+  if (token && typeof token === 'string' && token.length > 10) {
+    try {
+      const sessionUser = verifySession(token);
+      userEmail = sessionUser.username;
+    } catch(e) {}
+  }
 
   try {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
@@ -1182,7 +1212,24 @@ function submitSelfEvaluation(token, rowId, formData) {
     if (!sheet) throw new Error("Feuille Evaluations introuvable.");
     
     const row = parseInt(rowId);
-    sheet.getRange(row, 2).setValue('Auto-\u00E9valu\u00E9e');
+    const maxRequiredCol = 37;
+    if (sheet.getMaxColumns() < maxRequiredCol) {
+      sheet.insertColumnsAfter(sheet.getMaxColumns(), maxRequiredCol - sheet.getMaxColumns());
+    }
+
+    // Déterminer le prochain statut selon la présence d'évaluateurs secondaires
+    let nextStatus = 'Attente Évaluateur Principal';
+    const secondaryStr = sheet.getRange(row, 34).getValue();
+    let secondaryList = [];
+    try {
+      if (secondaryStr) secondaryList = JSON.parse(secondaryStr);
+    } catch(e) {}
+
+    if (Array.isArray(secondaryList) && secondaryList.length > 0) {
+      nextStatus = 'Attente Évaluateur Secondaire';
+    }
+
+    sheet.getRange(row, 2).setValue(nextStatus);
     sheet.getRange(row, 11).setValue(JSON.stringify(formData.fondamentales || []));
     sheet.getRange(row, 12).setValue(JSON.stringify(formData.specifiques || []));
     sheet.getRange(row, 13).setValue(formData.pastGoals || '');
@@ -1194,9 +1241,134 @@ function submitSelfEvaluation(token, rowId, formData) {
     sheet.getRange(row, 19).setValue(formData.aspirations || '');
     sheet.getRange(row, 20).setValue(formData.empComments || '');
 
-    return { success: true };
+    return { success: true, nextStatus: nextStatus };
   } catch (e) {
-    throw new Error("Erreur lors de l'enregistrement de l'auto-ÃƒÆ’Ã‚Â©valuation: " + e.message);
+    throw new Error("Erreur lors de l'enregistrement de l'auto-évaluation: " + e.message);
+  }
+}
+
+function submitSecondaryEvaluation(token, rowId, formData) {
+  let evaluatorName = '';
+  let evaluatorEmail = '';
+  if (token && typeof token === 'string' && token.length > 10) {
+    try {
+      const sessionUser = verifySession(token);
+      evaluatorName = sessionUser.fullName || sessionUser.username;
+      evaluatorEmail = sessionUser.username;
+    } catch(e) {}
+  }
+  if (!evaluatorName) evaluatorName = formData.evaluatorName || 'Évaluateur Secondaire';
+
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const sheet = ss.getSheetByName('Evaluations');
+    if (!sheet) throw new Error("Feuille Evaluations introuvable.");
+    
+    const row = parseInt(rowId);
+    const maxRequiredCol = 37;
+    if (sheet.getMaxColumns() < maxRequiredCol) {
+      sheet.insertColumnsAfter(sheet.getMaxColumns(), maxRequiredCol - sheet.getMaxColumns());
+    }
+
+    // 1. Mettre à jour le statut de l'évaluateur secondaire dans la liste
+    let secondaryList = [];
+    try {
+      const secStr = sheet.getRange(row, 34).getValue();
+      if (secStr) secondaryList = JSON.parse(secStr);
+    } catch(e) {}
+
+    let matched = false;
+    secondaryList.forEach(s => {
+      if ((evaluatorEmail && s.email && s.email.toLowerCase() === evaluatorEmail.toLowerCase()) ||
+          (evaluatorName && s.name && s.name.toLowerCase() === evaluatorName.toLowerCase())) {
+        s.status = 'Complété';
+        s.submittedAt = new Date().toLocaleString('fr-FR');
+        matched = true;
+      }
+    });
+    if (!matched && evaluatorEmail) {
+      secondaryList.push({
+        email: evaluatorEmail,
+        name: evaluatorName,
+        status: 'Complété',
+        submittedAt: new Date().toLocaleString('fr-FR')
+      });
+    }
+
+    // 2. Enregistrer dans secondaryFondamentales
+    let secFonda = [];
+    try {
+      const sfStr = sheet.getRange(row, 35).getValue();
+      if (sfStr) secFonda = JSON.parse(sfStr);
+    } catch(e) {}
+    secFonda = secFonda.filter(entry => entry.evaluatorEmail !== evaluatorEmail);
+    secFonda.push({
+      evaluatorEmail: evaluatorEmail,
+      evaluatorName: evaluatorName,
+      submittedAt: new Date().toLocaleString('fr-FR'),
+      responses: formData.fondamentales || []
+    });
+
+    // 3. Enregistrer dans secondarySpecifiques
+    let secSpec = [];
+    try {
+      const ssStr = sheet.getRange(row, 36).getValue();
+      if (ssStr) secSpec = JSON.parse(ssStr);
+    } catch(e) {}
+    secSpec = secSpec.filter(entry => entry.evaluatorEmail !== evaluatorEmail);
+    secSpec.push({
+      evaluatorEmail: evaluatorEmail,
+      evaluatorName: evaluatorName,
+      submittedAt: new Date().toLocaleString('fr-FR'),
+      responses: formData.specifiques || []
+    });
+
+    // 4. Enregistrer dans secondarySynthese
+    let secSynth = [];
+    try {
+      const syStr = sheet.getRange(row, 37).getValue();
+      if (syStr) secSynth = JSON.parse(syStr);
+    } catch(e) {}
+    secSynth = secSynth.filter(entry => entry.evaluatorEmail !== evaluatorEmail);
+    secSynth.push({
+      evaluatorEmail: evaluatorEmail,
+      evaluatorName: evaluatorName,
+      submittedAt: new Date().toLocaleString('fr-FR'),
+      strengths: formData.strengths || '',
+      improvements: formData.improvements || '',
+      globalRating: formData.globalRating || '',
+      training: formData.training || '',
+      smartGoals: formData.smartGoals || '',
+      comments: formData.empComments || formData.comments || ''
+    });
+
+    // 5. Vérifier si tous les évaluateurs secondaires ont terminé
+    const allCompleted = secondaryList.length === 0 || secondaryList.every(s => s.status === 'Complété');
+    const nextStatus = allCompleted ? 'Attente Évaluateur Principal' : 'Attente Évaluateur Secondaire';
+
+    sheet.getRange(row, 2).setValue(nextStatus);
+    sheet.getRange(row, 34).setValue(JSON.stringify(secondaryList));
+    sheet.getRange(row, 35).setValue(JSON.stringify(secFonda));
+    sheet.getRange(row, 36).setValue(JSON.stringify(secSpec));
+    sheet.getRange(row, 37).setValue(JSON.stringify(secSynth));
+
+    return { success: true, nextStatus: nextStatus, allCompleted: allCompleted };
+  } catch (e) {
+    throw new Error("Erreur lors de l'enregistrement de l'évaluation secondaire: " + e.message);
+  }
+}
+
+function advanceToPrincipalEvaluation(token, rowId) {
+  const sessionUser = verifySession(token);
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const sheet = ss.getSheetByName('Evaluations');
+    if (!sheet) throw new Error("Feuille Evaluations introuvable.");
+    const row = parseInt(rowId);
+    sheet.getRange(row, 2).setValue('Attente Évaluateur Principal');
+    return { success: true };
+  } catch(e) {
+    throw new Error("Erreur advanceToPrincipalEvaluation: " + e.message);
   }
 }
 
@@ -1209,10 +1381,9 @@ function saveSelfEvaluationDraft(token, rowId, formData) {
     if (!sheet) throw new Error("Feuille Evaluations introuvable.");
     
     const row = parseInt(rowId);
-    // On ne change pas le statut final, on peut le passer en Brouillon s'il ÃƒÆ’Ã‚Â©tait InitiÃƒÆ’Ã‚Â©
     const currentStatus = sheet.getRange(row, 2).getValue();
-    if (currentStatus === 'Initi\u00E9e') {
-      sheet.getRange(row, 2).setValue('Brouillon Employ\u00E9');
+    if (currentStatus === 'Initiée') {
+      sheet.getRange(row, 2).setValue('Brouillon Employé');
     }
 
     sheet.getRange(row, 11).setValue(JSON.stringify(formData.fondamentales || []));
@@ -1228,14 +1399,14 @@ function saveSelfEvaluationDraft(token, rowId, formData) {
 
     return { success: true };
   } catch (e) {
-    throw new Error("Erreur lors de la sauvegarde du brouillon de l'auto-ÃƒÆ’Ã‚Â©valuation: " + e.message);
+    throw new Error("Erreur lors de la sauvegarde du brouillon de l'auto-évaluation: " + e.message);
   }
 }
 
 function generateEvaluationPDF(rowId) {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const sheet = ss.getSheetByName('Evaluations');
-    const data = sheet.getRange(rowId, 1, 1, 31).getValues()[0];
+    const data = sheet.getRange(rowId, 1, 1, 37).getValues()[0];
     
     const employeeName = data[3] || '';
     const period = data[2] || '';
@@ -1251,18 +1422,26 @@ function generateEvaluationPDF(rowId) {
     body.setMarginBottom(40);
     
     // Title
-    const title = body.appendParagraph("Fiche d'\u00C9valuation");
+    const title = body.appendParagraph("Fiche d'Évaluation");
     title.setHeading(DocumentApp.ParagraphHeading.TITLE);
     title.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
     title.setForegroundColor('#8b5a2b'); // Brown/Gold color
     
     body.appendParagraph(""); // Spacer
     
+    // Noms des évaluateurs secondaires
+    let secNames = '';
+    try {
+      const secList = JSON.parse(data[33] || '[]');
+      secNames = secList.map(s => s.name || s.email).join(', ');
+    } catch(e) {}
+
     // Top Info Header Table
     const infoTable = body.appendTable([
-      ["Statut:", data[1] || '', "P\u00E9riode:", period],
-      ["Employ\u00E9:", employeeName, "D\u00E9partement:", data[4] || ''],
-      ["\u00C9valuateur:", data[6] || data[20] || '', "Profil:", data[9] || '']
+      ["Statut:", data[1] || '', "Période:", period],
+      ["Employé:", employeeName, "Département:", data[4] || ''],
+      ["Évaluateur Principal:", data[32] || data[20] || data[6] || '', "Profil:", data[9] || ''],
+      ["Évaluateur(s) Secondaire(s):", secNames || 'Aucun', "", ""]
     ]);
     
     // Format Header Table
@@ -1277,19 +1456,27 @@ function generateEvaluationPDF(rowId) {
     
     body.appendParagraph(""); // Spacer
     
-    // Synth\u00E8se Globale Section
-    const synthHeading = body.appendParagraph("Synth\u00E8se Globale");
+    // Parse secondary synth
+    let secSynthList = [];
+    try { secSynthList = JSON.parse(data[36] || '[]'); } catch(e) {}
+    let secStrengths = secSynthList.map(s => (s.evaluatorName ? s.evaluatorName + " : " : "") + (s.strengths || '-')).join("\n");
+    let secImprovements = secSynthList.map(s => (s.evaluatorName ? s.evaluatorName + " : " : "") + (s.improvements || '-')).join("\n");
+    let secGlobal = secSynthList.map(s => (s.evaluatorName ? s.evaluatorName + " : " : "") + (s.globalRating || '-')).join(", ");
+    let secComments = secSynthList.map(s => (s.evaluatorName ? s.evaluatorName + " : " : "") + (s.comments || '-')).join("\n");
+
+    // Synthèse Globale Section
+    const synthHeading = body.appendParagraph("Synthèse Globale");
     synthHeading.setHeading(DocumentApp.ParagraphHeading.HEADING2);
     synthHeading.setAttributes({ [DocumentApp.Attribute.BOLD]: true });
     
     const synthTable = body.appendTable([
-      ["Rubrique", "Auto-\u00E9valuation (Employ\u00E9)", "\u00C9valuation (Manager)"],
-      ["Note Globale", data[15] || '-', data[25] || '-'],
-      ["Points Forts", data[13] || '-', data[23] || '-'],
-      ["Axes d'Am\u00E9lioration", data[14] || '-', data[24] || '-'],
-      ["Besoins en Formation", data[16] || '-', data[26] || '-'],
-      ["Objectifs SMART", data[17] || '-', data[27] || '-'],
-      ["Commentaires", data[19] || '-', data[28] || '-']
+      ["Rubrique", "Auto-évaluation (Employé)", "Évaluation(s) Secondaire(s)", "Évaluation Principale"],
+      ["Note Globale", data[15] || '-', secGlobal || '-', data[25] || '-'],
+      ["Points Forts", data[13] || '-', secStrengths || '-', data[23] || '-'],
+      ["Axes d'Amélioration", data[14] || '-', secImprovements || '-', data[24] || '-'],
+      ["Besoins en Formation", data[16] || '-', '-', data[26] || '-'],
+      ["Objectifs SMART", data[17] || '-', '-', data[27] || '-'],
+      ["Commentaires", data[19] || '-', secComments || '-', data[28] || '-']
     ]);
     
     // Format Synth Table
@@ -1344,7 +1531,7 @@ function generateEvaluationPDF(rowId) {
     compHeading.setAttributes({ [DocumentApp.Attribute.BOLD]: true });
     
     const compData = [
-      ["Compétence", "Auto-évaluation (Employé)", "Évaluation (Manager)"]
+      ["Compétence", "Auto-évaluation (Employé)", "Évaluation(s) Secondaire(s)", "Évaluation Principale"]
     ];
     
     // Helper to safely parse JSON
@@ -1356,6 +1543,8 @@ function generateEvaluationPDF(rowId) {
     const empSpec = safeParse(data[11]);
     const mgrFonda = safeParse(data[21]);
     const mgrSpec = safeParse(data[22]);
+    const secFonda = safeParse(data[34]);
+    const secSpec = safeParse(data[35]);
 
     const formatAnswerCell = (qObj) => {
       if (!qObj) return '-';
@@ -1366,26 +1555,40 @@ function generateEvaluationPDF(rowId) {
       }
       return ans;
     };
+
+    const formatSecondaryCell = (secEntries, idx) => {
+      if (!secEntries || secEntries.length === 0) return '-';
+      const parts = [];
+      secEntries.forEach(entry => {
+        const resp = entry.responses && entry.responses[idx];
+        if (resp) {
+          const ans = resp.answer || '-';
+          const comm = resp.comment || resp.mgrComment || resp.empComment || '';
+          parts.push((entry.evaluatorName || 'Secondaire') + " : " + ans + (comm ? "\n(" + comm + ")" : ""));
+        }
+      });
+      return parts.length > 0 ? parts.join("\n\n") : '-';
+    };
     
     if (empFonda.length > 0 || mgrFonda.length > 0) {
-      compData.push(["Fondamentales", "", ""]);
+      compData.push(["Fondamentales", "", "", ""]);
       const count = Math.max(empFonda.length, mgrFonda.length);
       for (let i = 0; i < count; i++) {
         const empQ = empFonda[i] || {};
         const mgrQ = mgrFonda[i] || {};
         const qText = empQ.question || mgrQ.question || `Question ${i+1}`;
-        compData.push([qText, formatAnswerCell(empQ), formatAnswerCell(mgrQ)]);
+        compData.push([qText, formatAnswerCell(empQ), formatSecondaryCell(secFonda, i), formatAnswerCell(mgrQ)]);
       }
     }
     
     if (empSpec.length > 0 || mgrSpec.length > 0) {
-      compData.push(["Spécifiques (" + (data[9] || 'Profil') + ")", "", ""]);
+      compData.push(["Spécifiques (" + (data[9] || 'Profil') + ")", "", "", ""]);
       const count = Math.max(empSpec.length, mgrSpec.length);
       for (let i = 0; i < count; i++) {
         const empQ = empSpec[i] || {};
         const mgrQ = mgrSpec[i] || {};
         const qText = empQ.question || mgrQ.question || `Question ${i+1}`;
-        compData.push([qText, formatAnswerCell(empQ), formatAnswerCell(mgrQ)]);
+        compData.push([qText, formatAnswerCell(empQ), formatSecondaryCell(secSpec, i), formatAnswerCell(mgrQ)]);
       }
     }
     
@@ -1405,6 +1608,7 @@ function generateEvaluationPDF(rowId) {
         row.getCell(0).setBackgroundColor('#fafafa');
         row.getCell(1).setBackgroundColor('#fafafa');
         row.getCell(2).setBackgroundColor('#fafafa');
+        row.getCell(3).setBackgroundColor('#fafafa');
       }
       for (let j = 0; j < row.getNumCells(); j++) {
         row.getCell(j).setPaddingTop(8).setPaddingBottom(8);
@@ -1446,7 +1650,7 @@ function saveAttachedManagerEvaluationDraft(token, rowId, formData, managerNameF
     if (!sheet) throw new Error("Feuille Evaluations introuvable.");
     
     const row = parseInt(rowId);
-    const maxRequiredCol = 31;
+    const maxRequiredCol = 37;
     if (sheet.getMaxColumns() < maxRequiredCol) {
       sheet.insertColumnsAfter(sheet.getMaxColumns(), maxRequiredCol - sheet.getMaxColumns());
     }
@@ -1488,8 +1692,7 @@ function submitAttachedManagerEvaluation(token, rowId, formData, managerNameFall
     if (!sheet) throw new Error("Feuille Evaluations introuvable.");
     
     const row = parseInt(rowId);
-    
-    const maxRequiredCol = 31;
+    const maxRequiredCol = 37;
     if (sheet.getMaxColumns() < maxRequiredCol) {
       sheet.insertColumnsAfter(sheet.getMaxColumns(), maxRequiredCol - sheet.getMaxColumns());
     }
@@ -1530,7 +1733,7 @@ function getNativeEvaluations(token) {
     const sheet = ss.getSheetByName('Evaluations');
     if (!sheet) return [];
     
-    const lastCol = sheet.getLastColumn() || 1;
+    const lastCol = Math.max(sheet.getLastColumn() || 1, 37);
     const lastRow = sheet.getLastRow() || 1;
     const data = sheet.getRange(1, 1, lastRow, lastCol).getValues();
     const evals = [];
@@ -1540,10 +1743,12 @@ function getNativeEvaluations(token) {
       if (!row[0]) continue;
       
       let status = row[1] ? row[1].toString() : '';
-      if (status.startsWith('Initi')) status = 'Initi\u00E9e';
-      else if (status.startsWith('Auto-')) status = 'Auto-\u00E9valu\u00E9e';
-      else if (status.startsWith('Compl')) status = 'Compl\u00E9t\u00E9e';
-      else if (status.startsWith('Pr')) status = 'Pr\u00E9-\u00E9valu\u00E9e';
+      if (status.startsWith('Initi')) status = 'Initiée';
+      else if (status.startsWith('Attente Évaluateur Secondaire') || status.startsWith('Attente \u00C9valuateur Secondaire')) status = 'Attente Évaluateur Secondaire';
+      else if (status.startsWith('Attente Évaluateur Principal') || status.startsWith('Attente \u00C9valuateur Principal')) status = 'Attente Évaluateur Principal';
+      else if (status.startsWith('Auto-')) status = 'Auto-évaluée';
+      else if (status.startsWith('Compl')) status = 'Complétée';
+      else if (status.startsWith('Pr')) status = 'Pré-évaluée';
 
       evals.push({
         rowId: i + 1,
@@ -1577,10 +1782,15 @@ function getNativeEvaluations(token) {
         mgrSmartGoals: row[27],
         mgrComments: row[28],
         employeeEmail: row[29],
-        pdfUrl: row[30] || ''
+        pdfUrl: row[30] || '',
+        principalEvaluatorEmail: row[31] || '',
+        principalEvaluatorName: row[32] || row[20] || row[6] || '',
+        secondaryEvaluators: row[33] || '[]',
+        secondaryFondamentales: row[34] || '[]',
+        secondarySpecifiques: row[35] || '[]',
+        secondarySynthese: row[36] || '[]'
       });
     }
-    
     return JSON.stringify(evals.reverse());
   } catch (e) {
     return JSON.stringify([{error: e.message}]); 

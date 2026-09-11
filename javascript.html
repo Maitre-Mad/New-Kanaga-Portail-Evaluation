@@ -646,19 +646,31 @@
     // Handle pending evaluations card
     const pendingContainer = document.getElementById('employee-pending-evals');
     if (pendingContainer && window.loadedEvals && currentUser) {
-      const pendingEvals = window.loadedEvals.filter(ev => 
+      const pendingAutoEvals = window.loadedEvals.filter(ev => 
         (ev.employeeEmail === currentUser.username || ev.employeeName === currentUser.fullName) && ev.status === 'Initiée'
       );
+
+      const pendingSecondaryEvals = window.loadedEvals.filter(ev => {
+        if (ev.status !== 'Attente Évaluateur Secondaire') return false;
+        let secList = [];
+        try { secList = JSON.parse(ev.secondaryEvaluators || '[]'); } catch(e){}
+        const entry = secList.find(s => s.email === currentUser.username || s.name === currentUser.fullName);
+        return entry && entry.status !== 'Complété';
+      });
       
-      if (pendingEvals.length > 0) {
+      const totalPending = pendingAutoEvals.length + pendingSecondaryEvals.length;
+      if (totalPending > 0) {
         pendingContainer.style.display = 'block';
         let html = `
           <div class="panel" style="border: 2px solid var(--secondary-color); background: #fdfdfd;">
             <h3 style="color: var(--secondary-color);">Action Requise</h3>
-            <p class="text-muted" style="margin-bottom:20px; font-size:14px;">Vous avez ${pendingEvals.length} évaluation(s) en attente d'auto-évaluation.</p>
+            <p class="text-muted" style="margin-bottom:15px; font-size:14px;">Vous avez ${totalPending} action(s) d'évaluation en attente de votre intervention.</p>
         `;
-        pendingEvals.forEach(ev => {
+        pendingAutoEvals.forEach(ev => {
           html += `<button class="btn btn-primary" onclick="startEvaluationWizard('Auto-évaluation', ${ev.rowId})" style="width: 100%; margin-bottom: 10px; background-color: var(--secondary-color);">Auto-évaluer (${ev.period})</button>`;
+        });
+        pendingSecondaryEvals.forEach(ev => {
+          html += `<button class="btn" onclick="startEvaluationWizard('Évaluation Secondaire', ${ev.rowId})" style="width: 100%; margin-bottom: 10px; background-color: #ff9800; color: #fff;">Évaluation secondaire : ${escapeHtml(ev.employeeName)} (${escapeHtml(ev.period)})</button>`;
         });
         html += `</div>`;
         pendingContainer.innerHTML = html;
@@ -714,6 +726,48 @@
     document.getElementById('step-nav-3').style.display = 'inline-block';
     document.getElementById('step-nav-4').style.display = 'inline-block';
     
+    const evaluatorsGroup = document.getElementById('eval-evaluators-group');
+    if (type === 'Initiation') {
+        if (evaluatorsGroup) evaluatorsGroup.style.display = 'block';
+        
+        const princSelect = document.getElementById('eval-principal-evaluator');
+        if (princSelect) {
+            princSelect.innerHTML = '<option value="">-- Choisir l\'évaluateur principal --</option>';
+            if (window.employeeList) {
+                window.employeeList.forEach(emp => {
+                    const isDefault = (currentUser && emp.email === currentUser.username);
+                    princSelect.innerHTML += `<option value="${emp.email}" ${isDefault ? 'selected' : ''}>${emp.fullName} (${emp.email})</option>`;
+                });
+            }
+        }
+
+        const secSelect = document.getElementById('eval-secondary-evaluators');
+        if (secSelect) {
+            secSelect.innerHTML = '';
+            if (window.employeeList) {
+                window.employeeList.forEach(emp => {
+                    secSelect.innerHTML += `<option value="${emp.email}">${emp.fullName} (${emp.email})</option>`;
+                });
+            }
+            if (window.secChoices) {
+                window.secChoices.destroy();
+                window.secChoices = null;
+            }
+            window.secChoices = new Choices(secSelect, {
+                removeItemButton: true,
+                searchEnabled: true,
+                placeholder: true,
+                placeholderValue: "Sélectionner les évaluateurs secondaires (optionnel)"
+            });
+        }
+    } else {
+        if (evaluatorsGroup) evaluatorsGroup.style.display = 'none';
+        if (window.secChoices) {
+            window.secChoices.destroy();
+            window.secChoices = null;
+        }
+    }
+
     let submitBtn = document.getElementById('btn-submit-initiation');
     if(submitBtn) submitBtn.style.display = 'none';
 
@@ -796,7 +850,61 @@
             } catch(e) {}
         }
 
-        // Pré-remplissage pour l'évaluation manager (si déjà pré-évalué ou évalué)
+        // Pré-remplissage pour l'évaluation secondaire (si déjà saisi)
+        if (type === 'Évaluation Secondaire' && ev) {
+            document.getElementById('eval-past-goals').value = ev.pastGoals || '';
+            document.getElementById('eval-aspirations').value = ev.aspirations || '';
+            
+            let mySynth = null;
+            try {
+              const synthList = JSON.parse(ev.secondarySynthese || '[]');
+              mySynth = synthList.find(s => s.evaluatorEmail === currentUser.username || s.evaluatorName === currentUser.fullName);
+            } catch(e){}
+
+            if (mySynth) {
+              document.getElementById('eval-strengths').value = mySynth.strengths || '';
+              document.getElementById('eval-improvements').value = mySynth.improvements || '';
+              document.getElementById('eval-global-rating').value = mySynth.globalRating || '';
+              document.getElementById('eval-training').value = mySynth.training || '';
+              document.getElementById('eval-smart-goals').value = mySynth.smartGoals || '';
+              document.getElementById('eval-emp-comments').value = mySynth.comments || '';
+            } else {
+              document.getElementById('eval-strengths').value = ev.strengths || '';
+              document.getElementById('eval-improvements').value = ev.improvements || '';
+              document.getElementById('eval-global-rating').value = '';
+              document.getElementById('eval-training').value = ev.training || '';
+              document.getElementById('eval-smart-goals').value = ev.smartGoals || '';
+              document.getElementById('eval-emp-comments').value = '';
+            }
+
+            try {
+              const secFondaList = JSON.parse(ev.secondaryFondamentales || '[]');
+              const myFonda = secFondaList.find(s => s.evaluatorEmail === currentUser.username || s.evaluatorName === currentUser.fullName);
+              if (myFonda && myFonda.responses) {
+                myFonda.responses.forEach((item, idx) => {
+                  const r = document.querySelector(`input[name="fonda_q${idx}"][value="${item.answer}"]`);
+                  if(r) r.checked = true;
+                  const c = document.querySelector(`textarea[name="fonda_sec_comment_${idx}"]`);
+                  if(c) c.value = item.comment || item.secComment || item.mgrComment || '';
+                });
+              }
+            } catch(e){}
+
+            try {
+              const secSpecList = JSON.parse(ev.secondarySpecifiques || '[]');
+              const mySpec = secSpecList.find(s => s.evaluatorEmail === currentUser.username || s.evaluatorName === currentUser.fullName);
+              if (mySpec && mySpec.responses) {
+                mySpec.responses.forEach((item, idx) => {
+                  const r = document.querySelector(`input[name="spec_q${idx}"][value="${item.answer}"]`);
+                  if(r) r.checked = true;
+                  const c = document.querySelector(`textarea[name="spec_sec_comment_${idx}"]`);
+                  if(c) c.value = item.comment || item.secComment || item.mgrComment || '';
+                });
+              }
+            } catch(e){}
+        }
+
+        // Pré-remplissage pour l'évaluation manager / principale (si déjà pré-évalué ou évalué)
         if (type === 'Évaluation Manager' && ev) {
             document.getElementById('eval-past-goals').value = ev.pastGoals || '';
             document.getElementById('eval-aspirations').value = ev.aspirations || '';
@@ -839,9 +947,15 @@
       
       let selectedEmployees = [];
       if (window.empChoices) {
-         selectedEmployees = window.empChoices.getValue(true); // Returns array of values
+         selectedEmployees = window.empChoices.getValue(true);
       }
       
+      const princEmail = document.getElementById('eval-principal-evaluator').value;
+      if (!princEmail) {
+          alert("Veuillez sélectionner un évaluateur principal.");
+          return;
+      }
+
       if (!profile || !period || !selectedEmployees || selectedEmployees.length === 0) {
           alert('Veuillez remplir tous les champs obligatoires et sélectionner au moins un employé.');
           return;
@@ -855,12 +969,32 @@
             name: empObj ? empObj.fullName : email
          };
       });
+
+      const princObj = window.employeeList.find(e => e.email === princEmail);
+      const principalEvaluator = {
+         email: princEmail,
+         name: princObj ? princObj.fullName : princEmail
+      };
+
+      let selectedSecondaries = [];
+      if (window.secChoices) {
+         selectedSecondaries = window.secChoices.getValue(true) || [];
+      }
+      const secondaryEvaluators = selectedSecondaries.map(email => {
+         const empObj = window.employeeList.find(e => e.email === email);
+         return {
+            email: email,
+            name: empObj ? empObj.fullName : email
+         };
+      });
       
       const formData = {
         period: period,
-        employees: employeeDataList, // Tableau d'employés
+        employees: employeeDataList,
         profile: profile,
-        evaluatorName: currentUser.fullName
+        evaluatorName: principalEvaluator.name,
+        principalEvaluator: principalEvaluator,
+        secondaryEvaluators: secondaryEvaluators
       };
       
       const btn = document.getElementById('btn-submit-initiation');
@@ -984,7 +1118,7 @@
       }
 
       let collabSummaryHtml = '';
-      if (window.evalCurrentMode === 'Évaluation Manager') {
+      if (window.evalCurrentMode === 'Évaluation Manager' || window.evalCurrentMode === 'Évaluation Secondaire') {
         const badgeCls = getEvalBadgeClass(collabAnswer);
         const commentDisplay = collabComment ? escapeHtml(collabComment) : '<em>Aucun commentaire renseigné par le collaborateur</em>';
         collabSummaryHtml = `
@@ -1000,12 +1134,41 @@
         `;
       }
 
+      let secondarySummaryHtml = '';
+      if (window.evalCurrentMode === 'Évaluation Manager' && window.evalCurrentEv) {
+        try {
+          const secListStr = prefix === 'fonda' ? window.evalCurrentEv.secondaryFondamentales : window.evalCurrentEv.secondarySpecifiques;
+          if (secListStr) {
+            const secList = JSON.parse(secListStr);
+            if (Array.isArray(secList) && secList.length > 0) {
+              secList.forEach(entry => {
+                const resp = entry.responses && entry.responses[idx];
+                if (resp && resp.answer) {
+                  const bCls = getEvalBadgeClass(resp.answer);
+                  const comm = resp.comment || resp.secComment || resp.mgrComment || '';
+                  secondarySummaryHtml += `
+                    <div class="eval-collab-summary" style="border-left: 3px solid #ff9800; background: #fffcf5; margin-top: 6px;">
+                      <div class="eval-collab-summary-header">
+                        <span style="color:#b25900;">👥 Évaluateur Secondaire (${escapeHtml(entry.evaluatorName || entry.evaluatorEmail)})</span>
+                        <span class="eval-badge eval-badge-${bCls}">${escapeHtml(resp.answer)}</span>
+                      </div>
+                      ${comm ? `<div class="eval-collab-comment-content"><strong>Commentaire :</strong> ${escapeHtml(comm)}</div>` : ''}
+                    </div>
+                  `;
+                }
+              });
+            }
+          }
+        } catch(e) {}
+      }
+
       html += `<div class="eval-grid-row">
                  <div class="eval-grid-question">
                     ${text}
                     ${desc}
                  </div>
                  ${collabSummaryHtml}
+                 ${secondarySummaryHtml}
                  <div class="eval-grid-options">`;
                  
       if (q.type === 'scale') {
@@ -1031,8 +1194,15 @@
           if (window.evalCurrentMode === 'Évaluation Manager') {
               html += `
                 <div class="eval-comment-group">
-                  <label class="eval-comment-label">📝 Commentaire de l'évaluateur :</label>
+                  <label class="eval-comment-label">📝 Commentaire de l'évaluateur principal :</label>
                   <textarea name="${prefix}_mgr_comment_${idx}" class="eval-comment-box" rows="2" placeholder="Saisissez votre appréciation, remarques ou justifications..."></textarea>
+                </div>
+              `;
+          } else if (window.evalCurrentMode === 'Évaluation Secondaire') {
+              html += `
+                <div class="eval-comment-group">
+                  <label class="eval-comment-label">📝 Commentaire de l'évaluateur secondaire :</label>
+                  <textarea name="${prefix}_sec_comment_${idx}" class="eval-comment-box" rows="2" placeholder="Saisissez votre appréciation, remarques ou justifications..."></textarea>
                 </div>
               `;
           } else {
@@ -1081,12 +1251,14 @@
         }
 
         const empCommentEl = document.querySelector(`textarea[name="${prefix}_emp_comment_${idx}"]`);
+        const secCommentEl = document.querySelector(`textarea[name="${prefix}_sec_comment_${idx}"]`);
         const mgrCommentEl = document.querySelector(`textarea[name="${prefix}_mgr_comment_${idx}"]`);
 
         let empComment = empCommentEl ? empCommentEl.value : '';
+        let secComment = secCommentEl ? secCommentEl.value : '';
         let mgrComment = mgrCommentEl ? mgrCommentEl.value : '';
 
-        // Si non présent dans le formulaire actuel (ex: manager évaluant), récupérer les données du collaborateur
+        // Si non présent dans le formulaire actuel, récupérer les données du collaborateur
         if (window.evalCurrentEv) {
           try {
             const listStr = prefix === 'fonda' ? window.evalCurrentEv.fondamentales : window.evalCurrentEv.specifiques;
@@ -1109,7 +1281,9 @@
         result.push({
           question: q.text,
           answer: ans,
+          comment: secComment || empComment,
           empComment: empComment,
+          secComment: secComment,
           mgrComment: mgrComment
         });
       });
@@ -1160,6 +1334,8 @@
                 status.style.color = 'gray';
             })
             .saveAttachedManagerEvaluationDraft(window.kanagaToken, window.evalAttachedRowId, mgrData, currentUser.fullName);
+      } else if (window.evalCurrentMode === 'Évaluation Secondaire') {
+          // Brouillon secondaire optionnel
       } else {
           google.script.run
             .withSuccessHandler(() => {
@@ -1213,6 +1389,26 @@
            btn.innerText = "Soumettre l'Évaluation";
         })
         .submitAttachedManagerEvaluation(window.kanagaToken, window.evalAttachedRowId, mgrData, currentUser.fullName);
+    } else if (window.evalCurrentMode === 'Évaluation Secondaire') {
+      google.script.run
+        .withSuccessHandler(() => {
+           status.innerText = 'Évaluation secondaire enregistrée avec succès.';
+           status.style.color = 'var(--secondary-color)';
+           setTimeout(() => {
+               if (currentUser.role === 'Manager' || currentUser.role === 'Admin') showManagerDashboard();
+               else showEmployeeDashboard();
+               btn.disabled = false;
+               btn.innerText = "Soumettre l'Évaluation";
+               status.innerText = '';
+           }, 2000);
+        })
+        .withFailureHandler(err => {
+           status.innerText = 'Erreur : ' + err.message;
+           status.style.color = 'var(--danger-color)';
+           btn.disabled = false;
+           btn.innerText = "Soumettre l'Évaluation";
+        })
+        .submitSecondaryEvaluation(window.kanagaToken, window.evalAttachedRowId, formData);
     } else {
       google.script.run
         .withSuccessHandler(() => {
@@ -1280,6 +1476,74 @@
     startEvaluationWizard('Évaluation Manager', rowId);
   };
 
+  window.advanceToPrincipal = function(rowId) {
+    if (!confirm("Voulez-vous clôturer la phase d'évaluation secondaire et passer immédiatement à l'évaluation principale ?")) return;
+    google.script.run
+      .withSuccessHandler(function() {
+        alert("L'évaluation est désormais en attente de l'évaluateur principal.");
+        if (currentUser.role === 'Manager' || currentUser.role === 'Admin') showManagerDashboard();
+        else showEmployeeDashboard();
+      })
+      .withFailureHandler(function(err) {
+        alert("Erreur: " + err.message);
+      })
+      .advanceToPrincipalEvaluation(window.kanagaToken, rowId);
+  };
+
+  function getEvaluationRowActions(ev, idx) {
+    const isCollab = (ev.employeeEmail === currentUser.username || ev.employeeName === currentUser.fullName);
+    const isPrincipal = (ev.principalEvaluatorEmail === currentUser.username || ev.principalEvaluatorName === currentUser.fullName || (!ev.principalEvaluatorEmail && ev.evaluatorName === currentUser.fullName) || currentUser.role === 'Admin');
+
+    let secList = [];
+    try { secList = JSON.parse(ev.secondaryEvaluators || '[]'); } catch(e){}
+    const mySecEntry = secList.find(s => s.email === currentUser.username || s.name === currentUser.fullName);
+    const isSecondary = !!mySecEntry || currentUser.role === 'Admin';
+    const secDone = mySecEntry && mySecEntry.status === 'Complété';
+
+    let badgeClass = 'badge-primary';
+    let displayStatus = ev.status;
+    if (ev.status === 'Initiée') {
+      badgeClass = 'badge-warning';
+    } else if (ev.status === 'Attente Évaluateur Secondaire') {
+      badgeClass = 'badge-info';
+    } else if (ev.status === 'Attente Évaluateur Principal' || ev.status === 'Auto-évaluée') {
+      badgeClass = 'badge-primary';
+    } else if (ev.status === 'Pré-évaluée') {
+      badgeClass = 'badge-info';
+    } else if (ev.status === 'Complétée') {
+      badgeClass = 'badge-success';
+    }
+
+    let actionBtns = `<button class="btn btn-outline" style="padding:5px 10px; font-size:12px;" onclick="viewEvaluation(${idx})">Consulter</button>`;
+
+    if (ev.status === 'Initiée') {
+      if (isCollab) {
+        actionBtns += ` <button class="btn btn-primary" style="padding:5px 10px; font-size:12px; margin-left:5px; background-color:var(--secondary-color);" onclick="startEvaluationWizard('Auto-évaluation', ${ev.rowId})">Auto-évaluer</button>`;
+      }
+    } else if (ev.status === 'Attente Évaluateur Secondaire') {
+      if (isSecondary && !secDone) {
+        actionBtns += ` <button class="btn" style="padding:5px 10px; font-size:12px; margin-left:5px; background-color:#ff9800; color:#fff;" onclick="startEvaluationWizard('Évaluation Secondaire', ${ev.rowId})">Évaluer (Secondaire)</button>`;
+      }
+      if (isPrincipal || currentUser.role === 'Admin') {
+        actionBtns += ` <button class="btn btn-outline" style="padding:5px 10px; font-size:12px; margin-left:5px;" onclick="advanceToPrincipal(${ev.rowId})" title="Clôturer l'étape secondaire et passer à l'évaluation principale">Passer au Principal ➔</button>`;
+      }
+    } else if (ev.status === 'Attente Évaluateur Principal' || ev.status === 'Auto-évaluée' || ev.status === 'Pré-évaluée') {
+      if (isPrincipal || currentUser.role === 'Admin') {
+        actionBtns += ` <button class="btn" style="padding:5px 10px; font-size:12px; margin-left:5px; background-color:var(--secondary-color); color:#fff;" onclick="startEvaluationWizard('Évaluation Manager', ${ev.rowId})">Évaluer (Principal)</button>`;
+      }
+    }
+
+    if (ev.status === 'Complétée' && ev.pdfUrl) {
+      actionBtns += ` <a href="${ev.pdfUrl}" target="_blank" class="btn btn-outline" style="padding:5px 10px; font-size:12px; margin-left:5px;">Télécharger PDF</a>`;
+    }
+
+    return {
+      badgeClass: badgeClass,
+      displayStatus: displayStatus,
+      actionBtns: actionBtns
+    };
+  }
+
   function showManagerDashboard() {
     document.getElementById('eval-selection-screen').style.display = 'none';
     document.getElementById('eval-wizard-screen').style.display = 'none';
@@ -1290,7 +1554,6 @@
     const tbody = document.querySelector('#evals-table tbody');
     if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Chargement en cours...</td></tr>';
     
-    // Load evaluations
     google.script.run
       .withSuccessHandler(function(evalsStr) {
         document.getElementById('eval-dashboard-loader').style.display = 'none';
@@ -1307,32 +1570,20 @@
              return;
           }
           
-          window.loadedEvals = evals; // store globally for viewing
+          window.loadedEvals = evals;
           updateNotifications();
           
           evals.forEach((ev, idx) => {
              const tr = document.createElement('tr');
-             
-             let badgeClass = 'badge-primary';
-             if (ev.status === 'Initiée') badgeClass = 'badge-warning';
-             if (ev.status === 'Complétée') badgeClass = 'badge-success';
-             if (ev.status === 'Pré-évaluée') badgeClass = 'badge-info';
-
-             let actionBtns = `<button class="btn btn-outline" style="padding:5px 10px; font-size:12px;" onclick="viewEvaluation(${idx})">Consulter</button>`;
-             if (ev.status === 'Auto-évaluée' || ev.status === 'Pré-évaluée') {
-                actionBtns += ` <button class="btn" style="padding:5px 10px; font-size:12px; margin-left:5px; background-color:var(--secondary-color);" onclick="quickAttachManagerEval(${ev.rowId})">Évaluer</button>`;
-             }
-             if (ev.status === 'Complétée' && ev.pdfUrl) {
-                actionBtns += ` <a href="${ev.pdfUrl}" target="_blank" class="btn btn-outline" style="padding:5px 10px; font-size:12px; margin-left:5px;">Télécharger PDF</a>`;
-             }
+             const rowInfo = getEvaluationRowActions(ev, idx);
              
              tr.innerHTML = `
                <td>${ev.timestamp}</td>
-               <td><span class="badge ${badgeClass}">${ev.status}</span></td>
+               <td><span class="badge ${rowInfo.badgeClass}">${rowInfo.displayStatus}</span></td>
                <td>${ev.employeeName}</td>
-               <td>${ev.evaluatorName}</td>
-               <td><strong>${ev.globalRating || '-'}</strong></td>
-               <td>${actionBtns}</td>
+               <td>${ev.principalEvaluatorName || ev.evaluatorName}</td>
+               <td><strong>${ev.mgrGlobalRating || ev.globalRating || '-'}</strong></td>
+               <td>${rowInfo.actionBtns}</td>
              `;
              tbody.appendChild(tr);
           });
@@ -1373,7 +1624,15 @@
              return;
           }
 
-          const myEvals = evals.filter(e => e.employeeEmail === currentUser.username || e.employeeName === currentUser.fullName || e.evaluatorName === currentUser.fullName);
+          const myEvals = evals.filter(e => {
+             if (e.employeeEmail === currentUser.username || e.employeeName === currentUser.fullName) return true;
+             if (e.principalEvaluatorEmail === currentUser.username || e.principalEvaluatorName === currentUser.fullName || e.evaluatorName === currentUser.fullName) return true;
+             let secList = [];
+             try { secList = JSON.parse(e.secondaryEvaluators || '[]'); } catch(err){}
+             if (secList.some(s => s.email === currentUser.username || s.name === currentUser.fullName)) return true;
+             return false;
+          });
+
           window.loadedEvals = myEvals;
           updateNotifications();
           
@@ -1384,27 +1643,15 @@
           
           myEvals.forEach((ev, idx) => {
              const tr = document.createElement('tr');
-             
-             let badgeClass = 'badge-primary';
-             if (ev.status === 'Initiée') badgeClass = 'badge-warning';
-             if (ev.status === 'Complétée') badgeClass = 'badge-success';
-             if (ev.status === 'Pré-évaluée') badgeClass = 'badge-info';
-
-             let actionBtns = `<button class="btn btn-outline" style="padding:5px 10px; font-size:12px;" onclick="viewEvaluation(${idx})">Consulter</button>`;
-             if (ev.status === 'Initiée') {
-                actionBtns += ` <button class="btn btn-primary" style="padding:5px 10px; font-size:12px; margin-left:5px;" onclick="startEvaluationWizard('Auto-évaluation', ${ev.rowId})">Auto-évaluer</button>`;
-             }
-             if (ev.status === 'Complétée' && ev.pdfUrl) {
-                actionBtns += ` <a href="${ev.pdfUrl}" target="_blank" class="btn btn-outline" style="padding:5px 10px; font-size:12px; margin-left:5px;">Télécharger PDF</a>`;
-             }
+             const rowInfo = getEvaluationRowActions(ev, idx);
 
              tr.innerHTML = `
                <td>${ev.timestamp}</td>
-               <td><span class="badge ${badgeClass}">${ev.status}</span></td>
+               <td><span class="badge ${rowInfo.badgeClass}">${rowInfo.displayStatus}</span></td>
                <td>${ev.employeeName}</td>
-               <td>${ev.evaluatorName}</td>
-               <td><strong>${ev.globalRating || '-'}</strong></td>
-               <td>${actionBtns}</td>
+               <td>${ev.principalEvaluatorName || ev.evaluatorName}</td>
+               <td><strong>${ev.mgrGlobalRating || ev.globalRating || '-'}</strong></td>
+               <td>${rowInfo.actionBtns}</td>
              `;
              tbody.appendChild(tr);
           });
@@ -1430,15 +1677,27 @@
          pdfButton = `<a href="${ev.pdfUrl}" target="_blank" class="btn btn-primary" style="margin-top: 15px; display: inline-block;">Télécharger PDF</a>`;
      }
 
+     let secList = [];
+     try { secList = JSON.parse(ev.secondaryEvaluators || '[]'); } catch(e){}
+     let secListDisplay = '<span class="text-muted">Aucun évaluateur secondaire désigné</span>';
+     if (secList.length > 0) {
+       secListDisplay = secList.map(s => {
+         const isDone = (s.status === 'Complété');
+         const badgeBg = isDone ? '#28a745' : '#ff9800';
+         return `${escapeHtml(s.name || s.email)} <span style="font-size:11px; padding:2px 7px; border-radius:10px; background:${badgeBg}; color:#fff; font-weight:500;">${isDone ? 'Complété' : 'En attente'}</span>`;
+       }).join(', ');
+     }
+
      let html = `
        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
          <div class="eval-viewer-grid" style="flex: 1;">
            <div class="eval-viewer-box"><strong>Statut:</strong> ${ev.status || ev.type}</div>
            <div class="eval-viewer-box"><strong>Période:</strong> ${ev.period}</div>
            <div class="eval-viewer-box"><strong>Employé:</strong> ${ev.employeeName}</div>
-           <div class="eval-viewer-box"><strong>Département:</strong> ${ev.dept}</div>
-           <div class="eval-viewer-box"><strong>Évaluateur:</strong> ${ev.evaluatorName}</div>
+           <div class="eval-viewer-box"><strong>Département:</strong> ${ev.dept || '-'}</div>
+           <div class="eval-viewer-box"><strong>Évaluateur Principal:</strong> ${ev.principalEvaluatorName || ev.evaluatorName}</div>
            <div class="eval-viewer-box"><strong>Profil:</strong> ${ev.profile}</div>
+           <div class="eval-viewer-box" style="grid-column: span 2;"><strong>Évaluateurs Secondaires:</strong><br>${secListDisplay}</div>
          </div>
          <div style="margin-left: 20px;">
            ${pdfButton}
@@ -1453,42 +1712,75 @@
              </div>
            `;
        } else {
+           let secSynth = [];
+           try { secSynth = JSON.parse(ev.secondarySynthese || '[]'); } catch(e){}
+           
+           const formatSecSynthField = (fieldName) => {
+             if (!secSynth || secSynth.length === 0) return '<span class="text-muted">-</span>';
+             const parts = [];
+             secSynth.forEach(s => {
+               const val = s[fieldName];
+               if (val) {
+                 parts.push(`<div><strong>${escapeHtml(s.evaluatorName || s.evaluatorEmail)} :</strong><div style="margin-top:2px;">${escapeHtml(val).replace(/\n/g, '<br>')}</div></div>`);
+               }
+             });
+             return parts.length > 0 ? parts.join('<hr style="margin:6px 0; border:0; border-top:1px dashed #eee;">') : '<span class="text-muted">-</span>';
+           };
+
+           const formatSecSynthRating = () => {
+             if (!secSynth || secSynth.length === 0) return '<span class="text-muted">-</span>';
+             const parts = [];
+             secSynth.forEach(s => {
+               if (s.globalRating) {
+                 const bCls = getEvalBadgeClass(s.globalRating);
+                 parts.push(`<div><strong>${escapeHtml(s.evaluatorName || s.evaluatorEmail)} :</strong> <span class="eval-badge eval-badge-${bCls}">${escapeHtml(s.globalRating)}</span></div>`);
+               }
+             });
+             return parts.length > 0 ? parts.join('<div style="height:4px;"></div>') : '<span class="text-muted">-</span>';
+           };
+
            html += `
        <h4 style="margin-top:25px; border-bottom:1px solid #ddd; padding-bottom:5px;">Synthèse Globale</h4>
        <div class="table-responsive">
-         <table class="modern-table" style="width:100%; table-layout: fixed;">
+         <table class="modern-table" style="width:100%;">
            <thead>
              <tr>
                <th style="width:20%;">Rubrique</th>
-               <th style="width:40%;">Auto-évaluation (Employé)</th>
-               <th style="width:40%;">Évaluation (Manager)</th>
+               <th style="width:26%;">Auto-évaluation (Employé)</th>
+               <th style="width:28%;">Évaluation(s) Secondaire(s)</th>
+               <th style="width:26%;">Évaluation Principale</th>
              </tr>
            </thead>
            <tbody>
              <tr>
                <td><strong>Note Globale</strong></td>
-               <td>${ev.globalRating || '-'}</td>
-               <td>${ev.mgrGlobalRating || '-'}</td>
+               <td><span class="eval-badge eval-badge-${getEvalBadgeClass(ev.globalRating)}">${ev.globalRating || '-'}</span></td>
+               <td>${formatSecSynthRating()}</td>
+               <td><span class="eval-badge eval-badge-${getEvalBadgeClass(ev.mgrGlobalRating)}">${ev.mgrGlobalRating || '-'}</span></td>
              </tr>
              <tr>
                <td><strong>Points Forts</strong></td>
-               <td>${(ev.strengths || '-').replace(/\\n/g, '<br>')}</td>
-               <td>${(ev.mgrStrengths || '-').replace(/\\n/g, '<br>')}</td>
+               <td>${(ev.strengths || '-').replace(/\n/g, '<br>')}</td>
+               <td>${formatSecSynthField('strengths')}</td>
+               <td>${(ev.mgrStrengths || '-').replace(/\n/g, '<br>')}</td>
              </tr>
              <tr>
                <td><strong>Axes d'Amélioration</strong></td>
-               <td>${(ev.improvements || '-').replace(/\\n/g, '<br>')}</td>
-               <td>${(ev.mgrImprovements || '-').replace(/\\n/g, '<br>')}</td>
+               <td>${(ev.improvements || '-').replace(/\n/g, '<br>')}</td>
+               <td>${formatSecSynthField('improvements')}</td>
+               <td>${(ev.mgrImprovements || '-').replace(/\n/g, '<br>')}</td>
              </tr>
              <tr>
                <td><strong>Besoins en Formation</strong></td>
-               <td>${(ev.training || '-').replace(/\\n/g, '<br>')}</td>
-               <td>${(ev.mgrTraining || '-').replace(/\\n/g, '<br>')}</td>
+               <td>${(ev.training || '-').replace(/\n/g, '<br>')}</td>
+               <td>${formatSecSynthField('training')}</td>
+               <td>${(ev.mgrTraining || '-').replace(/\n/g, '<br>')}</td>
              </tr>
              <tr>
                <td><strong>Objectifs SMART</strong></td>
-               <td>${(ev.smartGoals || '-').replace(/\\n/g, '<br>')}</td>
-               <td>${(ev.mgrSmartGoals || '-').replace(/\\n/g, '<br>')}</td>
+               <td>${(ev.smartGoals || '-').replace(/\n/g, '<br>')}</td>
+               <td>${formatSecSynthField('smartGoals')}</td>
+               <td>${(ev.mgrSmartGoals || '-').replace(/\n/g, '<br>')}</td>
              </tr>
            </tbody>
          </table>
@@ -1552,20 +1844,42 @@
           <table class="modern-table" style="width:100%;">
             <thead>
               <tr>
-                <th style="width:40%;">Compétence</th>
-                <th style="width:30%;">Auto-évaluation (Employé)</th>
-                <th style="width:30%;">Évaluation (Manager)</th>
+                <th style="width:34%;">Compétence</th>
+                <th style="width:22%;">Auto-évaluation (Employé)</th>
+                <th style="width:22%;">Évaluation(s) Secondaire(s)</th>
+                <th style="width:22%;">Évaluation Principale</th>
               </tr>
             </thead>
             <tbody>
       `;
       
-      let empFonda = [], mgrFonda = [];
+      let empFonda = [], mgrFonda = [], secFonda = [];
       try { if(ev.fondamentales) empFonda = JSON.parse(ev.fondamentales); } catch(e){}
       try { if(ev.mgrFondamentales) mgrFonda = JSON.parse(ev.mgrFondamentales); } catch(e){}
+      try { if(ev.secondaryFondamentales) secFonda = JSON.parse(ev.secondaryFondamentales); } catch(e){}
+
+      const formatSecCompCell = (secEntries, idx) => {
+        if (!secEntries || secEntries.length === 0) return '<span class="text-muted">-</span>';
+        const parts = [];
+        secEntries.forEach(entry => {
+          const resp = entry.responses && entry.responses[idx];
+          if (resp && resp.answer) {
+            const bCls = getEvalBadgeClass(resp.answer);
+            const comm = resp.comment || resp.secComment || resp.mgrComment || '';
+            parts.push(`
+              <div style="margin-bottom:8px;">
+                <div style="font-size:11px; font-weight:bold; color:#b25900;">${escapeHtml(entry.evaluatorName || entry.evaluatorEmail)}</div>
+                <span class="eval-badge eval-badge-${bCls}">${escapeHtml(resp.answer)}</span>
+                ${comm ? `<div style="font-size:11px; color:#333; margin-top:3px; background:#fffcf5; padding:4px 6px; border-radius:3px; border-left:2px solid #ff9800; word-break:break-word;">${escapeHtml(comm)}</div>` : ''}
+              </div>
+            `);
+          }
+        });
+        return parts.length > 0 ? parts.join('') : '<span class="text-muted">-</span>';
+      };
       
-      if (empFonda.length > 0 || mgrFonda.length > 0) {
-          html += `<tr><td colspan="3" style="background:#f5f5f5; font-weight:bold;">Fondamentales</td></tr>`;
+      if (empFonda.length > 0 || mgrFonda.length > 0 || secFonda.length > 0) {
+          html += `<tr><td colspan="4" style="background:#f5f5f5; font-weight:bold;">Fondamentales</td></tr>`;
           const maxLen = Math.max(empFonda.length, mgrFonda.length);
           for(let i=0; i<maxLen; i++) {
               const empQ = empFonda[i] || {};
@@ -1586,6 +1900,9 @@
                   ${empCommentHtml}
                 </td>
                 <td style="vertical-align: top;">
+                  ${formatSecCompCell(secFonda, i)}
+                </td>
+                <td style="vertical-align: top;">
                   <span class="eval-badge eval-badge-${getEvalBadgeClass(mgrAns)}">${escapeHtml(mgrAns)}</span>
                   ${mgrCommentHtml}
                 </td>
@@ -1593,12 +1910,13 @@
           }
       }
       
-      let empSpec = [], mgrSpec = [];
+      let empSpec = [], mgrSpec = [], secSpec = [];
       try { if(ev.specifiques && ev.specifiques !== "[]") empSpec = JSON.parse(ev.specifiques); } catch(e){}
       try { if(ev.mgrSpecifiques && ev.mgrSpecifiques !== "[]") mgrSpec = JSON.parse(ev.mgrSpecifiques); } catch(e){}
+      try { if(ev.secondarySpecifiques && ev.secondarySpecifiques !== "[]") secSpec = JSON.parse(ev.secondarySpecifiques); } catch(e){}
       
-      if (empSpec.length > 0 || mgrSpec.length > 0) {
-          html += `<tr><td colspan="3" style="background:#f5f5f5; font-weight:bold;">Spécifiques (${escapeHtml(ev.profile || 'Profil')})</td></tr>`;
+      if (empSpec.length > 0 || mgrSpec.length > 0 || secSpec.length > 0) {
+          html += `<tr><td colspan="4" style="background:#f5f5f5; font-weight:bold;">Spécifiques (${escapeHtml(ev.profile || 'Profil')})</td></tr>`;
           const maxLen = Math.max(empSpec.length, mgrSpec.length);
           for(let i=0; i<maxLen; i++) {
               const empQ = empSpec[i] || {};
@@ -1619,6 +1937,9 @@
                   ${empCommentHtml}
                 </td>
                 <td style="vertical-align: top;">
+                  ${formatSecCompCell(secSpec, i)}
+                </td>
+                <td style="vertical-align: top;">
                   <span class="eval-badge eval-badge-${getEvalBadgeClass(mgrAns)}">${escapeHtml(mgrAns)}</span>
                   ${mgrCommentHtml}
                 </td>
@@ -1629,22 +1950,46 @@
       html += `</tbody></table></div>`;
       
       html += `
-        <div class="eval-viewer-box" style="margin-top:20px;"><strong>Commentaires Généraux Employé:</strong><br>${(ev.empComments || '-').replace(/\\n/g, '<br>')}</div>
-        <div class="eval-viewer-box" style="margin-bottom:10px;"><strong>Commentaires Généraux Manager:</strong><br>${(ev.mgrComments || '-').replace(/\\n/g, '<br>')}</div>
+        <div class="eval-viewer-box" style="margin-top:20px;"><strong>Commentaires Généraux Employé:</strong><br>${(ev.empComments || '-').replace(/\n/g, '<br>')}</div>
+        <div class="eval-viewer-box" style="margin-bottom:10px;"><strong>Commentaires Généraux Manager / Principal:</strong><br>${(ev.mgrComments || '-').replace(/\n/g, '<br>')}</div>
       `;
      }
      
-     if (!ev.mgrName && (currentUser.role === 'Manager' || currentUser.role === 'Admin') && ev.status === 'Auto-évaluée') {
+     // Actions contextuelles en bas de fiche
+     const isPrincipalUser = (ev.principalEvaluatorEmail === currentUser.username || ev.principalEvaluatorName === currentUser.fullName || (!ev.principalEvaluatorEmail && ev.evaluatorName === currentUser.fullName) || currentUser.role === 'Admin');
+     const mySecUser = secList.find(s => s.email === currentUser.username || s.name === currentUser.fullName);
+     const isSecUser = !!mySecUser || currentUser.role === 'Admin';
+     const secUserDone = mySecUser && mySecUser.status === 'Complété';
+
+     if (ev.status === 'Attente Évaluateur Secondaire') {
+       let bottomActions = '';
+       if (isSecUser && !secUserDone) {
+         bottomActions += `<button class="btn" style="background-color:#ff9800; color:#fff; margin-right:10px;" onclick="startEvaluationWizard('Évaluation Secondaire', ${ev.rowId})">Évaluer en tant qu'évaluateur secondaire</button>`;
+       }
+       if (isPrincipalUser) {
+         bottomActions += `<button class="btn btn-outline" onclick="advanceToPrincipal(${ev.rowId})">Passer immédiatement à l'évaluation principale ➔</button>`;
+       }
+       if (bottomActions) {
+         html += `
+           <div style="margin-top:30px; padding:20px; background:#fffcf5; text-align:center; border:1px dashed #ff9800; border-radius:6px;">
+             <p style="margin-bottom:15px; color:#555;">Phase d'évaluation secondaire en cours.</p>
+             ${bottomActions}
+           </div>
+         `;
+       }
+     } else if (ev.status === 'Attente Évaluateur Principal' || ev.status === 'Auto-évaluée') {
+       if (isPrincipalUser) {
+         html += `
+           <div style="margin-top:30px; padding:20px; background:#f0f5fc; text-align:center; border:1px dashed var(--primary-color); border-radius:6px;">
+             <p style="margin-bottom:15px; color:#555;">Ce dossier est prêt pour votre évaluation finale.</p>
+             <button class="btn btn-success" onclick="startEvaluationWizard('Évaluation Manager', ${ev.rowId})">Évaluer en tant qu'évaluateur principal</button>
+           </div>
+         `;
+       }
+     } else if (ev.status === 'Complétée' && isPrincipalUser) {
        html += `
-         <div style="margin-top:30px; padding:20px; background:#f9f9f9; text-align:center; border:1px dashed #ccc;">
-           <p style="margin-bottom:15px; color:#555;">Ce dossier est en attente de votre évaluation.</p>
-           <button class="btn btn-success" onclick="startEvaluationWizard('Évaluation Manager', ${ev.rowId})">Évaluer le collaborateur</button>
-         </div>
-       `;
-     } else if (ev.mgrName && (currentUser.role === 'Manager' || currentUser.role === 'Admin')) {
-       html += `
-         <div style="margin-top:30px; padding:20px; background:#f9f9f9; text-align:center; border:1px dashed #ccc;">
-           <p style="margin-bottom:15px; color:#555;">Ce dossier a déjà été évalué (Managers: ${ev.mgrName}).</p>
+         <div style="margin-top:30px; padding:20px; background:#f9f9f9; text-align:center; border:1px dashed #ccc; border-radius:6px;">
+           <p style="margin-bottom:15px; color:#555;">Ce dossier est complété (Évaluateur principal: ${ev.principalEvaluatorName || ev.mgrName || ev.evaluatorName}).</p>
            <button class="btn btn-outline" onclick="startEvaluationWizard('Évaluation Manager', ${ev.rowId})">Modifier / Compléter l'évaluation</button>
          </div>
        `;
