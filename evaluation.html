@@ -40,7 +40,7 @@
       <div class="wizard-step" id="step-nav-4">4. Réunion Finale</div>
     </div>
 
-    <form id="eval-wizard-form">
+    <form id="eval-wizard-form" novalidate onsubmit="submitEvaluationForm(); return false;">
       <!-- Etape 1 : Entonnoir de départ -->
       <div class="wizard-content active" id="wizard-step-1">
         <h3 id="step-1-title">Section 0 : Entonnoir de départ (Informations Générales)</h3>
@@ -54,17 +54,17 @@
         </div>
         <div class="form-group">
           <label>Période d'évaluation (Ex: Du 01/01 au 31/12) *</label>
-          <input type="text" id="eval-period" class="form-control" required>
+          <input type="text" id="eval-period" class="form-control">
         </div>
         <div class="form-group">
           <label>Employé(e)(s) évalué(e)(s) *</label>
           <div id="eval-employee-readonly-display" style="display:none; margin-bottom: 5px;"></div>
-          <select id="eval-employee-email" class="form-control" multiple required></select>
+          <select id="eval-employee-email" class="form-control" multiple></select>
         </div>
         <div class="form-group" style="margin-top: 15px;">
           <label>Quel est le profil de poste de l'employé(e) ? *</label>
           <p class="text-muted" style="font-size:12px; margin-bottom: 4px;">Détermine les questions de l'évaluation.</p>
-          <select id="eval-profile-select" class="form-control" required onchange="handleEvalProfileChange()">
+          <select id="eval-profile-select" class="form-control" onchange="handleEvalProfileChange()">
             <option value="">-- Choisir --</option>
             <option value="Autre">Autre profil</option>
           </select>
@@ -76,7 +76,7 @@
           <div class="form-group">
             <label>Évaluateur Principal *</label>
             <p class="text-muted" style="font-size:12px;">Responsable de la validation finale et de la synthèse de l'évaluation.</p>
-            <select id="eval-principal-evaluator" class="form-control" required></select>
+            <select id="eval-principal-evaluator" class="form-control"></select>
           </div>
           <div class="form-group" style="margin-top: 15px;">
             <label>Évaluateur(s) Secondaire(s) (Optionnel)</label>
@@ -264,9 +264,9 @@
           <button type="button" class="btn btn-outline" id="btn-eval-conclusion-prev" onclick="evalConclusionPrev()">Précédent</button>
           <button type="button" class="btn btn-primary" id="btn-eval-conclusion-next" onclick="evalConclusionNext()">Suivant</button>
           <button type="button" class="btn btn-primary" id="btn-pre-eval" style="display:none;" onclick="submitPreEvaluation()">Pré-évaluer (pour réunion)</button>
-          <button type="submit" class="btn btn-success" id="btn-submit-eval">Soumettre l'Évaluation</button>
+          <button type="button" class="btn btn-success" id="btn-submit-eval" onclick="submitEvaluationForm()">Soumettre l'Évaluation</button>
         </div>
-        <div id="eval-submit-status" class="status-msg" style="margin-top: 15px;"></div>
+        <div id="eval-submit-status" class="status-msg" style="margin-top: 15px; font-size: 14px; font-weight: 600; padding: 10px 14px; border-radius: 6px; display: none;"></div>
       </div>
     </form>
   </div>

@@ -1237,8 +1237,17 @@
           pill.textContent = (i + 1);
           pill.title = `Aller à la page ${i + 1}`;
           pill.onclick = function() {
+            if (p > curPage) {
+              const profile = (window.evalCurrentEv && window.evalCurrentEv.profile) ? window.evalCurrentEv.profile : document.getElementById('eval-profile-select').value;
+              const specQuestions = (profile !== 'Autre') ? findProfileQuestions(profile) : null;
+              if (specQuestions && !validateSectionQuestions('spec', specQuestions, curPage)) {
+                alert('Veuillez répondre à toutes les questions de cette page avant de naviguer.');
+                return;
+              }
+            }
             window.evalCurrentSpecPage = p;
             updateSpecPageView();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
           };
           pagePills.appendChild(pill);
         });
@@ -1283,6 +1292,15 @@
   function evalSpecNext() {
     const profile = (window.evalCurrentEv && window.evalCurrentEv.profile) ? window.evalCurrentEv.profile : document.getElementById('eval-profile-select').value;
     const specQuestions = (profile !== 'Autre') ? findProfileQuestions(profile) : null;
+    
+    // Valider que toutes les questions de la page courante sont répondues
+    if (specQuestions && specQuestions.length > 0) {
+      if (!validateSectionQuestions('spec', specQuestions, window.evalCurrentSpecPage)) {
+        alert('Veuillez répondre à toutes les questions obligatoires de cette page avant de continuer.');
+        return;
+      }
+    }
+
     const pageNumbers = getSpecPageNumbers(specQuestions);
     const curIdx = pageNumbers.indexOf(window.evalCurrentSpecPage);
     
@@ -1297,12 +1315,28 @@
 
   function nextEvalStep(current, next) {
     if (current === 1) {
-        if (!document.getElementById('eval-period').value || !document.getElementById('eval-employee-email').value) {
-            alert('Veuillez remplir les champs obligatoires (*)');
+        if (!document.getElementById('eval-period').value) {
+            alert('Veuillez renseigner la période d\'évaluation.');
             return;
+        }
+        if (window.evalCurrentMode === 'Initiation') {
+            if (!document.getElementById('eval-employee-email').value) {
+                alert('Veuillez sélectionner au moins un collaborateur.');
+                return;
+            }
+            if (!document.getElementById('eval-principal-evaluator').value) {
+                alert('Veuillez désigner un évaluateur principal.');
+                return;
+            }
         }
     }
     if (current === 2) {
+        const fondaQuestions = (evalQuestions && evalQuestions.fondamentales) ? evalQuestions.fondamentales : [];
+        if (!validateSectionQuestions('fonda', fondaQuestions)) {
+            alert('Veuillez répondre à toutes les questions obligatoires du tronc commun avant de passer à la suite.');
+            return;
+        }
+
         const profile = (window.evalCurrentEv && window.evalCurrentEv.profile) ? window.evalCurrentEv.profile : document.getElementById('eval-profile-select').value;
         if (!profile) {
             alert('Veuillez sélectionner un profil.');
@@ -1317,6 +1351,16 @@
             document.getElementById('step-nav-3').style.display = 'inline-block';
             window.evalCurrentSpecPage = 1;
             updateSpecPageView();
+        }
+    }
+    if (current === 3 && next === 4) {
+        const profile = (window.evalCurrentEv && window.evalCurrentEv.profile) ? window.evalCurrentEv.profile : document.getElementById('eval-profile-select').value;
+        const specQuestions = (profile !== 'Autre') ? findProfileQuestions(profile) : null;
+        if (specQuestions && specQuestions.length > 0) {
+            if (!validateSectionQuestions('spec', specQuestions, window.evalCurrentSpecPage)) {
+                alert('Veuillez répondre à toutes les questions obligatoires de cette page avant de continuer.');
+                return;
+            }
         }
     }
     if (next === 4) {
@@ -1379,8 +1423,16 @@
           pill.textContent = (i + 1);
           pill.title = `Aller à la page ${i + 1}`;
           pill.onclick = function() {
+            if (p > curPage) {
+              const conclusionQuestions = (evalQuestions && evalQuestions.conclusion) ? evalQuestions.conclusion : [];
+              if (conclusionQuestions && !validateSectionQuestions('conclusion', conclusionQuestions, curPage)) {
+                alert('Veuillez répondre à toutes les questions obligatoires de cette page avant de naviguer.');
+                return;
+              }
+            }
             window.evalCurrentConclusionPage = p;
             updateConclusionPageView();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
           };
           pagePills.appendChild(pill);
         });
@@ -1437,6 +1489,15 @@
 
   function evalConclusionNext() {
     const conclusionQuestions = (evalQuestions && evalQuestions.conclusion) ? evalQuestions.conclusion : [];
+    
+    // Valider que toutes les questions de la page courante sont répondues
+    if (conclusionQuestions && conclusionQuestions.length > 0) {
+      if (!validateSectionQuestions('conclusion', conclusionQuestions, window.evalCurrentConclusionPage)) {
+        alert('Veuillez répondre à toutes les questions obligatoires de cette page avant de continuer.');
+        return;
+      }
+    }
+
     const pageNumbers = getConclusionPageNumbers(conclusionQuestions);
     const curIdx = pageNumbers.indexOf(window.evalCurrentConclusionPage);
     
@@ -1482,6 +1543,77 @@
     if (r.startsWith('PI') || r === '1') return 'pi';
     return 'na';
   }
+
+  window.clearQuestionError = function(prefix, idx) {
+    const row = document.getElementById('row-' + prefix + '-' + idx);
+    if (row) {
+      row.style.border = '';
+      row.style.borderRadius = '';
+      row.style.backgroundColor = '';
+      row.style.padding = '';
+      row.style.boxShadow = '';
+    }
+    const errEl = document.getElementById('error-msg-' + prefix + '-' + idx);
+    if (errEl) errEl.style.display = 'none';
+  };
+
+  window.setQuestionError = function(prefix, idx) {
+    const row = document.getElementById('row-' + prefix + '-' + idx);
+    if (row) {
+      row.style.border = '2px solid #e53935';
+      row.style.borderRadius = '8px';
+      row.style.backgroundColor = '#fff8f8';
+      row.style.padding = '14px';
+      row.style.boxShadow = '0 2px 8px rgba(229, 57, 53, 0.15)';
+      row.style.transition = 'all 0.3s ease';
+    }
+    const errEl = document.getElementById('error-msg-' + prefix + '-' + idx);
+    if (errEl) errEl.style.display = 'block';
+  };
+
+  window.isQuestionAnswered = function(prefix, idx, qType) {
+    if (qType === 'section') return true;
+    if (qType === 'text') {
+      const el = document.querySelector('textarea[name="' + prefix + '_q' + idx + '"]');
+      return el && el.value.trim().length > 0;
+    } else {
+      const selected = document.querySelector('input[name="' + prefix + '_q' + idx + '"]:checked');
+      return selected !== null;
+    }
+  };
+
+  window.validateSectionQuestions = function(prefix, questionsList, pageFilter) {
+    if (!questionsList || !Array.isArray(questionsList) || questionsList.length === 0) return true;
+    let firstInvalidRow = null;
+    let allValid = true;
+
+    questionsList.forEach((qObj, idx) => {
+      const q = typeof qObj === 'string' ? { text: qObj, type: 'scale', page: 1 } : qObj;
+      if (q.type === 'section') return;
+      
+      const qPage = parseInt(q.page, 10) || 1;
+      if (pageFilter !== undefined && pageFilter !== null && qPage !== pageFilter) {
+        return;
+      }
+
+      const answered = isQuestionAnswered(prefix, idx, q.type);
+      if (!answered) {
+        setQuestionError(prefix, idx);
+        allValid = false;
+        if (!firstInvalidRow) {
+          firstInvalidRow = document.getElementById('row-' + prefix + '-' + idx);
+        }
+      } else {
+        clearQuestionError(prefix, idx);
+      }
+    });
+
+    if (!allValid && firstInvalidRow) {
+      firstInvalidRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    return allValid;
+  };
 
   function generateGrid(containerId, prefix, questions) {
     const container = document.getElementById(containerId);
@@ -1623,7 +1755,7 @@
           return; // Skip the rest of the rendering for this item
       }
 
-      html += `<div class="eval-grid-row" data-page="${q.page || 1}">
+      html += `<div class="eval-grid-row" id="row-${prefix}-${idx}" data-page="${q.page || 1}">
                  <div class="eval-grid-question">
                     ${text}
                     ${desc}
@@ -1636,18 +1768,23 @@
           const opts = (q.options || 'PI, PA, CA, PS, PE, N/A').split(',').map(s => s.trim());
           opts.forEach(opt => {
               html += `<label class="eval-radio-label">
-                         <input type="radio" name="${prefix}_q${idx}" value="${opt}">
+                         <input type="radio" name="${prefix}_q${idx}" value="${opt}" onchange="clearQuestionError('${prefix}', ${idx})">
                          ${opt}
                        </label>`;
           });
       } else if (q.type === 'boolean') {
-          html += `<label class="eval-radio-label"><input type="radio" name="${prefix}_q${idx}" value="Oui"> Oui</label>`;
-          html += `<label class="eval-radio-label"><input type="radio" name="${prefix}_q${idx}" value="Non"> Non</label>`;
+          html += `<label class="eval-radio-label"><input type="radio" name="${prefix}_q${idx}" value="Oui" onchange="clearQuestionError('${prefix}', ${idx})"> Oui</label>`;
+          html += `<label class="eval-radio-label"><input type="radio" name="${prefix}_q${idx}" value="Non" onchange="clearQuestionError('${prefix}', ${idx})"> Non</label>`;
       } else if (q.type === 'text') {
-          html += `<textarea name="${prefix}_q${idx}" class="form-control" rows="3" placeholder="Votre réponse..."></textarea>`;
+          html += `<textarea name="${prefix}_q${idx}" class="form-control" rows="3" placeholder="Votre réponse..." oninput="clearQuestionError('${prefix}', ${idx})"></textarea>`;
       }
       
       html += `</div>`;
+
+      // Message d'erreur visible si la question n'est pas remplie
+      html += `<div id="error-msg-${prefix}-${idx}" class="eval-q-error-text" style="display:none; color:#c62828; font-size:12px; font-weight:600; margin-top:8px; padding:6px 10px; background:#ffebee; border-radius:4px; border-left:3px solid #c62828;">
+        ⚠️ Veuillez répondre à cette question pour continuer.
+      </div>`;
 
       // Commentaires collaborateur et évaluateur
       if (q.type === 'scale' || q.type === 'boolean') {
@@ -1851,13 +1988,70 @@
   document.getElementById('eval-wizard-form').addEventListener('input', scheduleAutosave);
   document.getElementById('eval-wizard-form').addEventListener('change', scheduleAutosave);
 
-  document.getElementById('eval-wizard-form').addEventListener('submit', function(e) {
-    e.preventDefault();
+  window.submitEvaluationForm = function(e) {
+    if (e && e.preventDefault) e.preventDefault();
     if (autosaveTimeout) clearTimeout(autosaveTimeout);
+
+    // 1. Validation de l'étape 1 (Informations générales)
+    if (!document.getElementById('eval-period').value) {
+      showEvalStep(1);
+      alert('Veuillez renseigner la période d\'évaluation.');
+      return;
+    }
+
+    // 2. Validation de la Section 1 (Tronc commun)
+    const fondaQuestions = (evalQuestions && evalQuestions.fondamentales) ? evalQuestions.fondamentales : [];
+    if (!validateSectionQuestions('fonda', fondaQuestions)) {
+      showEvalStep(2);
+      alert('Veuillez répondre à toutes les questions obligatoires du tronc commun avant de soumettre.');
+      return;
+    }
+
+    // 3. Validation de la Section 2 (Questions spécifiques au profil si applicable)
+    const profile = (window.evalCurrentEv && window.evalCurrentEv.profile) ? window.evalCurrentEv.profile : document.getElementById('eval-profile-select').value;
+    const specQuestions = (profile !== 'Autre') ? findProfileQuestions(profile) : null;
+    if (specQuestions && specQuestions.length > 0) {
+      const pageNumbers = getSpecPageNumbers(specQuestions);
+      for (let p of pageNumbers) {
+        if (!validateSectionQuestions('spec', specQuestions, p)) {
+          showEvalStep(3);
+          window.evalCurrentSpecPage = p;
+          updateSpecPageView();
+          alert('Veuillez répondre à toutes les questions obligatoires du profil (Page ' + p + ') avant de soumettre.');
+          return;
+        }
+      }
+    }
+
+    // 4. Validation de la Section 3 (Conclusion commune)
+    const conclusionQuestions = (evalQuestions && evalQuestions.conclusion) ? evalQuestions.conclusion : [];
+    if (conclusionQuestions && conclusionQuestions.length > 0) {
+      const pageNumbers = getConclusionPageNumbers(conclusionQuestions);
+      for (let p of pageNumbers) {
+        if (!validateSectionQuestions('conclusion', conclusionQuestions, p)) {
+          showEvalStep(4);
+          window.evalCurrentConclusionPage = p;
+          updateConclusionPageView();
+          alert('Veuillez répondre à toutes les questions obligatoires de la conclusion (Page ' + p + ') avant de soumettre.');
+          return;
+        }
+      }
+    }
+
+    // 5. Statut et boutons en cours d'enregistrement
     const btn = document.getElementById('btn-submit-eval');
     const status = document.getElementById('eval-submit-status');
-    btn.disabled = true;
-    btn.innerText = 'Enregistrement...';
+    if (btn) {
+      btn.disabled = true;
+      btn.innerText = 'Enregistrement en cours...';
+    }
+    if (status) {
+      status.style.display = 'block';
+      status.style.background = '#e3f2fd';
+      status.style.color = '#0d47a1';
+      status.style.border = '1px solid #bbdefb';
+      status.innerHTML = '⏳ <strong>Enregistrement en cours...</strong> Veuillez patienter pendant la transmission de votre évaluation.';
+    }
     
     const formData = getEvaluationFormData();
 
@@ -1875,63 +2069,107 @@
       
       google.script.run
         .withSuccessHandler(() => {
-           status.innerText = 'Évaluation manager enregistrée avec succès.';
-           status.style.color = 'var(--secondary-color)';
+           if (status) {
+             status.style.background = '#e8f5e9';
+             status.style.color = '#2e7d32';
+             status.style.border = '1px solid #c8e6c9';
+             status.innerHTML = '✅ <strong>Évaluation manager enregistrée avec succès !</strong> Redirection en cours...';
+           }
+           alert("Votre évaluation a été enregistrée avec succès !");
            setTimeout(() => {
                showManagerDashboard();
-               btn.disabled = false;
-               btn.innerText = "Soumettre l'Évaluation";
-               status.innerText = '';
-           }, 2000);
+               if (btn) {
+                 btn.disabled = false;
+                 btn.innerText = "Soumettre l'Évaluation";
+               }
+               if (status) status.style.display = 'none';
+           }, 1500);
         })
         .withFailureHandler(err => {
-           status.innerText = 'Erreur : ' + err.message;
-           status.style.color = 'var(--danger-color)';
-           btn.disabled = false;
-           btn.innerText = "Soumettre l'Évaluation";
+           if (status) {
+             status.style.background = '#ffebee';
+             status.style.color = '#c62828';
+             status.style.border = '1px solid #ffcdd2';
+             status.innerHTML = '❌ <strong>Erreur :</strong> ' + escapeHtml(err.message);
+           }
+           alert("Erreur lors de la soumission de l'évaluation : " + err.message);
+           if (btn) {
+             btn.disabled = false;
+             btn.innerText = "Soumettre l'Évaluation";
+           }
         })
         .submitAttachedManagerEvaluation(window.kanagaToken, window.evalAttachedRowId, mgrData, currentUser.fullName);
     } else if (window.evalCurrentMode === 'Évaluation Secondaire') {
       google.script.run
         .withSuccessHandler(() => {
-           status.innerText = 'Évaluation secondaire enregistrée avec succès.';
-           status.style.color = 'var(--secondary-color)';
+           if (status) {
+             status.style.background = '#e8f5e9';
+             status.style.color = '#2e7d32';
+             status.style.border = '1px solid #c8e6c9';
+             status.innerHTML = '✅ <strong>Évaluation secondaire enregistrée avec succès !</strong> Redirection en cours...';
+           }
+           alert("Votre évaluation secondaire a été enregistrée avec succès !");
            setTimeout(() => {
                if (currentUser.role === 'Manager' || currentUser.role === 'Admin') showManagerDashboard();
                else showEmployeeDashboard();
-               btn.disabled = false;
-               btn.innerText = "Soumettre l'Évaluation";
-               status.innerText = '';
-           }, 2000);
+               if (btn) {
+                 btn.disabled = false;
+                 btn.innerText = "Soumettre l'Évaluation";
+               }
+               if (status) status.style.display = 'none';
+           }, 1500);
         })
         .withFailureHandler(err => {
-           status.innerText = 'Erreur : ' + err.message;
-           status.style.color = 'var(--danger-color)';
-           btn.disabled = false;
-           btn.innerText = "Soumettre l'Évaluation";
+           if (status) {
+             status.style.background = '#ffebee';
+             status.style.color = '#c62828';
+             status.style.border = '1px solid #ffcdd2';
+             status.innerHTML = '❌ <strong>Erreur :</strong> ' + escapeHtml(err.message);
+           }
+           alert("Erreur lors de la soumission de l'évaluation : " + err.message);
+           if (btn) {
+             btn.disabled = false;
+             btn.innerText = "Soumettre l'Évaluation";
+           }
         })
         .submitSecondaryEvaluation(window.kanagaToken, window.evalAttachedRowId, formData);
     } else {
       google.script.run
         .withSuccessHandler(() => {
-           status.innerText = 'Auto-évaluation enregistrée avec succès.';
-           status.style.color = 'var(--secondary-color)';
+           if (status) {
+             status.style.background = '#e8f5e9';
+             status.style.color = '#2e7d32';
+             status.style.border = '1px solid #c8e6c9';
+             status.innerHTML = '✅ <strong>Auto-évaluation enregistrée avec succès !</strong> Redirection en cours...';
+           }
+           alert("Votre auto-évaluation a été enregistrée avec succès !");
            setTimeout(() => {
                showEmployeeDashboard();
-               btn.disabled = false;
-               btn.innerText = "Soumettre l'Évaluation";
-               status.innerText = '';
-           }, 2000);
+               if (btn) {
+                 btn.disabled = false;
+                 btn.innerText = "Soumettre l'Évaluation";
+               }
+               if (status) status.style.display = 'none';
+           }, 1500);
         })
         .withFailureHandler(err => {
-           status.innerText = 'Erreur : ' + err.message;
-           status.style.color = 'var(--danger-color)';
-           btn.disabled = false;
-           btn.innerText = "Soumettre l'Évaluation";
+           if (status) {
+             status.style.background = '#ffebee';
+             status.style.color = '#c62828';
+             status.style.border = '1px solid #ffcdd2';
+             status.innerHTML = '❌ <strong>Erreur :</strong> ' + escapeHtml(err.message);
+           }
+           alert("Erreur lors de la soumission de l'auto-évaluation : " + err.message);
+           if (btn) {
+             btn.disabled = false;
+             btn.innerText = "Soumettre l'Évaluation";
+           }
         })
         .submitSelfEvaluation(window.kanagaToken, window.evalAttachedRowId, formData);
     }
-  });
+  };
+
+  document.getElementById('eval-wizard-form').addEventListener('submit', window.submitEvaluationForm);
 
   window.submitPreEvaluation = function() {
     if (autosaveTimeout) clearTimeout(autosaveTimeout);
