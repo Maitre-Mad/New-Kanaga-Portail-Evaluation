@@ -1247,25 +1247,90 @@ function sendEvaluationNotification(eventType, context) {
   }
 }
 
-function testSendEvaluationNotification(token, eventKey, testEmail) {
+function testSendEvaluationNotification(token, eventKey, testEmail, customSubject, customMessage) {
   verifySession(token);
-  if (!testEmail || !testEmail.includes('@')) throw new Error("Veuillez saisir une adresse e-mail de test valide.");
+  const cleanEmail = (testEmail || '').trim();
+  if (!cleanEmail || !cleanEmail.includes('@')) {
+    throw new Error("Veuillez saisir une adresse e-mail de test valide.");
+  }
 
-  const dummyContext = {
-    employeeName: "Abdoulaye Diarra (Test)",
-    employeeEmail: testEmail,
-    period: "2025-2026 (Test)",
-    profile: "Chef de Projet",
-    principalEvaluatorName: "Ibrahim Traoré (Manager Test)",
-    principalEvaluatorEmail: testEmail,
-    secondaryEvaluators: [{ name: "Zakaria Berthé (Test)", email: testEmail, status: "Complété" }],
-    pdfUrl: "https://drive.google.com",
-    allCompleted: true,
-    evaluatorName: "Zakaria Berthé (Test)"
+  const validKeys = [
+    'initiation_employee',
+    'initiation_secondary',
+    'self_eval_submitted',
+    'secondary_completed',
+    'eval_finalized'
+  ];
+  const targetKey = validKeys.includes(eventKey) ? eventKey : 'initiation_employee';
+
+  const settings = getEvaluationNotificationSettings();
+  const rawSubject = (customSubject && customSubject.trim()) ? customSubject.trim() : (settings[targetKey + '_subject'] || `[Portail Kanaga] Test Notification (${targetKey})`);
+  const rawBody = (customMessage && customMessage.trim()) ? customMessage.trim() : (settings[targetKey + '_message'] || '<p>Ceci est un test de notification.</p>');
+
+  let portailUrl = 'https://script.google.com';
+  try {
+    portailUrl = ScriptApp.getService().getUrl() || 'https://script.google.com';
+  } catch(e) {}
+
+  const dummyEmployee = "Abdoulaye Diarra (Test)";
+  const dummyPeriod = "2025-2026 (Test)";
+  const dummyProfile = "Chef de Projet (Test)";
+  const dummyPrincipal = "Ibrahim Traoré (Manager Test)";
+  const dummySecondaries = "Zakaria Berthé (Test), Mariam Séméga (Test)";
+  const dummyPdfUrl = portailUrl;
+
+  function replaceTags(str) {
+    if (!str) return '';
+    return str
+      .replace(/{nom_employe}/g, dummyEmployee)
+      .replace(/{periode}/g, dummyPeriod)
+      .replace(/{profil}/g, dummyProfile)
+      .replace(/{evaluateur_principal}/g, dummyPrincipal)
+      .replace(/{evaluateurs_secondaires}/g, dummySecondaries)
+      .replace(/{lien_portail}/g, portailUrl)
+      .replace(/{bloc_pdf}/g, `<div style="text-align:center; margin:10px 0;"><a href="${dummyPdfUrl}" class="btn-email" style="background:#5D4037;" target="_blank">📄 Télécharger le Compte-Rendu PDF (Exemple Test)</a></div><br>`)
+      .replace(/{lien_pdf}/g, dummyPdfUrl);
+  }
+
+  const testSubject = "[TEST] " + replaceTags(rawSubject);
+  const testBody = replaceTags(rawBody);
+
+  const statusMap = {
+    'initiation_employee': "Initiée (Auto-évaluation attendue)",
+    'initiation_secondary': "Initiée (Désignation secondaire)",
+    'self_eval_submitted': "Attente Avis Évaluateur",
+    'secondary_completed': "Attente Évaluateur Principal",
+    'eval_finalized': "Complétée & Clôturée"
   };
 
-  sendEvaluationNotification(eventKey || 'initiation', dummyContext);
-  return { success: true, message: `E-mail de test [${eventKey}] envoyé avec succès à ${testEmail} !` };
+  const finalHtml = buildStyledEmailHtml(testSubject, testBody, {
+    employeeName: dummyEmployee,
+    period: dummyPeriod,
+    profile: dummyProfile,
+    principalEvaluatorName: dummyPrincipal,
+    stepStatus: statusMap[targetKey] || "Test Notification"
+  });
+
+  const mailOptions = {
+    to: cleanEmail,
+    subject: testSubject,
+    htmlBody: finalHtml,
+    from: 'notifications@kanagaconsulting.com',
+    name: 'Portail Kanaga Consulting'
+  };
+
+  try {
+    MailApp.sendEmail(mailOptions);
+  } catch(aliasErr) {
+    Logger.log("Envoi de test avec alias échoué, repli vers envoi standard: " + aliasErr.message);
+    delete mailOptions.from;
+    MailApp.sendEmail(mailOptions);
+  }
+
+  return { 
+    success: true, 
+    message: `E-mail de test [${targetKey}] envoyé avec succès à ${cleanEmail} !` 
+  };
 }
 function sendGeneralTimesheetReminder() {
   const settings = getGeneralReminderSettings();

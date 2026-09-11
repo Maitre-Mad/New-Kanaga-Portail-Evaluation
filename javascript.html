@@ -232,6 +232,11 @@
     }
     const select = document.getElementById('eval-email-event-select');
     const evt = select ? select.value : 'initiation_employee';
+    const subjInput = document.getElementById('eval-email-subject');
+    const msgInput = document.getElementById('eval-email-message');
+    const customSubject = subjInput ? subjInput.value : '';
+    const customMessage = msgInput ? msgInput.value : '';
+
     const btn = document.getElementById('btn-send-test-email');
     const status = document.getElementById('eval-test-email-status');
 
@@ -257,7 +262,7 @@
           status.style.color = "red";
         }
       })
-      .testSendEvaluationNotification(window.kanagaToken, evt, testEmail);
+      .testSendEvaluationNotification(window.kanagaToken, evt, testEmail, customSubject, customMessage);
   }
 
   function initAuthenticatedApp(user) {
