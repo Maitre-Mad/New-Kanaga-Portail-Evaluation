@@ -1310,13 +1310,41 @@ function generateEvaluationPDF(rowId) {
     
     body.appendParagraph(""); // Spacer
     
-    // D\u00E9tail des Comp\u00E9tences
-    const compHeading = body.appendParagraph("D\u00E9tail des Comp\u00E9tences");
+    // Barème d'Évaluation de la performance
+    const legendHeading = body.appendParagraph("Barème d'Évaluation");
+    legendHeading.setHeading(DocumentApp.ParagraphHeading.HEADING2);
+    legendHeading.setAttributes({ [DocumentApp.Attribute.BOLD]: true });
+
+    const legendTable = body.appendTable([
+      ["Niveau", "Intitulé", "Définition"],
+      ["5 - PE", "Performance Exceptionnelle", "Dépasse constamment les attentes et constitue une référence."],
+      ["4 - PS", "Performance Supérieure", "Dépasse régulièrement les attentes dans les domaines clés."],
+      ["3 - CA", "Performance Conforme aux Attentes", "Atteint les objectifs et les standards de performance attendus pour le poste."],
+      ["2 - PA", "Performance à Améliorer", "N'atteint pas toujours les objectifs et nécessite une amélioration dans certains domaines."],
+      ["1 - PI", "Performance Insatisfaisante", "N'atteint pas les objectifs de manière significative et nécessite une amélioration immédiate."],
+      ["N/A", "Non Applicable", "Non applicable au poste ou non évaluable sur la période."]
+    ]);
+    const legHeader = legendTable.getRow(0);
+    for (let j = 0; j < legHeader.getNumCells(); j++) {
+      legHeader.getCell(j).getChild(0).asParagraph().setAttributes({ [DocumentApp.Attribute.BOLD]: true });
+      legHeader.getCell(j).setBackgroundColor('#f5f5f5');
+    }
+    for (let i = 0; i < legendTable.getNumRows(); i++) {
+      const lRow = legendTable.getRow(i);
+      for (let j = 0; j < lRow.getNumCells(); j++) {
+        lRow.getCell(j).setPaddingTop(4).setPaddingBottom(4);
+      }
+    }
+
+    body.appendParagraph(""); // Spacer
+
+    // Détail des Compétences
+    const compHeading = body.appendParagraph("Détail des Compétences");
     compHeading.setHeading(DocumentApp.ParagraphHeading.HEADING2);
     compHeading.setAttributes({ [DocumentApp.Attribute.BOLD]: true });
     
     const compData = [
-      ["Comp\u00E9tence", "Note Employ\u00E9", "Note Manager"]
+      ["Compétence", "Auto-évaluation (Employé)", "Évaluation (Manager)"]
     ];
     
     // Helper to safely parse JSON
@@ -1328,6 +1356,16 @@ function generateEvaluationPDF(rowId) {
     const empSpec = safeParse(data[11]);
     const mgrFonda = safeParse(data[21]);
     const mgrSpec = safeParse(data[22]);
+
+    const formatAnswerCell = (qObj) => {
+      if (!qObj) return '-';
+      const ans = qObj.answer || '-';
+      const comment = qObj.empComment || qObj.mgrComment || qObj.comment || '';
+      if (comment) {
+        return ans + "\nCommentaire : " + comment;
+      }
+      return ans;
+    };
     
     if (empFonda.length > 0 || mgrFonda.length > 0) {
       compData.push(["Fondamentales", "", ""]);
@@ -1336,18 +1374,18 @@ function generateEvaluationPDF(rowId) {
         const empQ = empFonda[i] || {};
         const mgrQ = mgrFonda[i] || {};
         const qText = empQ.question || mgrQ.question || `Question ${i+1}`;
-        compData.push([qText, empQ.answer || '-', mgrQ.answer || '-']);
+        compData.push([qText, formatAnswerCell(empQ), formatAnswerCell(mgrQ)]);
       }
     }
     
     if (empSpec.length > 0 || mgrSpec.length > 0) {
-      compData.push(["Sp\u00E9cifiques (" + (data[9] || 'Profil') + ")", "", ""]);
+      compData.push(["Spécifiques (" + (data[9] || 'Profil') + ")", "", ""]);
       const count = Math.max(empSpec.length, mgrSpec.length);
       for (let i = 0; i < count; i++) {
         const empQ = empSpec[i] || {};
         const mgrQ = mgrSpec[i] || {};
         const qText = empQ.question || mgrQ.question || `Question ${i+1}`;
-        compData.push([qText, empQ.answer || '-', mgrQ.answer || '-']);
+        compData.push([qText, formatAnswerCell(empQ), formatAnswerCell(mgrQ)]);
       }
     }
     
@@ -1362,7 +1400,7 @@ function generateEvaluationPDF(rowId) {
     for (let i = 1; i < compTable.getNumRows(); i++) {
       const row = compTable.getRow(i);
       const text = row.getCell(0).getText();
-      if (text === "Fondamentales" || text.startsWith("Sp\u00E9cifiques")) {
+      if (text === "Fondamentales" || text.startsWith("Spécifiques")) {
         row.getCell(0).getChild(0).asParagraph().setAttributes({ [DocumentApp.Attribute.BOLD]: true });
         row.getCell(0).setBackgroundColor('#fafafa');
         row.getCell(1).setBackgroundColor('#fafafa');
@@ -1384,7 +1422,7 @@ function generateEvaluationPDF(rowId) {
       const folder = DriveApp.getFolderById(folderId);
       file = folder.createFile(pdfBlob);
     } catch(folderErr) {
-      console.error("Erreur acc\u00E8s dossier Drive, fallback racine : " + folderErr.message);
+      console.error("Erreur accès dossier Drive, fallback racine : " + folderErr.message);
       file = DriveApp.createFile(pdfBlob);
     }
     
@@ -1393,11 +1431,56 @@ function generateEvaluationPDF(rowId) {
     return file.getUrl();
 }
 
+function saveAttachedManagerEvaluationDraft(token, rowId, formData, managerNameFallback) {
+  let managerName = managerNameFallback || '';
+  if (token && typeof token === 'string' && token.length > 10) {
+    try {
+      const sessionUser = verifySession(token);
+      managerName = sessionUser.fullName || sessionUser.username;
+    } catch(e) {}
+  }
 
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const sheet = ss.getSheetByName('Evaluations');
+    if (!sheet) throw new Error("Feuille Evaluations introuvable.");
+    
+    const row = parseInt(rowId);
+    const maxRequiredCol = 31;
+    if (sheet.getMaxColumns() < maxRequiredCol) {
+      sheet.insertColumnsAfter(sheet.getMaxColumns(), maxRequiredCol - sheet.getMaxColumns());
+    }
+    
+    const existingMgr = sheet.getRange(row, 21).getValue();
+    let updatedMgrName = managerName || existingMgr || 'Manager';
+    if (existingMgr && managerName && existingMgr !== managerName && !String(existingMgr).includes(managerName)) {
+      updatedMgrName = existingMgr + ", " + managerName;
+    }
+    
+    sheet.getRange(row, 21).setValue(updatedMgrName);
+    sheet.getRange(row, 22).setValue(JSON.stringify(formData.mgrFondamentales || []));
+    sheet.getRange(row, 23).setValue(JSON.stringify(formData.mgrSpecifiques || []));
+    sheet.getRange(row, 24).setValue(formData.mgrStrengths || '');
+    sheet.getRange(row, 25).setValue(formData.mgrImprovements || '');
+    sheet.getRange(row, 26).setValue(formData.mgrGlobalRating || '');
+    sheet.getRange(row, 27).setValue(formData.mgrTraining || '');
+    sheet.getRange(row, 28).setValue(formData.mgrSmartGoals || '');
+    sheet.getRange(row, 29).setValue(formData.mgrComments || '');
 
-function submitAttachedManagerEvaluation(token, rowId, formData) {
-  const sessionUser = verifySession(token);
-  const managerName = sessionUser.fullName || sessionUser.username;
+    return { success: true };
+  } catch (e) {
+    throw new Error("Erreur lors de la sauvegarde du brouillon manager: " + e.message);
+  }
+}
+
+function submitAttachedManagerEvaluation(token, rowId, formData, managerNameFallback) {
+  let managerName = managerNameFallback || '';
+  if (token && typeof token === 'string' && token.length > 10) {
+    try {
+      const sessionUser = verifySession(token);
+      managerName = sessionUser.fullName || sessionUser.username;
+    } catch(e) {}
+  }
 
   try {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
@@ -1412,12 +1495,12 @@ function submitAttachedManagerEvaluation(token, rowId, formData) {
     }
     
     const existingMgr = sheet.getRange(row, 21).getValue();
-    let updatedMgrName = managerName;
-    if (existingMgr && existingMgr !== managerName && !String(existingMgr).includes(managerName)) {
+    let updatedMgrName = managerName || existingMgr || 'Manager';
+    if (existingMgr && managerName && existingMgr !== managerName && !String(existingMgr).includes(managerName)) {
       updatedMgrName = existingMgr + ", " + managerName;
     }
     
-    sheet.getRange(row, 2).setValue('Compl\u00E9t\u00E9e');
+    sheet.getRange(row, 2).setValue('Complétée');
     sheet.getRange(row, 21).setValue(updatedMgrName);
     sheet.getRange(row, 22).setValue(JSON.stringify(formData.mgrFondamentales || []));
     sheet.getRange(row, 23).setValue(JSON.stringify(formData.mgrSpecifiques || []));
@@ -1435,7 +1518,7 @@ function submitAttachedManagerEvaluation(token, rowId, formData) {
 
     return { success: true };
   } catch (e) {
-    throw new Error("Erreur lors de l'attachement de l'ÃƒÆ’Ã‚Â©valuation: " + e.message);
+    throw new Error("Erreur lors de l'attachement de l'évaluation: " + e.message);
   }
 }
 

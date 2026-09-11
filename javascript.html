@@ -746,6 +746,7 @@
         document.getElementById('btn-next-step1').style.display = 'inline-block';
         
         const ev = window.loadedEvals.find(e => e.rowId === attachedRowId);
+        window.evalCurrentEv = ev || null;
         if(ev) {
           if (window.empChoices) window.empChoices.destroy();
           empSelect.innerHTML = `<option value="${ev.employeeEmail || currentUser.username}" selected>${ev.employeeName}</option>`;
@@ -762,13 +763,48 @@
             document.getElementById('step-3-title').innerText = "Compétences Spécifiques (" + ev.profile + ")";
         }
         
-        // Pré-remplissage pour la collaboration (si déjà évalué par un manager)
-        if (type === 'Évaluation Manager' && ev && ev.mgrName) {
-            document.getElementById('eval-strengths').value = ev.mgrStrengths || '';
-            document.getElementById('eval-improvements').value = ev.mgrImprovements || '';
+        // Pré-remplissage pour l'auto-évaluation (si brouillon existant)
+        if (type === 'Auto-évaluation' && ev) {
+            document.getElementById('eval-past-goals').value = ev.pastGoals || '';
+            document.getElementById('eval-strengths').value = ev.strengths || '';
+            document.getElementById('eval-improvements').value = ev.improvements || '';
+            document.getElementById('eval-global-rating').value = ev.globalRating || '';
+            document.getElementById('eval-training').value = ev.training || '';
+            document.getElementById('eval-smart-goals').value = ev.smartGoals || '';
+            document.getElementById('eval-aspirations').value = ev.aspirations || '';
+            document.getElementById('eval-emp-comments').value = ev.empComments || '';
+
+            try {
+                if (ev.fondamentales) {
+                    const parsed = JSON.parse(ev.fondamentales);
+                    parsed.forEach((item, idx) => {
+                        const r = document.querySelector(`input[name="fonda_q${idx}"][value="${item.answer}"]`);
+                        if(r) r.checked = true;
+                        const c = document.querySelector(`textarea[name="fonda_emp_comment_${idx}"]`);
+                        if(c) c.value = item.empComment || item.comment || '';
+                    });
+                }
+                if (ev.specifiques) {
+                    const parsed = JSON.parse(ev.specifiques);
+                    parsed.forEach((item, idx) => {
+                        const r = document.querySelector(`input[name="spec_q${idx}"][value="${item.answer}"]`);
+                        if(r) r.checked = true;
+                        const c = document.querySelector(`textarea[name="spec_emp_comment_${idx}"]`);
+                        if(c) c.value = item.empComment || item.comment || '';
+                    });
+                }
+            } catch(e) {}
+        }
+
+        // Pré-remplissage pour l'évaluation manager (si déjà pré-évalué ou évalué)
+        if (type === 'Évaluation Manager' && ev) {
+            document.getElementById('eval-past-goals').value = ev.pastGoals || '';
+            document.getElementById('eval-aspirations').value = ev.aspirations || '';
+            document.getElementById('eval-strengths').value = ev.mgrStrengths || ev.strengths || '';
+            document.getElementById('eval-improvements').value = ev.mgrImprovements || ev.improvements || '';
             document.getElementById('eval-global-rating').value = ev.mgrGlobalRating || '';
-            document.getElementById('eval-training').value = ev.mgrTraining || '';
-            document.getElementById('eval-smart-goals').value = ev.mgrSmartGoals || '';
+            document.getElementById('eval-training').value = ev.mgrTraining || ev.training || '';
+            document.getElementById('eval-smart-goals').value = ev.mgrSmartGoals || ev.smartGoals || '';
             document.getElementById('eval-emp-comments').value = ev.mgrComments || ''; 
             
             try {
@@ -777,8 +813,8 @@
                     parsed.forEach((item, idx) => {
                         const r = document.querySelector(`input[name="fonda_q${idx}"][value="${item.answer}"]`);
                         if(r) r.checked = true;
-                        const t = document.querySelector(`textarea[name="fonda_q${idx}"]`);
-                        if(t) t.value = item.answer || '';
+                        const c = document.querySelector(`textarea[name="fonda_mgr_comment_${idx}"]`);
+                        if(c) c.value = item.mgrComment || item.comment || '';
                     });
                 }
                 if (ev.mgrSpecifiques) {
@@ -786,8 +822,8 @@
                     parsed.forEach((item, idx) => {
                         const r = document.querySelector(`input[name="spec_q${idx}"][value="${item.answer}"]`);
                         if(r) r.checked = true;
-                        const t = document.querySelector(`textarea[name="spec_q${idx}"]`);
-                        if(t) t.value = item.answer || '';
+                        const c = document.querySelector(`textarea[name="spec_mgr_comment_${idx}"]`);
+                        if(c) c.value = item.mgrComment || item.comment || '';
                     });
                 }
             } catch(e) {}
@@ -895,6 +931,32 @@
     }
   }
 
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  window.toggleEvalScaleModal = function(show) {
+    const modal = document.getElementById('eval-scale-modal');
+    if (modal) modal.style.display = show ? 'flex' : 'none';
+  };
+
+  function getEvalBadgeClass(rating) {
+    if (!rating) return 'na';
+    const r = rating.toString().toUpperCase().trim();
+    if (r.startsWith('PE') || r === '5') return 'pe';
+    if (r.startsWith('PS') || r === '4') return 'ps';
+    if (r.startsWith('CA') || r === '3') return 'ca';
+    if (r.startsWith('PA') || r === '2') return 'pa';
+    if (r.startsWith('PI') || r === '1') return 'pi';
+    return 'na';
+  }
+
   function generateGrid(containerId, prefix, questions) {
     const container = document.getElementById(containerId);
     let html = '';
@@ -905,11 +967,45 @@
       const text = q.text.replace(/`/g, "'");
       const desc = q.description ? `<div style="font-size:12px; color:#666; margin-top:4px;">${q.description.replace(/`/g, "'")}</div>` : '';
       
+      // Données existantes du collaborateur si consultation / évaluation manager
+      let collabAnswer = '';
+      let collabComment = '';
+      if (window.evalCurrentEv) {
+        try {
+          const listStr = prefix === 'fonda' ? window.evalCurrentEv.fondamentales : window.evalCurrentEv.specifiques;
+          if (listStr) {
+            const parsed = JSON.parse(listStr);
+            if (parsed && parsed[idx]) {
+              collabAnswer = parsed[idx].answer || '';
+              collabComment = parsed[idx].empComment || parsed[idx].comment || '';
+            }
+          }
+        } catch(e) {}
+      }
+
+      let collabSummaryHtml = '';
+      if (window.evalCurrentMode === 'Évaluation Manager') {
+        const badgeCls = getEvalBadgeClass(collabAnswer);
+        const commentDisplay = collabComment ? escapeHtml(collabComment) : '<em>Aucun commentaire renseigné par le collaborateur</em>';
+        collabSummaryHtml = `
+          <div class="eval-collab-summary">
+            <div class="eval-collab-summary-header">
+              <span>👤 Auto-évaluation du Collaborateur</span>
+              <span class="eval-badge eval-badge-${badgeCls}">${collabAnswer || 'Non renseignée'}</span>
+            </div>
+            <div class="eval-collab-comment-content">
+              <strong>Commentaire collaborateur :</strong> ${commentDisplay}
+            </div>
+          </div>
+        `;
+      }
+
       html += `<div class="eval-grid-row">
                  <div class="eval-grid-question">
                     ${text}
                     ${desc}
                  </div>
+                 ${collabSummaryHtml}
                  <div class="eval-grid-options">`;
                  
       if (q.type === 'scale') {
@@ -927,7 +1023,30 @@
           html += `<textarea name="${prefix}_q${idx}" class="form-control" rows="3" placeholder="Votre réponse..."></textarea>`;
       }
       
-      html += `</div></div>`;
+      html += `</div>`;
+
+      // Commentaires collaborateur et évaluateur
+      if (q.type === 'scale' || q.type === 'boolean') {
+          html += `<div class="eval-question-comments">`;
+          if (window.evalCurrentMode === 'Évaluation Manager') {
+              html += `
+                <div class="eval-comment-group">
+                  <label class="eval-comment-label">📝 Commentaire de l'évaluateur :</label>
+                  <textarea name="${prefix}_mgr_comment_${idx}" class="eval-comment-box" rows="2" placeholder="Saisissez votre appréciation, remarques ou justifications..."></textarea>
+                </div>
+              `;
+          } else {
+              html += `
+                <div class="eval-comment-group">
+                  <label class="eval-comment-label">💬 Commentaire du collaborateur :</label>
+                  <textarea name="${prefix}_emp_comment_${idx}" class="eval-comment-box" rows="2" placeholder="Vos explications, exemples de réalisations ou faits marquants..."></textarea>
+                </div>
+              `;
+          }
+          html += `</div>`;
+      }
+
+      html += `</div>`;
     });
     container.innerHTML = html;
   }
@@ -948,33 +1067,63 @@
 
     const profile = document.getElementById('eval-profile-select').value;
 
-    if (evalQuestions && evalQuestions.fondamentales) {
-        evalQuestions.fondamentales.forEach((qObj, idx) => {
-          const q = typeof qObj === 'string' ? { text: qObj, type: 'scale' } : qObj;
-          let ans = '';
-          if (q.type === 'text') {
-              ans = document.querySelector(`textarea[name="fonda_q${idx}"]`)?.value || '';
-          } else {
-              const selected = document.querySelector(`input[name="fonda_q${idx}"]:checked`);
-              ans = selected ? selected.value : '';
-          }
-          formData.fondamentales.push({ question: q.text, answer: ans });
-        });
-    }
-
-    if (profile && profile !== 'Autre' && evalQuestions && evalQuestions[profile.toLowerCase()]) {
-      evalQuestions[profile.toLowerCase()].forEach((qObj, idx) => {
+    const extractItems = (questionsList, prefix) => {
+      const result = [];
+      if (!questionsList) return result;
+      questionsList.forEach((qObj, idx) => {
         const q = typeof qObj === 'string' ? { text: qObj, type: 'scale' } : qObj;
         let ans = '';
         if (q.type === 'text') {
-            ans = document.querySelector(`textarea[name="spec_q${idx}"]`)?.value || '';
+          ans = document.querySelector(`textarea[name="${prefix}_q${idx}"]`)?.value || '';
         } else {
-            const selected = document.querySelector(`input[name="spec_q${idx}"]:checked`);
-            ans = selected ? selected.value : '';
+          const selected = document.querySelector(`input[name="${prefix}_q${idx}"]:checked`);
+          ans = selected ? selected.value : '';
         }
-        formData.specifiques.push({ question: q.text, answer: ans });
+
+        const empCommentEl = document.querySelector(`textarea[name="${prefix}_emp_comment_${idx}"]`);
+        const mgrCommentEl = document.querySelector(`textarea[name="${prefix}_mgr_comment_${idx}"]`);
+
+        let empComment = empCommentEl ? empCommentEl.value : '';
+        let mgrComment = mgrCommentEl ? mgrCommentEl.value : '';
+
+        // Si non présent dans le formulaire actuel (ex: manager évaluant), récupérer les données du collaborateur
+        if (window.evalCurrentEv) {
+          try {
+            const listStr = prefix === 'fonda' ? window.evalCurrentEv.fondamentales : window.evalCurrentEv.specifiques;
+            const mgrListStr = prefix === 'fonda' ? window.evalCurrentEv.mgrFondamentales : window.evalCurrentEv.mgrSpecifiques;
+            if (listStr) {
+              const p = JSON.parse(listStr);
+              if (p && p[idx] && !empComment) {
+                empComment = p[idx].empComment || p[idx].comment || '';
+              }
+            }
+            if (mgrListStr) {
+              const mp = JSON.parse(mgrListStr);
+              if (mp && mp[idx] && !mgrComment) {
+                mgrComment = mp[idx].mgrComment || mp[idx].comment || '';
+              }
+            }
+          } catch(e) {}
+        }
+
+        result.push({
+          question: q.text,
+          answer: ans,
+          empComment: empComment,
+          mgrComment: mgrComment
+        });
       });
+      return result;
+    };
+
+    if (evalQuestions && evalQuestions.fondamentales) {
+      formData.fondamentales = extractItems(evalQuestions.fondamentales, 'fonda');
     }
+
+    if (profile && profile !== 'Autre' && evalQuestions && evalQuestions[profile.toLowerCase()]) {
+      formData.specifiques = extractItems(evalQuestions[profile.toLowerCase()], 'spec');
+    }
+
     return formData;
   }
 
@@ -1010,14 +1159,14 @@
                 status.innerText = 'Brouillon sauvegardé.';
                 status.style.color = 'gray';
             })
-            .saveAttachedManagerEvaluationDraft(window.evalAttachedRowId, mgrData, currentUser.fullName);
+            .saveAttachedManagerEvaluationDraft(window.kanagaToken, window.evalAttachedRowId, mgrData, currentUser.fullName);
       } else {
           google.script.run
             .withSuccessHandler(() => {
                 status.innerText = 'Brouillon sauvegardé.';
                 status.style.color = 'gray';
             })
-            .saveSelfEvaluationDraft(window.evalAttachedRowId, formData);
+            .saveSelfEvaluationDraft(window.kanagaToken, window.evalAttachedRowId, formData);
       }
   }
 
@@ -1063,7 +1212,7 @@
            btn.disabled = false;
            btn.innerText = "Soumettre l'Évaluation";
         })
-        .submitAttachedManagerEvaluation(window.evalAttachedRowId, mgrData, currentUser.fullName);
+        .submitAttachedManagerEvaluation(window.kanagaToken, window.evalAttachedRowId, mgrData, currentUser.fullName);
     } else {
       google.script.run
         .withSuccessHandler(() => {
@@ -1082,7 +1231,7 @@
            btn.disabled = false;
            btn.innerText = "Soumettre l'Évaluation";
         })
-        .submitSelfEvaluation(window.evalAttachedRowId, formData);
+        .submitSelfEvaluation(window.kanagaToken, window.evalAttachedRowId, formData);
     }
   });
 
@@ -1104,7 +1253,7 @@
         mgrGlobalRating: formData.globalRating,
         mgrTraining: formData.training,
         mgrSmartGoals: formData.smartGoals,
-        mgrComments: formData.comments
+        mgrComments: formData.empComments
       };
       
       google.script.run
@@ -1115,7 +1264,7 @@
           setTimeout(() => {
              document.getElementById('eval-wizard-screen').style.display = 'none';
              if (currentUser.role === 'Manager' || currentUser.role === 'Admin') showManagerDashboard();
-             else showEvaluationHome();
+             else showEvalSelectionScreen();
           }, 1500);
         })
         .withFailureHandler(function(err) {
@@ -1123,7 +1272,7 @@
           btn.innerText = 'Pré-évaluer (pour réunion)';
           status.innerHTML = '<span style="color:red;">Erreur: ' + err.message + '</span>';
         })
-        .savePreEvaluation(window.evalAttachedRowId, mgrData, currentUser.fullName);
+        .savePreEvaluation(window.kanagaToken, window.evalAttachedRowId, mgrData, currentUser.fullName);
     }
   };
 
@@ -1345,53 +1494,144 @@
          </table>
        </div>
 
-       <h4 style="margin-top:25px; border-bottom:1px solid #ddd; padding-bottom:5px;">Détail des Compétences</h4>
-       <div class="table-responsive">
-         <table class="modern-table" style="width:100%;">
-           <thead>
-             <tr>
-               <th>Compétence</th>
-               <th style="width:100px;">Note Employé</th>
-               <th style="width:100px;">Note Manager</th>
-             </tr>
-           </thead>
-           <tbody>
-     `;
-     
-     let empFonda = [], mgrFonda = [];
-     try { if(ev.fondamentales) empFonda = JSON.parse(ev.fondamentales); } catch(e){}
-     try { if(ev.mgrFondamentales) mgrFonda = JSON.parse(ev.mgrFondamentales); } catch(e){}
-     
-     if (empFonda.length > 0 || mgrFonda.length > 0) {
-         html += `<tr><td colspan="3" style="background:#f5f5f5; font-weight:bold;">Fondamentales</td></tr>`;
-         const maxLen = Math.max(empFonda.length, mgrFonda.length);
-         for(let i=0; i<maxLen; i++) {
-             const empQ = empFonda[i] || {question: mgrFonda[i]?.question, answer: '-'};
-             const mgrA = mgrFonda[i]?.answer || '-';
-             html += `<tr><td>${empQ.question}</td><td><strong>${empQ.answer || '-'}</strong></td><td><strong>${mgrA}</strong></td></tr>`;
-         }
-     }
-     
-     let empSpec = [], mgrSpec = [];
-     try { if(ev.specifiques && ev.specifiques !== "[]") empSpec = JSON.parse(ev.specifiques); } catch(e){}
-     try { if(ev.mgrSpecifiques && ev.mgrSpecifiques !== "[]") mgrSpec = JSON.parse(ev.mgrSpecifiques); } catch(e){}
-     
-     if (empSpec.length > 0 || mgrSpec.length > 0) {
-         html += `<tr><td colspan="3" style="background:#f5f5f5; font-weight:bold;">Spécifiques (${ev.profile})</td></tr>`;
-         const maxLen = Math.max(empSpec.length, mgrSpec.length);
-         for(let i=0; i<maxLen; i++) {
-             const empQ = empSpec[i] || {question: mgrSpec[i]?.question, answer: '-'};
-             const mgrA = mgrSpec[i]?.answer || '-';
-             html += `<tr><td>${empQ.question}</td><td><strong>${empQ.answer || '-'}</strong></td><td><strong>${mgrA}</strong></td></tr>`;
-         }
-     }
-     
-     html += `</tbody></table></div>`;
-     
-     html += `
-       <div class="eval-viewer-box" style="margin-top:20px;"><strong>Commentaires Employé:</strong><br>${(ev.empComments || '-').replace(/\\n/g, '<br>')}</div>
-       <div class="eval-viewer-box" style="margin-bottom:10px;"><strong>Commentaires Manager:</strong><br>${(ev.mgrComments || '-').replace(/\\n/g, '<br>')}</div>
-     `;
+        <div class="eval-rating-scale-card" style="margin-top: 25px;">
+          <div class="eval-scale-header">
+            <div class="eval-scale-title">
+              <span>📊</span>
+              <span>Barème d'évaluation de la performance</span>
+            </div>
+          </div>
+          <div class="eval-scale-items">
+            <div class="eval-scale-item">
+              <span class="eval-badge eval-badge-pe">5 - PE</span>
+              <div>
+                <strong>Performance Exceptionnelle</strong>
+                <div class="text-muted">Dépasse constamment les attentes et constitue une référence.</div>
+              </div>
+            </div>
+            <div class="eval-scale-item">
+              <span class="eval-badge eval-badge-ps">4 - PS</span>
+              <div>
+                <strong>Performance Supérieure</strong>
+                <div class="text-muted">Dépasse régulièrement les attentes dans les domaines clés.</div>
+              </div>
+            </div>
+            <div class="eval-scale-item">
+              <span class="eval-badge eval-badge-ca">3 - CA</span>
+              <div>
+                <strong>Performance Conforme aux Attentes</strong>
+                <div class="text-muted">Atteint les objectifs et les standards de performance attendus pour le poste.</div>
+              </div>
+            </div>
+            <div class="eval-scale-item">
+              <span class="eval-badge eval-badge-pa">2 - PA</span>
+              <div>
+                <strong>Performance à Améliorer</strong>
+                <div class="text-muted">N'atteint pas toujours les objectifs et nécessite une amélioration dans certains domaines.</div>
+              </div>
+            </div>
+            <div class="eval-scale-item">
+              <span class="eval-badge eval-badge-pi">1 - PI</span>
+              <div>
+                <strong>Performance Insatisfaisante</strong>
+                <div class="text-muted">N'atteint pas les objectifs de manière significative et nécessite une amélioration immédiate.</div>
+              </div>
+            </div>
+            <div class="eval-scale-item">
+              <span class="eval-badge eval-badge-na">N/A</span>
+              <div>
+                <strong>Non Applicable</strong>
+                <div class="text-muted">Non applicable au poste ou non évaluable sur la période.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <h4 style="margin-top:25px; border-bottom:1px solid #ddd; padding-bottom:5px;">Détail des Compétences</h4>
+        <div class="table-responsive">
+          <table class="modern-table" style="width:100%;">
+            <thead>
+              <tr>
+                <th style="width:40%;">Compétence</th>
+                <th style="width:30%;">Auto-évaluation (Employé)</th>
+                <th style="width:30%;">Évaluation (Manager)</th>
+              </tr>
+            </thead>
+            <tbody>
+      `;
+      
+      let empFonda = [], mgrFonda = [];
+      try { if(ev.fondamentales) empFonda = JSON.parse(ev.fondamentales); } catch(e){}
+      try { if(ev.mgrFondamentales) mgrFonda = JSON.parse(ev.mgrFondamentales); } catch(e){}
+      
+      if (empFonda.length > 0 || mgrFonda.length > 0) {
+          html += `<tr><td colspan="3" style="background:#f5f5f5; font-weight:bold;">Fondamentales</td></tr>`;
+          const maxLen = Math.max(empFonda.length, mgrFonda.length);
+          for(let i=0; i<maxLen; i++) {
+              const empQ = empFonda[i] || {};
+              const mgrQ = mgrFonda[i] || {};
+              const qText = empQ.question || mgrQ.question || `Question ${i+1}`;
+              const empAns = empQ.answer || '-';
+              const mgrAns = mgrQ.answer || '-';
+              const empComment = empQ.empComment || empQ.comment || '';
+              const mgrComment = mgrQ.mgrComment || mgrQ.comment || '';
+
+              const empCommentHtml = empComment ? `<div style="font-size:12px; color:#333; margin-top:6px; background:#f4f9f4; padding:6px 8px; border-radius:4px; border-left:3px solid #28a745; word-break:break-word;"><strong>Commentaire:</strong> ${escapeHtml(empComment)}</div>` : '';
+              const mgrCommentHtml = mgrComment ? `<div style="font-size:12px; color:#333; margin-top:6px; background:#f0f5fc; padding:6px 8px; border-radius:4px; border-left:3px solid #0c63e4; word-break:break-word;"><strong>Commentaire:</strong> ${escapeHtml(mgrComment)}</div>` : '';
+
+              html += `<tr>
+                <td style="vertical-align: top;"><strong>${escapeHtml(qText)}</strong></td>
+                <td style="vertical-align: top;">
+                  <span class="eval-badge eval-badge-${getEvalBadgeClass(empAns)}">${escapeHtml(empAns)}</span>
+                  ${empCommentHtml}
+                </td>
+                <td style="vertical-align: top;">
+                  <span class="eval-badge eval-badge-${getEvalBadgeClass(mgrAns)}">${escapeHtml(mgrAns)}</span>
+                  ${mgrCommentHtml}
+                </td>
+              </tr>`;
+          }
+      }
+      
+      let empSpec = [], mgrSpec = [];
+      try { if(ev.specifiques && ev.specifiques !== "[]") empSpec = JSON.parse(ev.specifiques); } catch(e){}
+      try { if(ev.mgrSpecifiques && ev.mgrSpecifiques !== "[]") mgrSpec = JSON.parse(ev.mgrSpecifiques); } catch(e){}
+      
+      if (empSpec.length > 0 || mgrSpec.length > 0) {
+          html += `<tr><td colspan="3" style="background:#f5f5f5; font-weight:bold;">Spécifiques (${escapeHtml(ev.profile || 'Profil')})</td></tr>`;
+          const maxLen = Math.max(empSpec.length, mgrSpec.length);
+          for(let i=0; i<maxLen; i++) {
+              const empQ = empSpec[i] || {};
+              const mgrQ = mgrSpec[i] || {};
+              const qText = empQ.question || mgrQ.question || `Question ${i+1}`;
+              const empAns = empQ.answer || '-';
+              const mgrAns = mgrQ.answer || '-';
+              const empComment = empQ.empComment || empQ.comment || '';
+              const mgrComment = mgrQ.mgrComment || mgrQ.comment || '';
+
+              const empCommentHtml = empComment ? `<div style="font-size:12px; color:#333; margin-top:6px; background:#f4f9f4; padding:6px 8px; border-radius:4px; border-left:3px solid #28a745; word-break:break-word;"><strong>Commentaire:</strong> ${escapeHtml(empComment)}</div>` : '';
+              const mgrCommentHtml = mgrComment ? `<div style="font-size:12px; color:#333; margin-top:6px; background:#f0f5fc; padding:6px 8px; border-radius:4px; border-left:3px solid #0c63e4; word-break:break-word;"><strong>Commentaire:</strong> ${escapeHtml(mgrComment)}</div>` : '';
+
+              html += `<tr>
+                <td style="vertical-align: top;"><strong>${escapeHtml(qText)}</strong></td>
+                <td style="vertical-align: top;">
+                  <span class="eval-badge eval-badge-${getEvalBadgeClass(empAns)}">${escapeHtml(empAns)}</span>
+                  ${empCommentHtml}
+                </td>
+                <td style="vertical-align: top;">
+                  <span class="eval-badge eval-badge-${getEvalBadgeClass(mgrAns)}">${escapeHtml(mgrAns)}</span>
+                  ${mgrCommentHtml}
+                </td>
+              </tr>`;
+          }
+      }
+      
+      html += `</tbody></table></div>`;
+      
+      html += `
+        <div class="eval-viewer-box" style="margin-top:20px;"><strong>Commentaires Généraux Employé:</strong><br>${(ev.empComments || '-').replace(/\\n/g, '<br>')}</div>
+        <div class="eval-viewer-box" style="margin-bottom:10px;"><strong>Commentaires Généraux Manager:</strong><br>${(ev.mgrComments || '-').replace(/\\n/g, '<br>')}</div>
+      `;
      }
      
      if (!ev.mgrName && (currentUser.role === 'Manager' || currentUser.role === 'Admin') && ev.status === 'Auto-évaluée') {

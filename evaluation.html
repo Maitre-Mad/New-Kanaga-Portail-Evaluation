@@ -2,6 +2,7 @@
   <h2>Portail d'Évaluation</h2>
   <p>Gérez vos objectifs, auto-évaluations et évaluations d'équipe.</p>
   <div id="eval-header-actions" style="display: none; position: absolute; right: 0; top: 0;">
+    <button class="btn btn-outline" style="margin-right: 8px;" onclick="toggleEvalScaleModal(true)">📖 Barème & Légende</button>
     <button class="btn btn-outline" onclick="showEvalSelectionScreen()">Retour à l'accueil</button>
   </div>
 </div>
@@ -71,8 +72,57 @@
       <!-- Etape 2 -->
       <div class="wizard-content" id="wizard-step-2">
         <h3>III. Évaluation des Compétences - Fondamentales</h3>
-        <div class="eval-legend">
-          <strong>Légende:</strong> PI: Perf. Insatisfaisante | PA: À Améliorer | CA: Conforme | PS: Supérieure | PE: Exceptionnelle | N/A
+        <div class="eval-rating-scale-card">
+          <div class="eval-scale-header">
+            <div class="eval-scale-title">
+              <span>📊</span>
+              <span>Barème d'évaluation de la performance</span>
+            </div>
+          </div>
+          <div class="eval-scale-items">
+            <div class="eval-scale-item">
+              <span class="eval-badge eval-badge-pe">5 - PE</span>
+              <div>
+                <strong>Performance Exceptionnelle</strong>
+                <div class="text-muted">Dépasse constamment les attentes et constitue une référence.</div>
+              </div>
+            </div>
+            <div class="eval-scale-item">
+              <span class="eval-badge eval-badge-ps">4 - PS</span>
+              <div>
+                <strong>Performance Supérieure</strong>
+                <div class="text-muted">Dépasse régulièrement les attentes dans les domaines clés.</div>
+              </div>
+            </div>
+            <div class="eval-scale-item">
+              <span class="eval-badge eval-badge-ca">3 - CA</span>
+              <div>
+                <strong>Performance Conforme aux Attentes</strong>
+                <div class="text-muted">Atteint les objectifs et les standards de performance attendus pour le poste.</div>
+              </div>
+            </div>
+            <div class="eval-scale-item">
+              <span class="eval-badge eval-badge-pa">2 - PA</span>
+              <div>
+                <strong>Performance à Améliorer</strong>
+                <div class="text-muted">N'atteint pas toujours les objectifs et nécessite une amélioration dans certains domaines.</div>
+              </div>
+            </div>
+            <div class="eval-scale-item">
+              <span class="eval-badge eval-badge-pi">1 - PI</span>
+              <div>
+                <strong>Performance Insatisfaisante</strong>
+                <div class="text-muted">N'atteint pas les objectifs de manière significative et nécessite une amélioration immédiate.</div>
+              </div>
+            </div>
+            <div class="eval-scale-item">
+              <span class="eval-badge eval-badge-na">N/A</span>
+              <div>
+                <strong>Non Applicable</strong>
+                <div class="text-muted">Non applicable au poste ou non évaluable sur la période.</div>
+              </div>
+            </div>
+          </div>
         </div>
         <div id="grid-fondamentales" class="eval-grid">
            <!-- Injected via JS -->
@@ -86,8 +136,57 @@
       <!-- Etape 3 -->
       <div class="wizard-content" id="wizard-step-3">
         <h3 id="step-3-title">Compétences Spécifiques</h3>
-        <div class="eval-legend">
-          <strong>Légende:</strong> PI | PA | CA | PS | PE | N/A
+        <div class="eval-rating-scale-card">
+          <div class="eval-scale-header">
+            <div class="eval-scale-title">
+              <span>📊</span>
+              <span>Barème d'évaluation de la performance</span>
+            </div>
+          </div>
+          <div class="eval-scale-items">
+            <div class="eval-scale-item">
+              <span class="eval-badge eval-badge-pe">5 - PE</span>
+              <div>
+                <strong>Performance Exceptionnelle</strong>
+                <div class="text-muted">Dépasse constamment les attentes et constitue une référence.</div>
+              </div>
+            </div>
+            <div class="eval-scale-item">
+              <span class="eval-badge eval-badge-ps">4 - PS</span>
+              <div>
+                <strong>Performance Supérieure</strong>
+                <div class="text-muted">Dépasse régulièrement les attentes dans les domaines clés.</div>
+              </div>
+            </div>
+            <div class="eval-scale-item">
+              <span class="eval-badge eval-badge-ca">3 - CA</span>
+              <div>
+                <strong>Performance Conforme aux Attentes</strong>
+                <div class="text-muted">Atteint les objectifs et les standards de performance attendus pour le poste.</div>
+              </div>
+            </div>
+            <div class="eval-scale-item">
+              <span class="eval-badge eval-badge-pa">2 - PA</span>
+              <div>
+                <strong>Performance à Améliorer</strong>
+                <div class="text-muted">N'atteint pas toujours les objectifs et nécessite une amélioration dans certains domaines.</div>
+              </div>
+            </div>
+            <div class="eval-scale-item">
+              <span class="eval-badge eval-badge-pi">1 - PI</span>
+              <div>
+                <strong>Performance Insatisfaisante</strong>
+                <div class="text-muted">N'atteint pas les objectifs de manière significative et nécessite une amélioration immédiate.</div>
+              </div>
+            </div>
+            <div class="eval-scale-item">
+              <span class="eval-badge eval-badge-na">N/A</span>
+              <div>
+                <strong>Non Applicable</strong>
+                <div class="text-muted">Non applicable au poste ou non évaluable sur la période.</div>
+              </div>
+            </div>
+          </div>
         </div>
         <div id="grid-specifiques" class="eval-grid">
            <!-- Injected via JS -->
@@ -180,11 +279,85 @@
   <div class="panel" style="max-width: 900px; margin: 0 auto; background-color: var(--surface-1);">
     <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--primary-color); padding-bottom: 15px; margin-bottom: 25px;">
       <h2 style="margin: 0; color: var(--primary-color);">Fiche d'Évaluation</h2>
-      <button class="btn btn-outline" onclick="showManagerDashboard()">Fermer</button>
+      <div>
+        <button class="btn btn-outline" style="margin-right: 8px;" onclick="toggleEvalScaleModal(true)">📖 Barème & Légende</button>
+        <button class="btn btn-outline" onclick="showManagerDashboard()">Fermer</button>
+      </div>
     </div>
     
     <div id="eval-viewer-content">
        <!-- Populated dynamically via JS -->
+    </div>
+  </div>
+</div>
+
+<!-- MODAL BAREME & LEGENDE -->
+<div id="eval-scale-modal" class="eval-modal-backdrop" style="display: none;" onclick="if(event.target===this) toggleEvalScaleModal(false)">
+  <div class="eval-modal-content">
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; margin-bottom: 16px;">
+      <h3 style="margin: 0; display: flex; align-items: center; gap: 8px;">
+        <span>📊</span>
+        <span>Guide & Barème d'Évaluation de la Performance</span>
+      </h3>
+      <button class="btn btn-outline" style="padding: 4px 10px; font-size: 14px;" onclick="toggleEvalScaleModal(false)">✕</button>
+    </div>
+
+    <p class="text-muted" style="font-size: 13px; margin-bottom: 16px;">
+      Ce barème sert de référence commune pour l'ensemble des questions d'évaluation (auto-évaluation et évaluation managériale).
+    </p>
+
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      <div class="eval-scale-item" style="padding: 12px;">
+        <span class="eval-badge eval-badge-pe" style="font-size: 13px; padding: 4px 10px;">5 - PE</span>
+        <div>
+          <strong style="font-size: 14px; color: #1e7e34;">Performance Exceptionnelle (PE)</strong>
+          <div style="color: #444; margin-top: 3px; font-size: 13px;">Dépasse constamment les attentes et constitue une référence.</div>
+        </div>
+      </div>
+
+      <div class="eval-scale-item" style="padding: 12px;">
+        <span class="eval-badge eval-badge-ps" style="font-size: 13px; padding: 4px 10px;">4 - PS</span>
+        <div>
+          <strong style="font-size: 14px; color: #0c63e4;">Performance Supérieure (PS)</strong>
+          <div style="color: #444; margin-top: 3px; font-size: 13px;">Dépasse régulièrement les attentes dans les domaines clés.</div>
+        </div>
+      </div>
+
+      <div class="eval-scale-item" style="padding: 12px;">
+        <span class="eval-badge eval-badge-ca" style="font-size: 13px; padding: 4px 10px;">3 - CA</span>
+        <div>
+          <strong style="font-size: 14px; color: #0f5132;">Performance Conforme aux Attentes (CA)</strong>
+          <div style="color: #444; margin-top: 3px; font-size: 13px;">Atteint les objectifs et les standards de performance attendus pour le poste.</div>
+        </div>
+      </div>
+
+      <div class="eval-scale-item" style="padding: 12px;">
+        <span class="eval-badge eval-badge-pa" style="font-size: 13px; padding: 4px 10px;">2 - PA</span>
+        <div>
+          <strong style="font-size: 14px; color: #856404;">Performance à Améliorer (PA)</strong>
+          <div style="color: #444; margin-top: 3px; font-size: 13px;">N'atteint pas toujours les objectifs et nécessite une amélioration dans certains domaines.</div>
+        </div>
+      </div>
+
+      <div class="eval-scale-item" style="padding: 12px;">
+        <span class="eval-badge eval-badge-pi" style="font-size: 13px; padding: 4px 10px;">1 - PI</span>
+        <div>
+          <strong style="font-size: 14px; color: #842029;">Performance Insatisfaisante (PI)</strong>
+          <div style="color: #444; margin-top: 3px; font-size: 13px;">N'atteint pas les objectifs de manière significative et nécessite une amélioration immédiate.</div>
+        </div>
+      </div>
+
+      <div class="eval-scale-item" style="padding: 12px;">
+        <span class="eval-badge eval-badge-na" style="font-size: 13px; padding: 4px 10px;">N/A</span>
+        <div>
+          <strong style="font-size: 14px; color: #555;">Non Applicable (N/A)</strong>
+          <div style="color: #444; margin-top: 3px; font-size: 13px;">Non applicable au poste ou non évaluable sur la période.</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top: 20px; text-align: right;">
+      <button class="btn btn-primary" onclick="toggleEvalScaleModal(false)">Compris</button>
     </div>
   </div>
 </div>
