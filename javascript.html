@@ -1,0 +1,2711 @@
+<script>
+  let currentUser = null;
+  let projectData = {};
+  let choicesInstances = { project: null, task: null, editProject: null, editTask: null };
+  let evaluationData = {};
+
+  // --- Initialisation ---
+  window.addEventListener('load', function() {
+    setDateValidation();
+    
+    // Load User Data First (Check Local Storage)
+    const storedUser = localStorage.getItem('kanagaUser');
+    if (storedUser) {
+      currentUser = JSON.parse(storedUser);
+        window.kanagaToken = localStorage.getItem('kanagaToken');
+      initAuthenticatedApp(currentUser);
+    } else {
+      // Show login screen
+      document.getElementById('global-loader').style.display = 'none';
+      document.getElementById('view-login').style.display = 'block';
+    }
+    
+    // Event Listeners
+    document.getElementById('login-form').addEventListener('submit', handleLoginSubmit);
+    document.getElementById('timesheet-form').addEventListener('submit', handleTimesheetSubmit);
+    document.getElementById('edit-form').addEventListener('submit', handleEditSubmit);
+
+    // Modal Close
+    window.addEventListener('click', (event) => {
+      const modal = document.getElementById('edit-modal');
+      if (event.target == modal) { modal.style.display = "none"; }
+    });
+  });
+
+  function getDropdownDataFromCache() {
+    return new Promise((resolve, reject) => {
+      const cacheTime = localStorage.getItem('kanagaDropdownTime_v2');
+      const cacheData = localStorage.getItem('kanagaDropdownData_v2');
+      const now = new Date().getTime();
+      
+      if (cacheTime && cacheData && (now - parseInt(cacheTime)) < 60 * 60 * 1000) { 
+        resolve(JSON.parse(cacheData));
+      } else {
+        google.script.run
+          .withSuccessHandler(data => {
+            localStorage.setItem('kanagaDropdownTime_v2', now.toString());
+            localStorage.setItem('kanagaDropdownData_v2', JSON.stringify(data));
+            resolve(data);
+          })
+          .withFailureHandler(reject)
+          .getOdooData(window.kanagaToken);
+      }
+    });
+  }
+
+  // --- Authentication Logic ---
+  function handleLoginSubmit(e) {
+    e.preventDefault();
+    const btnText = document.querySelector('#login-btn .btn-text');
+    const btnLoader = document.querySelector('#login-btn .btn-loader');
+    const errorMsg = document.getElementById('login-error');
+    
+    btnText.style.display = 'none';
+    btnLoader.style.display = 'inline-block';
+    errorMsg.style.display = 'none';
+
+    const username = document.getElementById('login-username').value;
+    const password = document.getElementById('login-password').value;
+
+    google.script.run
+      .withSuccessHandler(res => {
+        btnText.style.display = 'inline';
+        btnLoader.style.display = 'none';
+        
+        if (res.success) {
+          currentUser = res.user;
+          localStorage.setItem('kanagaUser', JSON.stringify(currentUser));
+          localStorage.setItem('kanagaToken', res.token);
+          window.kanagaToken = res.token;
+          initAuthenticatedApp(currentUser);
+        } else {
+          errorMsg.textContent = res.message || "Identifiants incorrects.";
+          errorMsg.textContent = result.message || "Identifiants incorrects.";
+          errorMsg.style.display = 'block';
+        }
+      })
+      .withFailureHandler(err => {
+        btnText.style.display = 'inline';
+        btnLoader.style.display = 'none';
+        errorMsg.textContent = "Erreur serveur : " + err.message;
+        errorMsg.style.display = 'block';
+      })
+      .authenticateUser(username, password);
+  }
+
+  // Gérer la sauvegarde du modèle d'e-mail
+  document.getElementById('admin-eval-email-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btn-save-eval-email');
+    const statusMsg = document.getElementById('eval-email-status');
+    btn.disabled = true;
+    statusMsg.innerText = "Enregistrement...";
+    statusMsg.style.color = "var(--primary-color)";
+    
+    const settings = {
+      sujet: document.getElementById('eval-email-subject').value,
+      message: document.getElementById('eval-email-message').value
+    };
+    
+    google.script.run
+      .withSuccessHandler(function() {
+         btn.disabled = false;
+         statusMsg.innerText = "Modèle enregistré avec succès.";
+         statusMsg.style.color = "green";
+         setTimeout(() => statusMsg.innerText = "", 3000);
+      })
+      .withFailureHandler(function(err) {
+         btn.disabled = false;
+         statusMsg.innerText = "Erreur: " + err.message;
+         statusMsg.style.color = "red";
+      })
+      .saveEvaluationEmailSettings(window.kanagaToken, settings);
+  });
+
+  function initAuthenticatedApp(user) {
+    document.getElementById('view-login').style.display = 'none';
+    document.getElementById('auth-content').style.display = 'block';
+    
+    document.getElementById('user-email').textContent = user.username;
+    document.getElementById('user-avatar-initial').textContent = user.username.charAt(0).toUpperCase();
+    
+    populateSocietySwitcher(user.societies, user.activeSociety);
+    updateActiveLanguageUI(user.language);
+    
+    if (user.role === 'Admin' || user.role === 'Manager') {
+      document.getElementById('nav-admin').style.display = 'block';
+      const hubCard = document.getElementById('hub-card-admin');
+      if (hubCard) hubCard.style.display = 'block';
+    } else {
+      document.getElementById('nav-admin').style.display = 'none';
+      const hubCard = document.getElementById('hub-card-admin');
+      if (hubCard) hubCard.style.display = 'none';
+    }
+
+    if (user.role === 'Admin' || user.role === 'IT') {
+      document.getElementById('nav-it-dashboard').style.display = 'block';
+    } else {
+      document.getElementById('nav-it-dashboard').style.display = 'none';
+    }
+
+    if (user.role === 'ConsultantExterne') {
+      document.getElementById('nav-hub').style.display = 'none';
+      const navHubConsultant = document.getElementById('nav-hub-consultant');
+      if (navHubConsultant) navHubConsultant.style.display = 'inline-block';
+      document.getElementById('nav-evaluation').style.display = 'none';
+    } else {
+      document.getElementById('nav-hub').style.display = 'inline-block';
+      const navHubConsultant = document.getElementById('nav-hub-consultant');
+      if (navHubConsultant) navHubConsultant.style.display = 'none';
+      document.getElementById('nav-evaluation').style.display = 'inline-block';
+    }
+
+    // Dynamic permission check for 'Réponses Formulaire' nav button
+    google.script.run
+      .withSuccessHandler(res => {
+        const navResponsesBtn = document.getElementById('nav-responses');
+        if (navResponsesBtn) {
+          if (res && res.canAccess) {
+            navResponsesBtn.style.display = 'inline-block';
+          } else {
+            navResponsesBtn.style.display = 'none';
+          }
+        }
+      })
+      .withFailureHandler(() => {
+        const navResponsesBtn = document.getElementById('nav-responses');
+        if (navResponsesBtn) navResponsesBtn.style.display = 'none';
+      })
+      .checkFormResponsesAccess(window.kanagaToken);
+
+    document.getElementById('global-loader').style.display = 'none';
+    document.getElementById('top-navbar').style.display = 'flex';
+    
+    if (user.role === 'ConsultantExterne') {
+      navigateTo('hub-consultant');
+    } else {
+      navigateTo('hub');
+    }
+    
+    // Load Employee List
+    window.employeeList = [];
+    google.script.run.withSuccessHandler(list => {
+      window.employeeList = list;
+    }).getEmployeeListForDropdown(window.kanagaToken);
+    
+    // Fetch evals silently for notifications
+    google.script.run
+      .withSuccessHandler(evals => {
+         window.loadedEvals = evals;
+         updateNotifications();
+      })
+      .getNativeEvaluations(window.kanagaToken);
+    
+    loadTimesheetData();
+  }
+
+  // --- Navigation (SPA Logic) ---
+  function navigateTo(viewId) {
+    // Hide all views
+    document.querySelectorAll('.app-view').forEach(view => {
+      view.style.display = 'none';
+    });
+    // Remove active class from nav buttons
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+      btn.classList.remove('active');
+    });
+
+    // Show target view
+    document.getElementById('view-' + viewId).style.display = 'block';
+    
+    // Set active button if it exists
+    const navBtn = document.getElementById('nav-' + viewId);
+    if(navBtn) navBtn.classList.add('active');
+
+    // Load specific data if needed
+    if (viewId === 'timesheet') {
+      // Data is preloaded
+    } else if (viewId === 'evaluation') {
+      loadEvaluationData();
+    } else if (viewId === 'admin') {
+      loadAdminData();
+    } else if (viewId === 'tickets') {
+      loadUserTickets();
+    } else if (viewId === 'it-dashboard') {
+      loadAllTickets();
+    } else if (viewId === 'responses') {
+      loadFormResponsesData();
+    }
+  }
+
+  function switchTimesheetTab(tabId) {
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+    
+    event.target.classList.add('active');
+    document.getElementById('tab-' + tabId).classList.add('active');
+  }
+
+  function closeModal(modalId) {
+    document.getElementById(modalId).style.display = 'none';
+  }
+
+  function handleArchiveTimesheets() {
+    if (!confirm("Voulez-vous vraiment archiver toutes les feuilles de temps précédentes vers Google Drive ? L'opération peut prendre quelques instants.")) return;
+    
+    const btnText = document.querySelector('#btn-archive-timesheets .btn-text');
+    const btnLoader = document.querySelector('#btn-archive-timesheets .btn-loader');
+    btnText.style.display = 'none';
+    btnLoader.style.display = 'inline-block';
+    
+    google.script.run
+      .withSuccessHandler(res => {
+         btnText.style.display = 'inline';
+         btnLoader.style.display = 'none';
+         alert(res);
+      })
+      .withFailureHandler(err => {
+         btnText.style.display = 'inline';
+         btnLoader.style.display = 'none';
+         alert("Erreur lors de l'archivage : " + err.message);
+      })
+      .archiveTimesheets(window.kanagaToken);
+  }
+
+  // --- Odoo Sync Logic ---
+  function loadTimesheetData() {
+    google.script.run
+      .withSuccessHandler(dataFromServer => {
+        projectData = dataFromServer;
+        populateProjectDropdowns();
+        fetchUserTimesheets();
+      })
+      .withFailureHandler(err => console.error(err))
+      .getDropdownData(window.kanagaToken, currentUser.activeSociety);
+  }
+
+  function populateProjectDropdowns() {
+    const projects = Object.keys(projectData).sort();
+    const mainSelect = document.getElementById('project');
+    const editSelect = document.getElementById('edit-project');
+    
+    if (choicesInstances.project) choicesInstances.project.destroy();
+    if (choicesInstances.editProject) choicesInstances.editProject.destroy();
+    
+    choicesInstances.project = new Choices(mainSelect, { removeItemButton: true, placeholder: true, placeholderValue: 'Sélectionnez un projet' });
+    choicesInstances.project.setChoices(projects.map(p => ({ value: p, label: p })), 'value', 'label', true);
+    mainSelect.addEventListener('change', () => updateTaskDropdown('project', 'task', 'sub-task'));
+    
+    choicesInstances.editProject = new Choices(editSelect, { removeItemButton: true, placeholder: true });
+    choicesInstances.editProject.setChoices(projects.map(p => ({ value: p, label: p })), 'value', 'label', true);
+    editSelect.addEventListener('change', () => updateTaskDropdown('edit-project', 'edit-task', 'edit-sub-task'));
+  }
+
+  function updateTaskDropdown(projectElementId, taskElementId, subTaskElementId) {
+    const projectSelect = document.getElementById(projectElementId);
+    const taskSelect = document.getElementById(taskElementId);
+    const selectedProject = projectSelect.value;
+    const rawTasks = projectData[selectedProject] || [];
+    
+    if (subTaskElementId) {
+       const subTaskGroup = document.getElementById(subTaskElementId + '-group');
+       if (subTaskGroup) subTaskGroup.style.display = 'none';
+    }
+    
+    const checkboxId = (taskElementId === 'task') ? 'hide-completed-tasks' : 'edit-hide-completed-tasks';
+    const checkbox = document.getElementById(checkboxId);
+    const hideCompleted = checkbox ? checkbox.checked : false;
+
+    const tasks = rawTasks
+      .filter(t => {
+        const isCompleted = (typeof t === 'object' && t !== null) ? t.isCompleted : false;
+        if (hideCompleted && isCompleted) return false;
+        const parentId = (typeof t === 'object' && t !== null) ? t.parentId : null;
+        return !parentId || parentId === '' || parentId === 'False' || parentId === 'false'; // only root tasks
+      })
+      .map(t => (typeof t === 'object' && t !== null) ? t.name : t)
+      .sort((a, b) => (a || '').localeCompare(b || ''));
+
+    const choicesKey = (taskElementId === 'task') ? 'task' : 'editTask';
+
+    if (!choicesInstances[choicesKey]) {
+      choicesInstances[choicesKey] = new Choices(taskSelect, { placeholder: true, placeholderValue: 'Sélectionnez une tâche' });
+      taskSelect.addEventListener('change', () => {
+         if (subTaskElementId) updateSubTaskDropdown(projectElementId, taskElementId, subTaskElementId);
+      });
+    }
+    
+    choicesInstances[choicesKey].setChoices(
+      [{ value: '', label: 'Aucune' }].concat(tasks.map(t => ({ value: t, label: t }))),
+      'value', 'label', true
+    );
+    
+    if (subTaskElementId) updateSubTaskDropdown(projectElementId, taskElementId, subTaskElementId);
+  }
+
+  function updateSubTaskDropdown(projectElementId, taskElementId, subTaskElementId) {
+    if (!subTaskElementId) return;
+    const projectSelect = document.getElementById(projectElementId);
+    const taskSelect = document.getElementById(taskElementId);
+    const subTaskSelect = document.getElementById(subTaskElementId);
+    const subTaskGroup = document.getElementById(subTaskElementId + '-group');
+    
+    const choicesKeyTask = (taskElementId === 'task') ? 'task' : 'editTask';
+    const selectedProject = projectSelect.value;
+    const selectedTaskName = choicesInstances[choicesKeyTask] ? choicesInstances[choicesKeyTask].getValue(true) : taskSelect.value;
+    
+    const rawTasks = projectData[selectedProject] || [];
+    const parentTaskObj = rawTasks.find(t => (typeof t === 'object' && t !== null) && t.name === selectedTaskName);
+    const parentTaskId = parentTaskObj ? parentTaskObj.id : null;
+    
+    const checkboxId = (taskElementId === 'task') ? 'hide-completed-tasks' : 'edit-hide-completed-tasks';
+    const checkbox = document.getElementById(checkboxId);
+    const hideCompleted = checkbox ? checkbox.checked : false;
+
+    const subTasks = rawTasks
+      .filter(t => {
+        const isCompleted = (typeof t === 'object' && t !== null) ? t.isCompleted : false;
+        if (hideCompleted && isCompleted) return false;
+        const tParentId = (typeof t === 'object' && t !== null) ? t.parentId : null;
+        return tParentId && parentTaskId && String(tParentId) === String(parentTaskId);
+      })
+      .map(t => (typeof t === 'object' && t !== null) ? t.name : t)
+      .sort((a, b) => (a || '').localeCompare(b || ''));
+
+    const choicesKey = (subTaskElementId === 'sub-task') ? 'subTask' : 'editSubTask';
+
+    if (subTasks.length > 0) {
+        subTaskGroup.style.display = 'block';
+        if (!choicesInstances[choicesKey]) {
+            choicesInstances[choicesKey] = new Choices(subTaskSelect, { placeholder: true, placeholderValue: 'Sélectionnez une sous-tâche' });
+        }
+        choicesInstances[choicesKey].setChoices(
+            [{ value: '', label: 'Aucune' }].concat(subTasks.map(t => ({ value: t, label: t }))),
+            'value', 'label', true
+        );
+    } else {
+        subTaskGroup.style.display = 'none';
+        if (choicesInstances[choicesKey]) {
+            choicesInstances[choicesKey].setChoices([{ value: '', label: 'Aucune' }], 'value', 'label', true);
+        }
+    }
+  }
+
+  function handleTimesheetSubmit(e) {
+    e.preventDefault();
+    const statusDiv = document.getElementById('status');
+    statusDiv.innerText = 'Enregistrement...';
+    statusDiv.style.color = 'var(--text-color)';
+    
+    let finalTask = choicesInstances.task ? (choicesInstances.task.getValue(true) || '') : '';
+    if (choicesInstances.subTask && document.getElementById('sub-task-group').style.display !== 'none') {
+       const subTaskVal = choicesInstances.subTask.getValue(true);
+       if (subTaskVal) finalTask = finalTask + ' > ' + subTaskVal;
+    }
+    
+    const formData = {
+      entryDate: document.getElementById('entryDate').value,
+      project: choicesInstances.project.getValue(true) || '',
+      task: finalTask,
+      description: document.getElementById('description').value,
+      duration: document.getElementById('duration').value
+    };
+
+    if (!formData.project) {
+      statusDiv.innerText = 'Erreur : Veuillez sélectionner un projet.';
+      statusDiv.style.color = 'var(--danger-color)';
+      return;
+    }
+
+    google.script.run
+      .withSuccessHandler(() => {
+        statusDiv.innerText = 'Entrée enregistrée !';
+        statusDiv.style.color = 'var(--secondary-color)';
+        document.getElementById('timesheet-form').reset();
+        setDateValidation();
+        choicesInstances.project.setChoiceByValue('');
+        if(choicesInstances.task) choicesInstances.task.clearStore();
+        fetchUserTimesheets();
+        setTimeout(() => statusDiv.innerText = '', 3000);
+      })
+      .withFailureHandler(err => {
+          statusDiv.innerText = 'Erreur : ' + err.message;
+          statusDiv.style.color = 'var(--danger-color)';
+      })
+      .submitTimesheet(window.kanagaToken, formData);
+  }
+
+  function fetchUserTimesheets() {
+    document.getElementById('timesheet-loader').style.display = 'block';
+    google.script.run
+      .withSuccessHandler(displayTimesheets)
+      .withFailureHandler(err => console.error(err))
+      .getUserTimesheets(window.kanagaToken);
+  }
+
+  function displayTimesheets(data) {
+    document.getElementById('timesheet-loader').style.display = 'none';
+    const tableBody = document.getElementById('timesheet-table').querySelector('tbody');
+    tableBody.innerHTML = ''; 
+    
+    for (let i = 0; i <= 6; i++) {
+        const dayEl = document.getElementById('day-' + i);
+        if(dayEl) dayEl.innerHTML = '';
+    }
+
+    if (data.error || !Array.isArray(data)) {
+        tableBody.innerHTML = `<tr><td colspan="6">Erreur: ${data.error || 'Données invalides.'}</td></tr>`;
+        return;
+    }
+    if (data.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Aucune entrée pour cette semaine.</td></tr>';
+        return;
+    }
+
+    data.forEach(entry => {
+        const entryDate = new Date(entry.date);
+        const dateForInput = entryDate.toISOString().split('T')[0];
+        
+        // Check for sub-task
+        const isSubtask = entry.task && entry.task.includes(" > ");
+        const taskText = isSubtask ? entry.task.split(" > ").pop().trim() : (entry.task ? entry.task.replace("↳", "").trim() : '');
+
+        // List View
+        const newRow = tableBody.insertRow();
+        newRow.insertCell().textContent = entryDate.toLocaleDateString('fr-FR');
+        newRow.insertCell().textContent = entry.project;
+        
+        const taskCell = newRow.insertCell();
+        taskCell.appendChild(document.createTextNode(entry.task || ''));
+        
+        newRow.insertCell().textContent = entry.description;
+        newRow.insertCell().textContent = entry.duration + 'h';
+        
+        const actionsCell = newRow.insertCell();
+        actionsCell.className = 'actions-cell';
+        actionsCell.innerHTML = `
+          <button class="edit-btn" onclick='openEditModal(${JSON.stringify(entry).replace(/'/g, "&#39;")}, "${dateForInput}")'>Modifier</button>
+          <button class="delete-btn" onclick="handleDelete('${entry.rowId}')">Supprimer</button>
+        `;
+        
+        // Calendar View
+        const dayOfWeek = entryDate.getDay();
+        const dayCell = document.getElementById('day-' + dayOfWeek);
+        if (dayCell) {
+          const entryBlock = document.createElement('div');
+          entryBlock.className = 'entry-block';
+          
+          let taskHTML = '';
+          if (entry.task) {
+              const safeTask = (entry.task || '').replace(/</g, "&lt;").replace(/>/g, "&gt;");
+              taskHTML = safeTask + ': ';
+          }
+          
+          const safeDesc = (entry.description || '').replace(/</g, "&lt;").replace(/>/g, "&gt;");
+          entryBlock.innerHTML = `<strong>${(entry.project||'').replace(/</g, "&lt;")}</strong> <span class="duration">${entry.duration}h</span><span class="description">${taskHTML}${safeDesc}</span>`;
+          dayCell.appendChild(entryBlock);
+        }
+    });
+  }
+
+  function openEditModal(entry, dateForInput) {
+      document.getElementById('edit-row-id').value = entry.rowId;
+      document.getElementById('edit-entryDate').value = dateForInput;
+      document.getElementById('edit-description').value = entry.description;
+      document.getElementById('edit-duration').value = entry.duration;
+      
+      let mainTask = entry.task || '';
+      let subTask = '';
+      if (mainTask.includes(' > ')) {
+         const parts = mainTask.split(' > ');
+         mainTask = parts[0].trim();
+         subTask = parts[1].trim();
+      } else if (mainTask.includes('↳')) { 
+         mainTask = mainTask.replace('↳', '').trim();
+      }
+      
+      choicesInstances.editProject.setChoiceByValue(entry.project || '');
+      updateTaskDropdown('edit-project', 'edit-task', 'edit-sub-task');
+      
+      setTimeout(() => {
+          if (choicesInstances.editTask) {
+              choicesInstances.editTask.setChoiceByValue(mainTask);
+              updateSubTaskDropdown('edit-project', 'edit-task', 'edit-sub-task');
+          }
+          setTimeout(() => {
+             if (subTask && choicesInstances.editSubTask && document.getElementById('edit-sub-task-group').style.display !== 'none') {
+                choicesInstances.editSubTask.setChoiceByValue(subTask);
+             }
+          }, 150);
+      }, 100);
+
+      document.getElementById('edit-modal').style.display = 'block';
+  }
+
+  function handleEditSubmit(e) {
+    e.preventDefault();
+    
+    let finalTask = choicesInstances.editTask ? (choicesInstances.editTask.getValue(true) || '') : '';
+    if (choicesInstances.editSubTask && document.getElementById('edit-sub-task-group').style.display !== 'none') {
+       const subTaskVal = choicesInstances.editSubTask.getValue(true);
+       if (subTaskVal) finalTask = finalTask + ' > ' + subTaskVal;
+    }
+    
+    const updatedData = {
+      rowId: document.getElementById('edit-row-id').value,
+      entryDate: document.getElementById('edit-entryDate').value,
+      project: choicesInstances.editProject.getValue(true),
+      task: finalTask,
+      description: document.getElementById('edit-description').value,
+      duration: document.getElementById('edit-duration').value,
+    };
+    
+    google.script.run
+      .withSuccessHandler(() => {
+        closeModal('edit-modal');
+        fetchUserTimesheets();
+      })
+      .withFailureHandler(err => alert("Erreur: " + err.message))
+      .updateTimesheetEntry(window.kanagaToken, updatedData);
+  }
+
+  function handleDelete(rowId) {
+    if (confirm("Êtes-vous sûr de vouloir supprimer cette entrée ?")) {
+      google.script.run
+        .withSuccessHandler(fetchUserTimesheets)
+        .withFailureHandler(err => alert("Erreur: " + err.message))
+        .deleteTimesheetEntry(window.kanagaToken, rowId);
+    }
+  }
+
+  function setDateValidation() {
+    const today = new Date();
+    const oneMonthAgo = new Date(new Date().setMonth(today.getMonth() - 1));
+    const todayStr = today.toISOString().split('T')[0];
+    const oneMonthAgoStr = oneMonthAgo.toISOString().split('T')[0];
+    ['entryDate', 'edit-entryDate'].forEach(id => {
+      const el = document.getElementById(id);
+      if(el) {
+        el.max = todayStr;
+        el.min = oneMonthAgoStr;
+      }
+    });
+    if(document.getElementById('entryDate')) {
+      document.getElementById('entryDate').value = todayStr;
+    }
+  }
+
+  // --- Evaluation Logic ---
+  let evalQuestions = {};
+  const scaleOptions = ["PI", "PA", "CA", "PS", "PE", "N/A"];
+
+  function loadEvaluationData() {
+    showEvalSelectionScreen();
+    google.script.run
+      .withSuccessHandler(function(config) {
+         evalQuestions = config;
+         
+         const select = document.getElementById('eval-profile-select');
+         // Garder "-- Choisir --" (index 0)
+         const defaultOption = select.options[0];
+         select.innerHTML = '';
+         select.appendChild(defaultOption);
+         
+         for (const key in config) {
+            if (key.toLowerCase() !== 'fondamentales') {
+               const opt = document.createElement('option');
+               // Capitalize the key (e.g. "consultant" -> "Consultant")
+               const capKey = key.charAt(0).toUpperCase() + key.slice(1);
+               opt.value = capKey;
+               opt.text = "Profil : " + capKey.toUpperCase();
+               select.appendChild(opt);
+            }
+         }
+         
+         const autreOpt = document.createElement('option');
+         autreOpt.value = "Autre";
+         autreOpt.text = "Autre profil";
+         select.appendChild(autreOpt);
+      })
+      .getEvaluationConfig(window.kanagaToken);
+
+    if (currentUser && (currentUser.role === 'Manager' || currentUser.role === 'Admin')) {
+       document.getElementById('manager-eval-portal').style.display = 'block';
+    } else {
+       document.getElementById('manager-eval-portal').style.display = 'none';
+    }
+  }
+
+  function showEvalSelectionScreen() {
+    document.getElementById('eval-selection-screen').style.display = 'flex';
+    document.getElementById('eval-wizard-screen').style.display = 'none';
+    document.getElementById('eval-manager-dashboard').style.display = 'none';
+    document.getElementById('eval-viewer-screen').style.display = 'none';
+    document.getElementById('eval-header-actions').style.display = 'none';
+
+    // Handle pending evaluations card
+    const pendingContainer = document.getElementById('employee-pending-evals');
+    if (pendingContainer && window.loadedEvals && currentUser) {
+      const pendingEvals = window.loadedEvals.filter(ev => 
+        (ev.employeeEmail === currentUser.username || ev.employeeName === currentUser.fullName) && ev.status === 'Initiée'
+      );
+      
+      if (pendingEvals.length > 0) {
+        pendingContainer.style.display = 'block';
+        let html = `
+          <div class="panel" style="border: 2px solid var(--secondary-color); background: #fdfdfd;">
+            <h3 style="color: var(--secondary-color);">Action Requise</h3>
+            <p class="text-muted" style="margin-bottom:20px; font-size:14px;">Vous avez ${pendingEvals.length} évaluation(s) en attente d'auto-évaluation.</p>
+        `;
+        pendingEvals.forEach(ev => {
+          html += `<button class="btn btn-primary" onclick="startEvaluationWizard('Auto-évaluation', ${ev.rowId})" style="width: 100%; margin-bottom: 10px; background-color: var(--secondary-color);">Auto-évaluer (${ev.period})</button>`;
+        });
+        html += `</div>`;
+        pendingContainer.innerHTML = html;
+      } else {
+        pendingContainer.style.display = 'none';
+        pendingContainer.innerHTML = '';
+      }
+    }
+  }
+
+  window.evalAttachedRowId = null;
+  window.evalCurrentMode = null;
+
+  function startEvaluationWizard(type, attachedRowId = null) {
+    document.getElementById('eval-selection-screen').style.display = 'none';
+    document.getElementById('eval-manager-dashboard').style.display = 'none';
+    document.getElementById('eval-viewer-screen').style.display = 'none';
+    document.getElementById('eval-wizard-screen').style.display = 'block';
+    document.getElementById('eval-header-actions').style.display = 'block';
+    
+    window.evalAttachedRowId = attachedRowId;
+    window.evalCurrentMode = type;
+    
+    document.getElementById('eval-wizard-form').reset();
+    document.getElementById('eval-type').value = type;
+    
+    if (type === 'Évaluation Manager') {
+        document.getElementById('btn-pre-eval').style.display = 'inline-block';
+    } else {
+        document.getElementById('btn-pre-eval').style.display = 'none';
+    }
+    
+    const empSelect = document.getElementById('eval-employee-email');
+    empSelect.innerHTML = '';
+    if (window.employeeList) {
+       window.employeeList.forEach(emp => {
+          empSelect.innerHTML += `<option value="${emp.email}">${emp.fullName} (${emp.email})</option>`;
+       });
+    }
+    
+    if (window.empChoices) {
+        window.empChoices.destroy();
+        window.empChoices = null;
+    }
+    if (type === 'Initiation') {
+        window.empChoices = new Choices(empSelect, { removeItemButton: true, searchEnabled: true, placeholder: true, placeholderValue: "Sélectionner les employés" });
+    }
+    
+    // UI Resets
+    document.getElementById('grid-fondamentales').style.display = 'block';
+    document.getElementById('eval-profile-select').disabled = false;
+    document.getElementById('eval-period').readOnly = false;
+    document.getElementById('step-nav-3').style.display = 'inline-block';
+    document.getElementById('step-nav-4').style.display = 'inline-block';
+    
+    let submitBtn = document.getElementById('btn-submit-initiation');
+    if(submitBtn) submitBtn.style.display = 'none';
+
+    if (type === 'Initiation') {
+        empSelect.disabled = false;
+        
+        document.getElementById('step-1-title').innerText = "Initiation d'une nouvelle évaluation";
+        document.getElementById('eval-wizard-progress').style.display = 'none';
+        document.getElementById('btn-next-step1').style.display = 'none';
+        
+        document.getElementById('grid-fondamentales').style.display = 'none';
+        document.getElementById('step-nav-3').style.display = 'none';
+        document.getElementById('step-nav-4').style.display = 'none';
+        
+        if(!submitBtn) {
+           const actionsDiv = document.querySelector('#wizard-step-1 .wizard-actions');
+           submitBtn = document.createElement('button');
+           submitBtn.type = 'button';
+           submitBtn.className = 'btn btn-success';
+           submitBtn.id = 'btn-submit-initiation';
+           submitBtn.innerText = "Initier l'évaluation";
+           submitBtn.onclick = submitInitiation;
+           actionsDiv.appendChild(submitBtn);
+        }
+        submitBtn.style.display = 'inline-block';
+        showEvalStep(1);
+    } else {
+        document.getElementById('step-1-title').innerText = "I. Informations Générales";
+        document.getElementById('eval-wizard-progress').style.display = 'flex';
+        document.getElementById('btn-next-step1').style.display = 'inline-block';
+        
+        const ev = window.loadedEvals.find(e => e.rowId === attachedRowId);
+        if(ev) {
+          if (window.empChoices) window.empChoices.destroy();
+          empSelect.innerHTML = `<option value="${ev.employeeEmail || currentUser.username}" selected>${ev.employeeName}</option>`;
+          empSelect.disabled = true;
+          document.getElementById('eval-profile-select').value = ev.profile;
+          document.getElementById('eval-profile-select').disabled = true;
+          document.getElementById('eval-period').value = ev.period;
+          document.getElementById('eval-period').readOnly = true;
+        }
+        
+        generateGrid('grid-fondamentales', 'fonda', evalQuestions.fondamentales);
+        if (ev && ev.profile && ev.profile !== 'Autre' && evalQuestions[ev.profile.toLowerCase()]) {
+            generateGrid('grid-specifiques', 'spec', evalQuestions[ev.profile.toLowerCase()]);
+            document.getElementById('step-3-title').innerText = "Compétences Spécifiques (" + ev.profile + ")";
+        }
+        
+        // Pré-remplissage pour la collaboration (si déjà évalué par un manager)
+        if (type === 'Évaluation Manager' && ev && ev.mgrName) {
+            document.getElementById('eval-strengths').value = ev.mgrStrengths || '';
+            document.getElementById('eval-improvements').value = ev.mgrImprovements || '';
+            document.getElementById('eval-global-rating').value = ev.mgrGlobalRating || '';
+            document.getElementById('eval-training').value = ev.mgrTraining || '';
+            document.getElementById('eval-smart-goals').value = ev.mgrSmartGoals || '';
+            document.getElementById('eval-emp-comments').value = ev.mgrComments || ''; 
+            
+            try {
+                if (ev.mgrFondamentales) {
+                    const parsed = JSON.parse(ev.mgrFondamentales);
+                    parsed.forEach((item, idx) => {
+                        const r = document.querySelector(`input[name="fonda_q${idx}"][value="${item.answer}"]`);
+                        if(r) r.checked = true;
+                        const t = document.querySelector(`textarea[name="fonda_q${idx}"]`);
+                        if(t) t.value = item.answer || '';
+                    });
+                }
+                if (ev.mgrSpecifiques) {
+                    const parsed = JSON.parse(ev.mgrSpecifiques);
+                    parsed.forEach((item, idx) => {
+                        const r = document.querySelector(`input[name="spec_q${idx}"][value="${item.answer}"]`);
+                        if(r) r.checked = true;
+                        const t = document.querySelector(`textarea[name="spec_q${idx}"]`);
+                        if(t) t.value = item.answer || '';
+                    });
+                }
+            } catch(e) {}
+        }
+        
+        showEvalStep(2); 
+    }
+  }
+
+  function submitInitiation() {
+      const profile = document.getElementById('eval-profile-select').value;
+      const period = document.getElementById('eval-period').value;
+      
+      let selectedEmployees = [];
+      if (window.empChoices) {
+         selectedEmployees = window.empChoices.getValue(true); // Returns array of values
+      }
+      
+      if (!profile || !period || !selectedEmployees || selectedEmployees.length === 0) {
+          alert('Veuillez remplir tous les champs obligatoires et sélectionner au moins un employé.');
+          return;
+      }
+      
+      // Construire le tableau avec les noms
+      const employeeDataList = selectedEmployees.map(email => {
+         const empObj = window.employeeList.find(e => e.email === email);
+         return {
+            email: email,
+            name: empObj ? empObj.fullName : email
+         };
+      });
+      
+      const formData = {
+        period: period,
+        employees: employeeDataList, // Tableau d'employés
+        profile: profile,
+        evaluatorName: currentUser.fullName
+      };
+      
+      const btn = document.getElementById('btn-submit-initiation');
+      btn.disabled = true;
+      btn.innerText = 'Initiation...';
+      
+      google.script.run
+        .withSuccessHandler(() => {
+           alert('Évaluation(s) initiée(s) avec succès.');
+           showManagerDashboard();
+           btn.disabled = false;
+           btn.innerText = "Initier l'évaluation";
+        })
+        .withFailureHandler(err => {
+           alert('Erreur: ' + err.message);
+           btn.disabled = false;
+           btn.innerText = "Initier l'évaluation";
+        })
+        .initiateEvaluationsBatch(window.kanagaToken, formData);
+  }
+
+  function showEvalStep(stepIndex) {
+    document.querySelectorAll('.wizard-content').forEach(c => c.classList.remove('active'));
+    document.querySelectorAll('.wizard-step').forEach(s => s.classList.remove('active'));
+    
+    document.getElementById('wizard-step-' + stepIndex).classList.add('active');
+    for(let i=1; i<=stepIndex; i++) {
+        document.getElementById('step-nav-' + i).classList.add('active');
+    }
+  }
+
+  function nextEvalStep(current, next) {
+    if (current === 1) {
+        if (!document.getElementById('eval-period').value || !document.getElementById('eval-employee-email').value) {
+            alert('Veuillez remplir les champs obligatoires (*)');
+            return;
+        }
+    }
+    if (current === 2) {
+        const profile = document.getElementById('eval-profile-select').value;
+        if (!profile) {
+            alert('Veuillez sélectionner un profil.');
+            return;
+        }
+        if (profile === 'Autre') {
+            next = 4;
+        } else if(window.evalCurrentMode !== 'Initiation') {
+            generateGrid('grid-specifiques', 'spec', evalQuestions[profile.toLowerCase()]);
+            document.getElementById('step-3-title').innerText = "Compétences Spécifiques (" + profile + ")";
+        }
+    }
+    showEvalStep(next);
+  }
+
+  function prevEvalStep(current, prev) {
+    if (current === 4 && document.getElementById('eval-profile-select').value === 'Autre') {
+        prev = 2;
+    }
+    showEvalStep(prev);
+  }
+
+  function handleEvalProfileChange() {
+    const profile = document.getElementById('eval-profile-select').value;
+    if (profile === 'Autre') {
+      document.getElementById('step-nav-3').style.opacity = '0.3';
+    } else {
+      document.getElementById('step-nav-3').style.opacity = '1';
+    }
+  }
+
+  function generateGrid(containerId, prefix, questions) {
+    const container = document.getElementById(containerId);
+    let html = '';
+    if(!questions) return;
+    questions.forEach((qObj, idx) => {
+      // Pour la compatibilité arrière si d'anciens formats sont passés
+      const q = typeof qObj === 'string' ? { text: qObj, type: 'scale', options: 'PI, PA, CA, PS, PE, N/A', description: "" } : qObj;
+      const text = q.text.replace(/`/g, "'");
+      const desc = q.description ? `<div style="font-size:12px; color:#666; margin-top:4px;">${q.description.replace(/`/g, "'")}</div>` : '';
+      
+      html += `<div class="eval-grid-row">
+                 <div class="eval-grid-question">
+                    ${text}
+                    ${desc}
+                 </div>
+                 <div class="eval-grid-options">`;
+                 
+      if (q.type === 'scale') {
+          const opts = (q.options || 'PI, PA, CA, PS, PE, N/A').split(',').map(s => s.trim());
+          opts.forEach(opt => {
+              html += `<label class="eval-radio-label">
+                         <input type="radio" name="${prefix}_q${idx}" value="${opt}">
+                         ${opt}
+                       </label>`;
+          });
+      } else if (q.type === 'boolean') {
+          html += `<label class="eval-radio-label"><input type="radio" name="${prefix}_q${idx}" value="Oui"> Oui</label>`;
+          html += `<label class="eval-radio-label"><input type="radio" name="${prefix}_q${idx}" value="Non"> Non</label>`;
+      } else if (q.type === 'text') {
+          html += `<textarea name="${prefix}_q${idx}" class="form-control" rows="3" placeholder="Votre réponse..."></textarea>`;
+      }
+      
+      html += `</div></div>`;
+    });
+    container.innerHTML = html;
+  }
+
+  function getEvaluationFormData() {
+    const formData = {
+      fondamentales: [],
+      specifiques: [],
+      pastGoals: document.getElementById('eval-past-goals').value,
+      strengths: document.getElementById('eval-strengths').value,
+      improvements: document.getElementById('eval-improvements').value,
+      globalRating: document.getElementById('eval-global-rating').value,
+      training: document.getElementById('eval-training').value,
+      smartGoals: document.getElementById('eval-smart-goals').value,
+      aspirations: document.getElementById('eval-aspirations').value,
+      empComments: document.getElementById('eval-emp-comments').value
+    };
+
+    const profile = document.getElementById('eval-profile-select').value;
+
+    if (evalQuestions && evalQuestions.fondamentales) {
+        evalQuestions.fondamentales.forEach((qObj, idx) => {
+          const q = typeof qObj === 'string' ? { text: qObj, type: 'scale' } : qObj;
+          let ans = '';
+          if (q.type === 'text') {
+              ans = document.querySelector(`textarea[name="fonda_q${idx}"]`)?.value || '';
+          } else {
+              const selected = document.querySelector(`input[name="fonda_q${idx}"]:checked`);
+              ans = selected ? selected.value : '';
+          }
+          formData.fondamentales.push({ question: q.text, answer: ans });
+        });
+    }
+
+    if (profile && profile !== 'Autre' && evalQuestions && evalQuestions[profile.toLowerCase()]) {
+      evalQuestions[profile.toLowerCase()].forEach((qObj, idx) => {
+        const q = typeof qObj === 'string' ? { text: qObj, type: 'scale' } : qObj;
+        let ans = '';
+        if (q.type === 'text') {
+            ans = document.querySelector(`textarea[name="spec_q${idx}"]`)?.value || '';
+        } else {
+            const selected = document.querySelector(`input[name="spec_q${idx}"]:checked`);
+            ans = selected ? selected.value : '';
+        }
+        formData.specifiques.push({ question: q.text, answer: ans });
+      });
+    }
+    return formData;
+  }
+
+  let autosaveTimeout = null;
+  function scheduleAutosave() {
+      if (!window.evalAttachedRowId) return;
+      if (autosaveTimeout) clearTimeout(autosaveTimeout);
+      const status = document.getElementById('eval-submit-status');
+      status.innerText = 'Sauvegarde en cours...';
+      status.style.color = '#888';
+      autosaveTimeout = setTimeout(autosaveEvaluation, 2000);
+  }
+
+  function autosaveEvaluation() {
+      if (!window.evalAttachedRowId) return;
+      
+      const formData = getEvaluationFormData();
+      const status = document.getElementById('eval-submit-status');
+      
+      if (window.evalCurrentMode === 'Évaluation Manager') {
+          const mgrData = {
+            mgrFondamentales: formData.fondamentales,
+            mgrSpecifiques: formData.specifiques,
+            mgrStrengths: formData.strengths,
+            mgrImprovements: formData.improvements,
+            mgrGlobalRating: formData.globalRating,
+            mgrTraining: formData.training,
+            mgrSmartGoals: formData.smartGoals,
+            mgrComments: formData.empComments
+          };
+          google.script.run
+            .withSuccessHandler(() => {
+                status.innerText = 'Brouillon sauvegardé.';
+                status.style.color = 'gray';
+            })
+            .saveAttachedManagerEvaluationDraft(window.evalAttachedRowId, mgrData, currentUser.fullName);
+      } else {
+          google.script.run
+            .withSuccessHandler(() => {
+                status.innerText = 'Brouillon sauvegardé.';
+                status.style.color = 'gray';
+            })
+            .saveSelfEvaluationDraft(window.evalAttachedRowId, formData);
+      }
+  }
+
+  document.getElementById('eval-wizard-form').addEventListener('input', scheduleAutosave);
+  document.getElementById('eval-wizard-form').addEventListener('change', scheduleAutosave);
+
+  document.getElementById('eval-wizard-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    if (autosaveTimeout) clearTimeout(autosaveTimeout);
+    const btn = document.getElementById('btn-submit-eval');
+    const status = document.getElementById('eval-submit-status');
+    btn.disabled = true;
+    btn.innerText = 'Enregistrement...';
+    
+    const formData = getEvaluationFormData();
+
+    if (window.evalCurrentMode === 'Évaluation Manager') {
+      const mgrData = {
+        mgrFondamentales: formData.fondamentales,
+        mgrSpecifiques: formData.specifiques,
+        mgrStrengths: formData.strengths,
+        mgrImprovements: formData.improvements,
+        mgrGlobalRating: formData.globalRating,
+        mgrTraining: formData.training,
+        mgrSmartGoals: formData.smartGoals,
+        mgrComments: formData.empComments
+      };
+      
+      google.script.run
+        .withSuccessHandler(() => {
+           status.innerText = 'Évaluation manager enregistrée avec succès.';
+           status.style.color = 'var(--secondary-color)';
+           setTimeout(() => {
+               showManagerDashboard();
+               btn.disabled = false;
+               btn.innerText = "Soumettre l'Évaluation";
+               status.innerText = '';
+           }, 2000);
+        })
+        .withFailureHandler(err => {
+           status.innerText = 'Erreur : ' + err.message;
+           status.style.color = 'var(--danger-color)';
+           btn.disabled = false;
+           btn.innerText = "Soumettre l'Évaluation";
+        })
+        .submitAttachedManagerEvaluation(window.evalAttachedRowId, mgrData, currentUser.fullName);
+    } else {
+      google.script.run
+        .withSuccessHandler(() => {
+           status.innerText = 'Auto-évaluation enregistrée avec succès.';
+           status.style.color = 'var(--secondary-color)';
+           setTimeout(() => {
+               showEmployeeDashboard();
+               btn.disabled = false;
+               btn.innerText = "Soumettre l'Évaluation";
+               status.innerText = '';
+           }, 2000);
+        })
+        .withFailureHandler(err => {
+           status.innerText = 'Erreur : ' + err.message;
+           status.style.color = 'var(--danger-color)';
+           btn.disabled = false;
+           btn.innerText = "Soumettre l'Évaluation";
+        })
+        .submitSelfEvaluation(window.evalAttachedRowId, formData);
+    }
+  });
+
+  window.submitPreEvaluation = function() {
+    if (autosaveTimeout) clearTimeout(autosaveTimeout);
+    const btn = document.getElementById('btn-pre-eval');
+    const status = document.getElementById('eval-submit-status');
+    btn.disabled = true;
+    btn.innerText = 'Enregistrement...';
+    
+    const formData = getEvaluationFormData();
+
+    if (window.evalCurrentMode === 'Évaluation Manager') {
+      const mgrData = {
+        mgrFondamentales: formData.fondamentales,
+        mgrSpecifiques: formData.specifiques,
+        mgrStrengths: formData.strengths,
+        mgrImprovements: formData.improvements,
+        mgrGlobalRating: formData.globalRating,
+        mgrTraining: formData.training,
+        mgrSmartGoals: formData.smartGoals,
+        mgrComments: formData.comments
+      };
+      
+      google.script.run
+        .withSuccessHandler(function() {
+          btn.disabled = false;
+          btn.innerText = 'Pré-évaluer (pour réunion)';
+          status.innerHTML = '<span style="color:green;">Pré-évaluation sauvegardée !</span>';
+          setTimeout(() => {
+             document.getElementById('eval-wizard-screen').style.display = 'none';
+             if (currentUser.role === 'Manager' || currentUser.role === 'Admin') showManagerDashboard();
+             else showEvaluationHome();
+          }, 1500);
+        })
+        .withFailureHandler(function(err) {
+          btn.disabled = false;
+          btn.innerText = 'Pré-évaluer (pour réunion)';
+          status.innerHTML = '<span style="color:red;">Erreur: ' + err.message + '</span>';
+        })
+        .savePreEvaluation(window.evalAttachedRowId, mgrData, currentUser.fullName);
+    }
+  };
+
+  window.quickAttachManagerEval = function(rowId) {
+    startEvaluationWizard('Évaluation Manager', rowId);
+  };
+
+  function showManagerDashboard() {
+    document.getElementById('eval-selection-screen').style.display = 'none';
+    document.getElementById('eval-wizard-screen').style.display = 'none';
+    document.getElementById('eval-manager-dashboard').style.display = 'block';
+    document.getElementById('eval-viewer-screen').style.display = 'none';
+    document.getElementById('eval-header-actions').style.display = 'block';
+    document.getElementById('eval-dashboard-loader').style.display = 'block';
+    const tbody = document.querySelector('#evals-table tbody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Chargement en cours...</td></tr>';
+    
+    // Load evaluations
+    google.script.run
+      .withSuccessHandler(function(evalsStr) {
+        document.getElementById('eval-dashboard-loader').style.display = 'none';
+        try {
+          const evals = JSON.parse(evalsStr);
+          tbody.innerHTML = '';
+          if(!evals || evals.length === 0) {
+             tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Aucune évaluation trouvée.</td></tr>';
+             return;
+          }
+          
+          if (evals.length > 0 && evals[0].error) {
+             tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:red;">Erreur technique: ${evals[0].error}</td></tr>`;
+             return;
+          }
+          
+          window.loadedEvals = evals; // store globally for viewing
+          updateNotifications();
+          
+          evals.forEach((ev, idx) => {
+             const tr = document.createElement('tr');
+             
+             let badgeClass = 'badge-primary';
+             if (ev.status === 'Initiée') badgeClass = 'badge-warning';
+             if (ev.status === 'Complétée') badgeClass = 'badge-success';
+             if (ev.status === 'Pré-évaluée') badgeClass = 'badge-info';
+
+             let actionBtns = `<button class="btn btn-outline" style="padding:5px 10px; font-size:12px;" onclick="viewEvaluation(${idx})">Consulter</button>`;
+             if (ev.status === 'Auto-évaluée' || ev.status === 'Pré-évaluée') {
+                actionBtns += ` <button class="btn" style="padding:5px 10px; font-size:12px; margin-left:5px; background-color:var(--secondary-color);" onclick="quickAttachManagerEval(${ev.rowId})">Évaluer</button>`;
+             }
+             if (ev.status === 'Complétée' && ev.pdfUrl) {
+                actionBtns += ` <a href="${ev.pdfUrl}" target="_blank" class="btn btn-outline" style="padding:5px 10px; font-size:12px; margin-left:5px;">Télécharger PDF</a>`;
+             }
+             
+             tr.innerHTML = `
+               <td>${ev.timestamp}</td>
+               <td><span class="badge ${badgeClass}">${ev.status}</span></td>
+               <td>${ev.employeeName}</td>
+               <td>${ev.evaluatorName}</td>
+               <td><strong>${ev.globalRating || '-'}</strong></td>
+               <td>${actionBtns}</td>
+             `;
+             tbody.appendChild(tr);
+          });
+        } catch (e) {
+           tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:red;">Erreur Client: ${e.message}</td></tr>`;
+        }
+      })
+      .withFailureHandler(function(err) {
+         document.getElementById('eval-dashboard-loader').style.display = 'none';
+         const tbody = document.querySelector('#evals-table tbody');
+         tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:red;">Erreur serveur: ${err.message}</td></tr>`;
+      })
+      .getNativeEvaluations(window.kanagaToken);
+  }
+  
+  function showEmployeeDashboard() {
+    document.getElementById('eval-selection-screen').style.display = 'none';
+    document.getElementById('eval-wizard-screen').style.display = 'none';
+    document.getElementById('eval-manager-dashboard').style.display = 'block';
+    document.getElementById('eval-viewer-screen').style.display = 'none';
+    document.getElementById('eval-header-actions').style.display = 'block';
+    
+    document.querySelector('#eval-manager-dashboard h3').innerText = "Mes Historiques d'Évaluation";
+    document.getElementById('eval-dashboard-loader').style.display = 'block';
+    const tbody = document.querySelector('#evals-table tbody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Chargement en cours...</td></tr>';
+    
+    google.script.run
+      .withSuccessHandler(function(evalsStr) {
+        document.getElementById('eval-dashboard-loader').style.display = 'none';
+        const tbody = document.querySelector('#evals-table tbody');
+        try {
+          const evals = JSON.parse(evalsStr);
+          tbody.innerHTML = '';
+          
+          if(!evals || (evals.length > 0 && evals[0].error)) {
+             tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:red;">Erreur technique: ${evals ? evals[0].error : 'Données nulles'}</td></tr>`;
+             return;
+          }
+
+          const myEvals = evals.filter(e => e.employeeEmail === currentUser.username || e.employeeName === currentUser.fullName || e.evaluatorName === currentUser.fullName);
+          window.loadedEvals = myEvals;
+          updateNotifications();
+          
+          if(myEvals.length === 0) {
+             tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Aucune évaluation trouvée.</td></tr>';
+             return;
+          }
+          
+          myEvals.forEach((ev, idx) => {
+             const tr = document.createElement('tr');
+             
+             let badgeClass = 'badge-primary';
+             if (ev.status === 'Initiée') badgeClass = 'badge-warning';
+             if (ev.status === 'Complétée') badgeClass = 'badge-success';
+             if (ev.status === 'Pré-évaluée') badgeClass = 'badge-info';
+
+             let actionBtns = `<button class="btn btn-outline" style="padding:5px 10px; font-size:12px;" onclick="viewEvaluation(${idx})">Consulter</button>`;
+             if (ev.status === 'Initiée') {
+                actionBtns += ` <button class="btn btn-primary" style="padding:5px 10px; font-size:12px; margin-left:5px;" onclick="startEvaluationWizard('Auto-évaluation', ${ev.rowId})">Auto-évaluer</button>`;
+             }
+             if (ev.status === 'Complétée' && ev.pdfUrl) {
+                actionBtns += ` <a href="${ev.pdfUrl}" target="_blank" class="btn btn-outline" style="padding:5px 10px; font-size:12px; margin-left:5px;">Télécharger PDF</a>`;
+             }
+
+             tr.innerHTML = `
+               <td>${ev.timestamp}</td>
+               <td><span class="badge ${badgeClass}">${ev.status}</span></td>
+               <td>${ev.employeeName}</td>
+               <td>${ev.evaluatorName}</td>
+               <td><strong>${ev.globalRating || '-'}</strong></td>
+               <td>${actionBtns}</td>
+             `;
+             tbody.appendChild(tr);
+          });
+        } catch(e) {
+             tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:red;">Erreur Client: ${e.message}</td></tr>`;
+        }
+      })
+      .withFailureHandler(function(err) {
+         document.getElementById('eval-dashboard-loader').style.display = 'none';
+         const tbody = document.querySelector('#evals-table tbody');
+         tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:red;">Erreur serveur: ${err.message}</td></tr>`;
+      })
+      .getNativeEvaluations(window.kanagaToken);
+  }
+
+  function viewEvaluation(index) {
+     const ev = window.loadedEvals[index];
+     document.getElementById('eval-manager-dashboard').style.display = 'none';
+     document.getElementById('eval-viewer-screen').style.display = 'block';
+     
+     let pdfButton = '';
+     if(ev.pdfUrl) {
+         pdfButton = `<a href="${ev.pdfUrl}" target="_blank" class="btn btn-primary" style="margin-top: 15px; display: inline-block;">Télécharger PDF</a>`;
+     }
+
+     let html = `
+       <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+         <div class="eval-viewer-grid" style="flex: 1;">
+           <div class="eval-viewer-box"><strong>Statut:</strong> ${ev.status || ev.type}</div>
+           <div class="eval-viewer-box"><strong>Période:</strong> ${ev.period}</div>
+           <div class="eval-viewer-box"><strong>Employé:</strong> ${ev.employeeName}</div>
+           <div class="eval-viewer-box"><strong>Département:</strong> ${ev.dept}</div>
+           <div class="eval-viewer-box"><strong>Évaluateur:</strong> ${ev.evaluatorName}</div>
+           <div class="eval-viewer-box"><strong>Profil:</strong> ${ev.profile}</div>
+         </div>
+         <div style="margin-left: 20px;">
+           ${pdfButton}
+         </div>
+       </div>`;
+
+       if (ev.status === 'Initiée') {
+           html += `
+             <div style="margin-top: 40px; padding: 30px; background: #fff3cd; color: #856404; text-align: center; border-radius: 8px; border: 1px solid #ffeeba;">
+               <h4 style="margin-bottom: 10px;">En attente d'auto-évaluation</h4>
+               <p>Le processus d'évaluation a été initié pour <strong>${ev.employeeName}</strong>. Le dossier d'évaluation ne sera consultable et modifiable qu'après que l'employé aura soumis son auto-évaluation.</p>
+             </div>
+           `;
+       } else {
+           html += `
+       <h4 style="margin-top:25px; border-bottom:1px solid #ddd; padding-bottom:5px;">Synthèse Globale</h4>
+       <div class="table-responsive">
+         <table class="modern-table" style="width:100%; table-layout: fixed;">
+           <thead>
+             <tr>
+               <th style="width:20%;">Rubrique</th>
+               <th style="width:40%;">Auto-évaluation (Employé)</th>
+               <th style="width:40%;">Évaluation (Manager)</th>
+             </tr>
+           </thead>
+           <tbody>
+             <tr>
+               <td><strong>Note Globale</strong></td>
+               <td>${ev.globalRating || '-'}</td>
+               <td>${ev.mgrGlobalRating || '-'}</td>
+             </tr>
+             <tr>
+               <td><strong>Points Forts</strong></td>
+               <td>${(ev.strengths || '-').replace(/\\n/g, '<br>')}</td>
+               <td>${(ev.mgrStrengths || '-').replace(/\\n/g, '<br>')}</td>
+             </tr>
+             <tr>
+               <td><strong>Axes d'Amélioration</strong></td>
+               <td>${(ev.improvements || '-').replace(/\\n/g, '<br>')}</td>
+               <td>${(ev.mgrImprovements || '-').replace(/\\n/g, '<br>')}</td>
+             </tr>
+             <tr>
+               <td><strong>Besoins en Formation</strong></td>
+               <td>${(ev.training || '-').replace(/\\n/g, '<br>')}</td>
+               <td>${(ev.mgrTraining || '-').replace(/\\n/g, '<br>')}</td>
+             </tr>
+             <tr>
+               <td><strong>Objectifs SMART</strong></td>
+               <td>${(ev.smartGoals || '-').replace(/\\n/g, '<br>')}</td>
+               <td>${(ev.mgrSmartGoals || '-').replace(/\\n/g, '<br>')}</td>
+             </tr>
+           </tbody>
+         </table>
+       </div>
+
+       <h4 style="margin-top:25px; border-bottom:1px solid #ddd; padding-bottom:5px;">Détail des Compétences</h4>
+       <div class="table-responsive">
+         <table class="modern-table" style="width:100%;">
+           <thead>
+             <tr>
+               <th>Compétence</th>
+               <th style="width:100px;">Note Employé</th>
+               <th style="width:100px;">Note Manager</th>
+             </tr>
+           </thead>
+           <tbody>
+     `;
+     
+     let empFonda = [], mgrFonda = [];
+     try { if(ev.fondamentales) empFonda = JSON.parse(ev.fondamentales); } catch(e){}
+     try { if(ev.mgrFondamentales) mgrFonda = JSON.parse(ev.mgrFondamentales); } catch(e){}
+     
+     if (empFonda.length > 0 || mgrFonda.length > 0) {
+         html += `<tr><td colspan="3" style="background:#f5f5f5; font-weight:bold;">Fondamentales</td></tr>`;
+         const maxLen = Math.max(empFonda.length, mgrFonda.length);
+         for(let i=0; i<maxLen; i++) {
+             const empQ = empFonda[i] || {question: mgrFonda[i]?.question, answer: '-'};
+             const mgrA = mgrFonda[i]?.answer || '-';
+             html += `<tr><td>${empQ.question}</td><td><strong>${empQ.answer || '-'}</strong></td><td><strong>${mgrA}</strong></td></tr>`;
+         }
+     }
+     
+     let empSpec = [], mgrSpec = [];
+     try { if(ev.specifiques && ev.specifiques !== "[]") empSpec = JSON.parse(ev.specifiques); } catch(e){}
+     try { if(ev.mgrSpecifiques && ev.mgrSpecifiques !== "[]") mgrSpec = JSON.parse(ev.mgrSpecifiques); } catch(e){}
+     
+     if (empSpec.length > 0 || mgrSpec.length > 0) {
+         html += `<tr><td colspan="3" style="background:#f5f5f5; font-weight:bold;">Spécifiques (${ev.profile})</td></tr>`;
+         const maxLen = Math.max(empSpec.length, mgrSpec.length);
+         for(let i=0; i<maxLen; i++) {
+             const empQ = empSpec[i] || {question: mgrSpec[i]?.question, answer: '-'};
+             const mgrA = mgrSpec[i]?.answer || '-';
+             html += `<tr><td>${empQ.question}</td><td><strong>${empQ.answer || '-'}</strong></td><td><strong>${mgrA}</strong></td></tr>`;
+         }
+     }
+     
+     html += `</tbody></table></div>`;
+     
+     html += `
+       <div class="eval-viewer-box" style="margin-top:20px;"><strong>Commentaires Employé:</strong><br>${(ev.empComments || '-').replace(/\\n/g, '<br>')}</div>
+       <div class="eval-viewer-box" style="margin-bottom:10px;"><strong>Commentaires Manager:</strong><br>${(ev.mgrComments || '-').replace(/\\n/g, '<br>')}</div>
+     `;
+     }
+     
+     if (!ev.mgrName && (currentUser.role === 'Manager' || currentUser.role === 'Admin') && ev.status === 'Auto-évaluée') {
+       html += `
+         <div style="margin-top:30px; padding:20px; background:#f9f9f9; text-align:center; border:1px dashed #ccc;">
+           <p style="margin-bottom:15px; color:#555;">Ce dossier est en attente de votre évaluation.</p>
+           <button class="btn btn-success" onclick="startEvaluationWizard('Évaluation Manager', ${ev.rowId})">Évaluer le collaborateur</button>
+         </div>
+       `;
+     } else if (ev.mgrName && (currentUser.role === 'Manager' || currentUser.role === 'Admin')) {
+       html += `
+         <div style="margin-top:30px; padding:20px; background:#f9f9f9; text-align:center; border:1px dashed #ccc;">
+           <p style="margin-bottom:15px; color:#555;">Ce dossier a déjà été évalué (Managers: ${ev.mgrName}).</p>
+           <button class="btn btn-outline" onclick="startEvaluationWizard('Évaluation Manager', ${ev.rowId})">Modifier / Compléter l'évaluation</button>
+         </div>
+       `;
+     }
+     
+     document.getElementById('eval-viewer-content').innerHTML = html;
+  }
+
+  // --- Administration Logic ---
+  
+  function switchAdminTab(tabId) {
+      document.querySelectorAll('.admin-panel').forEach(p => p.style.display = 'none');
+      document.querySelectorAll('.admin-tab').forEach(b => {
+          b.style.background = '#f0f0f0';
+          b.style.color = '#333';
+      });
+      
+      const panel = document.getElementById('admin-panel-' + tabId);
+      if (panel) panel.style.display = 'block';
+
+      const activeBtn = document.getElementById('tab-btn-' + tabId);
+      if (activeBtn) {
+        activeBtn.style.background = 'var(--primary-color)';
+        activeBtn.style.color = 'white';
+      }
+
+      if (tabId === 'country-groups') {
+        loadAdminCountryGroups();
+      }
+  }
+
+  // --- Country Admin Groups Logic ---
+  window.adminCountryGroupsState = {};
+
+  function loadAdminCountryGroups() {
+    const loader = document.getElementById('country-groups-loader');
+    const container = document.getElementById('admin-country-groups-container');
+    const statusMsg = document.getElementById('country-groups-status-msg');
+
+    if (loader) loader.style.display = 'block';
+    if (container) container.innerHTML = '';
+    if (statusMsg) statusMsg.textContent = '';
+
+    google.script.run
+      .withSuccessHandler(groups => {
+        if (loader) loader.style.display = 'none';
+        window.adminCountryGroupsState = groups || {};
+        renderAdminCountryGroups();
+      })
+      .withFailureHandler(err => {
+        if (loader) loader.style.display = 'none';
+        if (statusMsg) {
+          statusMsg.textContent = "Erreur de chargement des groupes: " + err.message;
+          statusMsg.style.color = "red";
+        }
+      })
+      .getCountryAdminGroupsConfig(window.kanagaToken);
+  }
+
+  function renderAdminCountryGroups() {
+    const container = document.getElementById('admin-country-groups-container');
+    if (!container) return;
+
+    const groups = window.adminCountryGroupsState;
+    const countryKeys = Object.keys(groups);
+
+    if (countryKeys.length === 0) {
+      container.innerHTML = '<p style="color:#718096; font-style:italic;">Aucun groupe de pays configuré. Cliquez sur "+ Ajouter un Pays / Bureau" ci-dessous.</p>';
+      return;
+    }
+
+    let html = '';
+    countryKeys.forEach((country) => {
+      const emailsList = (groups[country] || []).join(', ');
+      html += `
+        <div style="background: white; border: 1px solid #E0CC99; border-radius: 8px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <input type="text" class="form-control" value="${escapeHtml(country)}" onchange="updateCountryNameKey('${escapeHtml(country)}', this.value)" style="font-weight: bold; width: 60%; color: #7C4C26;" placeholder="Nom du Pays / Bureau (ex: Mali)">
+            <button class="btn btn-sm" style="background: var(--danger-color); color: white;" onclick="deleteCountryAdminGroup('${escapeHtml(country)}')">Supprimer</button>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label style="font-size: 12px; color: #4a5568;">Membres autorisés (adresses e-mail séparées par des virgules) :</label>
+            <textarea class="form-control" rows="2" style="font-size: 13px;" onchange="updateCountryEmails('${escapeHtml(country)}', this.value)" placeholder="exemple1@kanagaconsulting.com, exemple2@kanagaconsulting.com">${escapeHtml(emailsList)}</textarea>
+          </div>
+        </div>
+      `;
+    });
+
+    container.innerHTML = html;
+  }
+
+  function updateCountryNameKey(oldKey, newKey) {
+    newKey = newKey.trim();
+    if (!newKey || oldKey === newKey) return;
+    if (window.adminCountryGroupsState[newKey]) {
+      alert("Ce nom de pays/bureau existe déjà.");
+      renderAdminCountryGroups();
+      return;
+    }
+
+    const currentEmails = window.adminCountryGroupsState[oldKey] || [];
+    delete window.adminCountryGroupsState[oldKey];
+    window.adminCountryGroupsState[newKey] = currentEmails;
+    renderAdminCountryGroups();
+  }
+
+  function updateCountryEmails(countryKey, emailsText) {
+    const arr = emailsText.split(',').map(e => e.trim()).filter(Boolean);
+    window.adminCountryGroupsState[countryKey] = arr;
+  }
+
+  function addCountryAdminGroup() {
+    const newCountry = prompt("Entrez le nom du nouveau pays ou bureau (ex: Senegal) :");
+    if (!newCountry || !newCountry.trim()) return;
+    const key = newCountry.trim();
+    if (window.adminCountryGroupsState[key]) {
+      alert("Ce pays / bureau existe déjà.");
+      return;
+    }
+    window.adminCountryGroupsState[key] = [];
+    renderAdminCountryGroups();
+  }
+
+  function deleteCountryAdminGroup(countryKey) {
+    if (confirm(`Voulez-vous vraiment supprimer le groupe pour "${countryKey}" ?`)) {
+      delete window.adminCountryGroupsState[countryKey];
+      renderAdminCountryGroups();
+    }
+  }
+
+  function saveAdminCountryGroups() {
+    const btn = document.getElementById('btn-save-country-groups');
+    const statusMsg = document.getElementById('country-groups-status-msg');
+
+    if (btn) btn.disabled = true;
+    if (statusMsg) {
+      statusMsg.textContent = "Enregistrement de la configuration...";
+      statusMsg.style.color = "var(--primary-color)";
+    }
+
+    google.script.run
+      .withSuccessHandler(() => {
+        if (btn) btn.disabled = false;
+        if (statusMsg) {
+          statusMsg.textContent = "Groupes d'administration par pays enregistrés avec succès !";
+          statusMsg.style.color = "green";
+          setTimeout(() => { if (statusMsg) statusMsg.textContent = ''; }, 3000);
+        }
+      })
+      .withFailureHandler(err => {
+        if (btn) btn.disabled = false;
+        if (statusMsg) {
+          statusMsg.textContent = "Erreur lors de l'enregistrement: " + err.message;
+          statusMsg.style.color = "red";
+        }
+      })
+      .saveCountryAdminGroupsConfig(window.kanagaToken, window.adminCountryGroupsState);
+  }
+  
+  function loadAdminData() {
+    google.script.run.withSuccessHandler(function(projects) {
+       window.adminAllProjects = projects;
+    }).getAllProjectsForAdmin(window.kanagaToken);
+    
+    if (currentUser && currentUser.role === 'Manager') {
+        document.getElementById('tab-btn-users').style.display = 'none';
+        document.getElementById('tab-btn-email').style.display = 'none';
+        switchAdminTab('questions');
+    } else {
+        document.getElementById('tab-btn-users').style.display = 'inline-block';
+        document.getElementById('tab-btn-email').style.display = 'inline-block';
+        switchAdminTab('users');
+    }
+  
+    document.getElementById('admin-users-table').style.display = 'none';
+    document.getElementById('admin-loader').style.display = 'block';
+    
+    // Charger les questions et profils
+    populateAdminQuestionsConfig();
+    
+    // Charger les paramètres de l'e-mail d'évaluation
+    google.script.run.withSuccessHandler(function(settings) {
+       document.getElementById('eval-email-subject').value = settings.sujet;
+       document.getElementById('eval-email-message').value = settings.message;
+    }).getEvaluationEmailSettings(window.kanagaToken);
+    
+    google.script.run
+      .withSuccessHandler(function(users) {
+        document.getElementById('admin-loader').style.display = 'none';
+        const tbody = document.querySelector('#admin-users-table tbody');
+        tbody.innerHTML = '';
+        
+        window.loadedAdminUsers = users; // Store globally
+        
+        users.forEach((user, idx) => {
+          const tr = document.createElement('tr');
+          let roleBadge = 'badge-primary';
+          if (user.role === 'Admin') roleBadge = 'badge-danger';
+          if (user.role === 'Manager') roleBadge = 'badge-success';
+          if (user.role === 'IT') roleBadge = 'badge-warning';
+          
+          tr.innerHTML = `
+            <td>${user.email}</td>
+            <td>${user.fullName || '-'}</td>
+            <td>${user.company || '-'}</td>
+            <td><span class="badge ${roleBadge}">${user.role}</span></td>
+            <td><button class="btn btn-outline" style="padding:5px 10px; font-size:12px;" onclick="openAdminEditModal(${idx})">Modifier</button></td>
+          `;
+          tbody.appendChild(tr);
+        });
+        document.getElementById('admin-users-table').style.display = 'table';
+      })
+      .withFailureHandler(err => {
+        document.getElementById('admin-loader').innerText = 'Erreur : ' + err.message;
+        document.getElementById('admin-loader').style.color = 'var(--danger-color)';
+      })
+      .getAllUsers(window.kanagaToken);
+  }
+
+  function openAdminEditModal(index) {
+    const user = window.loadedAdminUsers[index];
+    document.getElementById('admin-edit-email').value = user.email;
+    document.getElementById('admin-edit-email-display').value = user.email;
+    document.getElementById('admin-edit-role').value = user.role;
+    document.getElementById('admin-edit-company').value = user.company || '';
+    document.getElementById('admin-edit-password').value = '';
+    document.getElementById('admin-edit-status').innerText = '';
+    
+    handleAdminRoleChange();
+    
+    setTimeout(() => {
+      if (user.role === 'ConsultantExterne' && window.adminProjectsChoices) {
+          const userProjects = user.allowedProjectsStr ? user.allowedProjectsStr.split(',').map(s=>s.trim()).filter(String) : [];
+          window.adminProjectsChoices.setChoiceByValue(userProjects);
+      }
+    }, 100);
+
+    document.getElementById('admin-edit-modal').style.display = 'block';
+  }
+
+  function handleAdminRoleChange() {
+    const role = document.getElementById('admin-edit-role').value;
+    const projectsGroup = document.getElementById('admin-edit-projects-group');
+    if (role === 'ConsultantExterne') {
+      projectsGroup.style.display = 'block';
+      if (!window.adminProjectsChoices) {
+        const select = document.getElementById('admin-edit-projects');
+        window.adminProjectsChoices = new Choices(select, { removeItemButton: true, placeholder: true, placeholderValue: 'Sélectionnez des projets' });
+      }
+      if (window.adminAllProjects) {
+        window.adminProjectsChoices.clearChoices();
+        window.adminProjectsChoices.setChoices(window.adminAllProjects.map(p => ({ value: p, label: p })), 'value', 'label', true);
+      }
+    } else {
+      projectsGroup.style.display = 'none';
+      if (window.adminProjectsChoices) {
+          window.adminProjectsChoices.removeActiveItems();
+      }
+    }
+  }
+
+  function openAdminEditUser(email, role, company) {
+    document.getElementById('admin-edit-email').value = email;
+    document.getElementById('admin-edit-role').value = role || 'Employee';
+    document.getElementById('admin-edit-company').value = company || 'Madagascar';
+    document.getElementById('admin-edit-password').value = '';
+    document.getElementById('admin-edit-status').innerText = '';
+    document.getElementById('admin-edit-modal').style.display = 'flex';
+  }
+
+  // --- Gestion de la configuration des questions (Admin) ---
+  let adminEvalConfigData = null;
+
+  function populateAdminQuestionsConfig() {
+     google.script.run
+       .withSuccessHandler(function(config) {
+          adminEvalConfigData = config;
+          updateAdminProfileSelect();
+       })
+       .getEvaluationConfig(window.kanagaToken);
+  }
+  
+  function updateAdminProfileSelect() {
+      const select = document.getElementById('admin-profile-select');
+      const oldVal = select.value;
+      select.innerHTML = '';
+      
+      const fondaOpt = document.createElement('option');
+      fondaOpt.value = 'fondamentales';
+      fondaOpt.text = 'Fondamentales (Communes)';
+      select.appendChild(fondaOpt);
+      
+      for (const key in adminEvalConfigData) {
+         if (key.toLowerCase() !== 'fondamentales') {
+            const opt = document.createElement('option');
+            opt.value = key;
+            opt.text = "Profil : " + key.charAt(0).toUpperCase() + key.slice(1);
+            select.appendChild(opt);
+         }
+      }
+      
+      if (oldVal && adminEvalConfigData[oldVal]) {
+         select.value = oldVal;
+      }
+      
+      renderAdminFormBuilder();
+  }
+
+  function renderAdminFormBuilder() {
+      const select = document.getElementById('admin-profile-select');
+      const profile = select.value;
+      const container = document.getElementById('admin-form-builder-container');
+      
+      const btnDelete = document.getElementById('btn-delete-profile');
+      if (profile === 'fondamentales') {
+          btnDelete.style.display = 'none';
+      } else {
+          btnDelete.style.display = 'inline-block';
+      }
+      
+      container.innerHTML = '';
+      
+      if (!profile || !adminEvalConfigData[profile]) return;
+      
+      const questions = adminEvalConfigData[profile];
+      if (questions.length === 0) {
+          container.innerHTML = '<p class="text-muted">Aucune question pour ce profil.</p>';
+          return;
+      }
+      
+      questions.forEach((q, idx) => {
+          const card = document.createElement('div');
+          card.style.background = 'white';
+          card.style.padding = '15px';
+          card.style.marginBottom = '15px';
+          card.style.borderRadius = '5px';
+          card.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+          
+          let optionsHtml = '';
+          if (q.type === 'scale') {
+              optionsHtml = `
+              <div style="margin-top:10px;">
+                  <label style="font-size:12px; font-weight:bold;">Options (séparées par des virgules)</label>
+                  <input type="text" class="form-control" value="${q.options || 'PI, PA, CA, PS, PE, N/A'}" onchange="updateAdminQuestion(${idx}, 'options', this.value)">
+              </div>`;
+          }
+          
+          card.innerHTML = `
+            <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+               <input type="text" class="form-control" style="flex:1; margin-right:15px; font-weight:bold;" value="${q.text}" onchange="updateAdminQuestion(${idx}, 'text', this.value)" placeholder="Titre de la question">
+               <select class="form-control" style="width:200px;" onchange="updateAdminQuestion(${idx}, 'type', this.value)">
+                  <option value="scale" ${q.type === 'scale' ? 'selected' : ''}>Choix Multiple</option>
+                  <option value="text" ${q.type === 'text' ? 'selected' : ''}>Texte libre</option>
+                  <option value="boolean" ${q.type === 'boolean' ? 'selected' : ''}>Oui / Non</option>
+               </select>
+               <button class="btn btn-outline" style="margin-left:15px; color:var(--danger-color); border-color:var(--danger-color);" onclick="deleteAdminFormQuestion(${idx})">X</button>
+            </div>
+            <div style="margin-bottom:10px;">
+               <input type="text" class="form-control" style="width:100%; font-size:13px;" value="${q.description || ''}" onchange="updateAdminQuestion(${idx}, 'description', this.value)" placeholder="Description ou légende (Optionnel)">
+            </div>
+            ${optionsHtml}
+          `;
+          container.appendChild(card);
+      });
+  }
+
+  function updateAdminQuestion(idx, field, value) {
+      const profile = document.getElementById('admin-profile-select').value;
+      if (adminEvalConfigData[profile] && adminEvalConfigData[profile][idx]) {
+          adminEvalConfigData[profile][idx][field] = value;
+          if (field === 'type') {
+              renderAdminFormBuilder(); // Re-render if type changes to show/hide options
+          }
+      }
+  }
+
+  function addAdminFormQuestion() {
+      const profile = document.getElementById('admin-profile-select').value;
+      if (!profile || !adminEvalConfigData[profile]) return;
+      
+      adminEvalConfigData[profile].push({
+          text: "Nouvelle question",
+          description: "",
+          type: "scale",
+          options: "PI, PA, CA, PS, PE, N/A"
+      });
+      renderAdminFormBuilder();
+  }
+
+  function deleteAdminFormQuestion(idx) {
+      const profile = document.getElementById('admin-profile-select').value;
+      if (!profile || !adminEvalConfigData[profile]) return;
+      
+      adminEvalConfigData[profile].splice(idx, 1);
+      renderAdminFormBuilder();
+  }
+
+  function addAdminProfile() {
+      let name = prompt("Entrez le nom du nouveau profil (ex: Développeur) :");
+      if (!name) return;
+      name = name.trim().toLowerCase();
+      if (name === 'fondamentales' || name === 'autre') {
+          alert("Ce nom de profil est réservé.");
+          return;
+      }
+      if (adminEvalConfigData[name]) {
+          alert("Ce profil existe déjà.");
+          return;
+      }
+      
+      adminEvalConfigData[name] = [{ text: "1. Nouvelle question", description: "", type: "scale", options: "PI, PA, CA, PS, PE, N/A" }];
+      updateAdminProfileSelect();
+      document.getElementById('admin-profile-select').value = name;
+      renderAdminFormBuilder();
+  }
+
+  function deleteAdminProfile() {
+      const select = document.getElementById('admin-profile-select');
+      const val = select.value;
+      if (!val || val === 'fondamentales' || !adminEvalConfigData[val]) return;
+      
+      if (confirm(`Voulez-vous vraiment supprimer le profil "${val}" et toutes ses questions spécifiques ?`)) {
+          delete adminEvalConfigData[val];
+          updateAdminProfileSelect();
+      }
+  }
+
+  function saveAdminQuestionsConfig() {
+      const btn = document.getElementById('btn-save-questions');
+      const status = document.getElementById('questions-status-msg');
+      btn.disabled = true;
+      status.innerText = "Enregistrement en cours...";
+      status.style.color = "var(--primary-color)";
+      
+      google.script.run
+        .withSuccessHandler(function() {
+            btn.disabled = false;
+            status.innerText = "Configuration enregistrée avec succès.";
+            status.style.color = "green";
+            setTimeout(() => status.innerText = "", 5000);
+            
+            google.script.run.withSuccessHandler(c => evalQuestions = c).getEvaluationConfig(window.kanagaToken);
+        })
+        .withFailureHandler(function(err) {
+            btn.disabled = false;
+            status.innerText = "Erreur: " + err.message;
+            status.style.color = "red";
+        })
+        .saveEvaluationConfig(window.kanagaToken, adminEvalConfigData);
+  }
+
+  function closeAdminModal() {
+    document.getElementById('admin-edit-modal').style.display = 'none';
+  }
+
+  document.getElementById('admin-edit-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const btn = document.getElementById('admin-save-btn');
+    const status = document.getElementById('admin-edit-status');
+    const email = document.getElementById('admin-edit-email').value;
+    const role = document.getElementById('admin-edit-role').value;
+    const pwd = document.getElementById('admin-edit-password').value;
+    const company = document.getElementById('admin-edit-company').value;
+    
+    let allowedProjectsStr = '';
+    if (role === 'ConsultantExterne' && window.adminProjectsChoices) {
+      let selected = window.adminProjectsChoices.getValue(true);
+      if (!Array.isArray(selected)) {
+        selected = selected ? [selected] : [];
+      }
+      allowedProjectsStr = selected.join(', ');
+    }
+    
+    btn.disabled = true;
+    btn.innerText = 'Enregistrement...';
+    
+    google.script.run
+      .withSuccessHandler(function() {
+        status.innerText = 'Utilisateur mis à jour.';
+        status.style.color = 'var(--secondary-color)';
+        setTimeout(() => {
+          closeAdminModal();
+          btn.disabled = false;
+          btn.innerText = 'Enregistrer';
+          loadAdminData(); // Refresh list
+        }, 1500);
+      })
+      .withFailureHandler(function(err) {
+        status.innerText = 'Erreur : ' + err.message;
+        status.style.color = 'var(--danger-color)';
+        btn.disabled = false;
+        btn.innerText = 'Enregistrer';
+      })
+      .updateUserRoleAndPassword(window.kanagaToken, email, role, pwd, company, allowedProjectsStr);
+  });
+
+  function handleDebugOdoo() {
+    const btn = document.getElementById('btn-debug-odoo');
+    if (!btn) return;
+    const textSpan = btn.querySelector('.btn-text');
+    const loaderSpan = btn.querySelector('.btn-loader');
+    
+    btn.disabled = true;
+    textSpan.style.display = 'none';
+    loaderSpan.style.display = 'inline-block';
+    
+    google.script.run
+      .withSuccessHandler(res => {
+        btn.disabled = false;
+        textSpan.style.display = 'inline-block';
+        loaderSpan.style.display = 'none';
+        
+        if (res && res.success) {
+            alert("Rapport de débogage Odoo :\n\n" + res.report);
+        } else {
+            alert("Erreur de débogage : " + (res ? res.error : 'Erreur inconnue'));
+        }
+      })
+      .withFailureHandler(err => {
+        btn.disabled = false;
+        textSpan.style.display = 'inline-block';
+        loaderSpan.style.display = 'none';
+        alert('Erreur: ' + err.message);
+      })
+      .triggerDebugOdoo(window.kanagaToken);
+  }
+
+  function handleOdooSync() {
+    const btnLoader = document.querySelector('#btn-sync-odoo .btn-loader');
+    const btnText = document.querySelector('#btn-sync-odoo .btn-text');
+    const btn = document.getElementById('btn-sync-odoo');
+    
+    btn.disabled = true;
+    btnText.style.display = 'none';
+    btnLoader.style.display = 'inline-block';
+    
+    google.script.run
+      .withSuccessHandler(function() {
+        btn.disabled = false;
+        btnText.style.display = 'inline';
+        btnLoader.style.display = 'none';
+        alert("Synchronisation Odoo terminée.");
+        loadAdminData();
+      })
+      .withFailureHandler(function(err) {
+        btn.disabled = false;
+        btnText.style.display = 'inline';
+        btnLoader.style.display = 'none';
+        alert("Erreur Sync Odoo: " + err.message);
+      })
+      .triggerOdooSync(window.kanagaToken);
+  }
+
+  // --- User Settings ---
+ function handleLanguageSwitch(lang) {
+    updateActiveLanguageUI(lang);
+    google.script.run.setUserLanguage(window.kanagaToken, lang);
+  }
+
+  function updateActiveLanguageUI(activeLang) {
+    document.getElementById('lang-fr').classList.remove('active');
+    document.getElementById('lang-en').classList.remove('active');
+    if (activeLang) {
+      const el = document.getElementById('lang-' + activeLang);
+      if(el) el.classList.add('active');
+    }
+  }
+
+  function populateSocietySwitcher(societies, activeSociety) {
+    const switcher = document.getElementById('society-switcher');
+    const container = document.getElementById('society-switcher-container');
+    switcher.innerHTML = '';
+    
+    if (!societies || societies.length <= 1) {
+      container.style.display = 'none';
+      return;
+    }
+    
+    container.style.display = 'block';
+    societies.forEach(society => {
+      const option = new Option(society, society);
+      if (society === activeSociety) option.selected = true;
+      switcher.add(option);
+    });
+  }
+
+  function handleSocietySwitch() {
+    const newSociety = document.getElementById('society-switcher').value;
+    google.script.run
+      .withSuccessHandler(() => loadTimesheetData()) // Reload data for new society
+      .setActiveSociety(window.kanagaToken, newSociety);
+  }
+
+  function handleLogout() {
+    if (window.kanagaToken) {
+        google.script.run.logout(window.kanagaToken);
+    }
+    localStorage.removeItem('kanagaUser');
+    localStorage.removeItem('kanagaToken');
+    window.kanagaToken = null;
+    currentUser = null;
+    
+    document.getElementById('view-login').style.display = 'block';
+    document.getElementById('auth-content').style.display = 'none';
+    
+    // Clear forms
+    document.getElementById('login-username').value = '';
+    document.getElementById('login-password').value = '';
+    document.getElementById('login-status').innerText = '';
+  }
+
+  // --- Profile Menu & Notifications ---
+  function toggleProfileMenu() {
+    const menu = document.getElementById('profile-dropdown-menu');
+    if(menu.style.display === 'none' || menu.style.display === '') {
+      menu.style.display = 'block';
+    } else {
+      menu.style.display = 'none';
+    }
+  }
+
+  document.addEventListener('click', function(event) {
+    const profileDetails = document.querySelector('.user-details');
+    const menu = document.getElementById('profile-dropdown-menu');
+    if (profileDetails && menu && !profileDetails.contains(event.target)) {
+      menu.style.display = 'none';
+    }
+  });
+
+  function updateNotifications() {
+    if(!window.loadedEvals || !currentUser) return;
+    
+    const badge = document.getElementById('notification-badge');
+    const avatarBadge = document.getElementById('avatar-notification-badge');
+    const list = document.getElementById('dropdown-notifications-list');
+    
+    if (!badge || !avatarBadge || !list) return; // Protection si les éléments DOM sont absents
+    
+    let pendingEvals = window.loadedEvals.filter(ev => 
+      ev.employeeEmail === currentUser.username && ev.status === 'Initiée'
+    );
+    
+    // Si l'utilisateur est manager, ajouter les auto-évaluées et pré-évaluées en attente
+    if(currentUser.role === 'Manager' || currentUser.role === 'Admin') {
+       const mgrPending = window.loadedEvals.filter(ev => 
+          (ev.status === 'Auto-évaluée' || ev.status === 'Pré-évaluée') && !ev.mgrName
+       );
+       pendingEvals = pendingEvals.concat(mgrPending);
+    }
+    
+    const count = pendingEvals.length;
+    
+    if (count > 0) {
+      badge.innerText = count;
+      avatarBadge.innerText = count;
+      avatarBadge.style.display = 'inline-block';
+      
+      let html = '';
+      pendingEvals.forEach(ev => {
+         let msg = '';
+         if(ev.employeeEmail === currentUser.username && ev.status === 'Initiée') {
+            msg = `Évaluation (${ev.period}) en attente de votre auto-évaluation.`;
+         } else {
+            msg = `Auto-évaluation de ${ev.employeeName} (${ev.period}) en attente de votre revue.`;
+         }
+         html += `<div style="padding:10px 15px; border-bottom:1px solid #eee; cursor:pointer;" onclick="navigateTo('evaluation'); toggleProfileMenu();">
+                    ${msg}
+                  </div>`;
+      });
+      list.innerHTML = html;
+    } else {
+      badge.innerText = '0';
+      avatarBadge.style.display = 'none';
+      list.innerHTML = `<div style="padding:10px 15px;">Aucune notification</div>`;
+    }
+  }
+  // --- Support Tickets Logic ---
+  function submitTicket() {
+    const subject = document.getElementById('ticket-subject').value;
+    const priority = document.getElementById('ticket-priority').value;
+    const description = document.getElementById('ticket-description').value;
+
+    if (!subject || !description) {
+      alert("Veuillez remplir les champs obligatoires.");
+      return;
+    }
+
+    const btnText = document.querySelector('#btn-submit-ticket .btn-text');
+    const btnLoader = document.querySelector('#btn-submit-ticket .btn-loader');
+    btnText.style.display = 'none';
+    btnLoader.style.display = 'inline-block';
+
+    const ticketData = { subject, priority, description };
+
+    google.script.run
+      .withSuccessHandler(res => {
+         btnText.style.display = 'inline';
+         btnLoader.style.display = 'none';
+         if (res.success) {
+           alert("Ticket soumis avec succès !");
+           document.getElementById('ticket-form').reset();
+           loadUserTickets();
+         } else {
+           alert("Erreur : " + res.error);
+         }
+      })
+      .withFailureHandler(err => {
+         btnText.style.display = 'inline';
+         btnLoader.style.display = 'none';
+         alert("Erreur lors de la soumission du ticket : " + err.message);
+      })
+      .submitTicket(window.kanagaToken, ticketData);
+  }
+
+  function loadUserTickets() {
+    google.script.run
+      .withSuccessHandler(data => {
+        const tbody = document.getElementById('user-tickets-tbody');
+        if (!data || data.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">Aucun ticket trouvé.</td></tr>';
+          return;
+        }
+        let html = '';
+        data.forEach(t => {
+          html += `<tr>
+            <td>${t.date}</td>
+            <td>${t.subject}</td>
+            <td>${t.priority}</td>
+            <td><span class="badge" style="background: ${getTicketStatusColor(t.status)}">${t.status}</span></td>
+            <td>${t.comment || '-'}</td>
+          </tr>`;
+        });
+        tbody.innerHTML = html;
+      })
+      .withFailureHandler(err => {
+        document.getElementById('user-tickets-tbody').innerHTML = '<tr><td colspan="5" style="color:red; text-align:center;">Erreur : ' + err.message + '</td></tr>';
+      })
+      .getUserTickets(window.kanagaToken);
+  }
+
+  function loadAllTickets() {
+    google.script.run
+      .withSuccessHandler(data => {
+        const tbody = document.getElementById('all-tickets-tbody');
+        if (!data || data.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">Aucun ticket trouvé.</td></tr>';
+          return;
+        }
+        let html = '';
+        data.forEach(t => {
+          html += `<tr>
+            <td>${t.date}</td>
+            <td>${t.userEmail}</td>
+            <td>${t.subject}</td>
+            <td>${t.priority}</td>
+            <td><span class="badge" style="background: ${getTicketStatusColor(t.status)}">${t.status}</span></td>
+            <td>
+               <button class="btn btn-outline btn-sm" onclick="openUpdateTicketModal('${t.id}', '${t.status}', '${(t.comment || '').replace(/'/g, "\\'")}')">Mettre à jour</button>
+            </td>
+          </tr>`;
+        });
+        tbody.innerHTML = html;
+      })
+      .withFailureHandler(err => {
+        document.getElementById('all-tickets-tbody').innerHTML = '<tr><td colspan="6" style="color:red; text-align:center;">Erreur : ' + err.message + '</td></tr>';
+      })
+      .getAllTickets(window.kanagaToken);
+  }
+
+  function getTicketStatusColor(status) {
+    if (status === 'Ouvert') return 'var(--danger-color)';
+    if (status === 'En cours') return 'var(--warning-color)';
+    if (status === 'Fermé') return 'var(--success-color)';
+    return '#ccc';
+  }
+
+  function openUpdateTicketModal(id, status, comment) {
+    document.getElementById('update-ticket-id').value = id;
+    document.getElementById('update-ticket-status').value = status;
+    document.getElementById('update-ticket-comment').value = comment || '';
+    document.getElementById('modal-update-ticket').style.display = 'flex';
+  }
+
+  function closeUpdateTicketModal() {
+    document.getElementById('modal-update-ticket').style.display = 'none';
+  }
+
+  function saveTicketUpdate() {
+    const id = document.getElementById('update-ticket-id').value;
+    const status = document.getElementById('update-ticket-status').value;
+    const comment = document.getElementById('update-ticket-comment').value;
+
+    const btnText = document.querySelector('#btn-save-ticket .btn-text');
+    const btnLoader = document.querySelector('#btn-save-ticket .btn-loader');
+    btnText.style.display = 'none';
+    btnLoader.style.display = 'inline-block';
+
+    google.script.run
+      .withSuccessHandler(res => {
+         btnText.style.display = 'inline';
+         btnLoader.style.display = 'none';
+         if (res.success) {
+           closeUpdateTicketModal();
+           loadAllTickets();
+         } else {
+           alert("Erreur : " + res.error);
+         }
+      })
+      .withFailureHandler(err => {
+         btnText.style.display = 'inline';
+         btnLoader.style.display = 'none';
+         alert("Erreur de mise à jour : " + err.message);
+      })
+      .updateTicket(window.kanagaToken, id, status, comment);
+  }
+
+  // --- Form Responses State & Logic ---
+  window.responsesState = {
+    headers: [],
+    responses: [],
+    filteredResponses: [],
+    bureaux: [],
+    afColIndex: 31,
+    isAdmin: false,
+    selectedBureau: 'ALL'
+  };
+
+  function loadFormResponsesData() {
+    const loader = document.getElementById('responses-loader');
+    const tableContainer = document.getElementById('responses-table-container');
+    const errorMsg = document.getElementById('responses-error-msg');
+    
+    if (loader) loader.style.display = 'block';
+    if (tableContainer) tableContainer.style.display = 'none';
+    if (errorMsg) errorMsg.style.display = 'none';
+
+    const selectedBureau = window.responsesState.selectedBureau || 'ALL';
+
+    google.script.run
+      .withSuccessHandler(data => {
+        if (loader) loader.style.display = 'none';
+
+        if (data && data.hasAccess === false) {
+          if (errorMsg) {
+            errorMsg.style.display = 'block';
+            errorMsg.textContent = "Accès restreint : Votre compte ne fait pas partie du groupe d'administration autorisé pour ce pays.";
+          }
+          return;
+        }
+        
+        window.responsesState.headers = data.headers || [];
+        window.responsesState.responses = data.responses || [];
+        window.responsesState.filteredResponses = data.responses || [];
+        window.responsesState.bureaux = data.bureaux || [];
+        window.responsesState.afColIndex = data.afColIndex >= 0 ? data.afColIndex : 31;
+        window.responsesState.isAdmin = data.isAdmin || false;
+
+        const bureauFilterContainer = document.getElementById('bureau-filter-container');
+        const bureauSelect = document.getElementById('responses-bureau-select');
+        const allowedBureaux = data.showBureauSelector ? (data.isAdmin ? data.bureaux : (data.userAllowedBureaux || [])) : [];
+
+        if (bureauFilterContainer && bureauSelect && allowedBureaux.length > 1) {
+          bureauFilterContainer.style.display = 'block';
+          let selectHtml = '<option value="ALL">Tous mes bureaux (' + allowedBureaux.length + ')</option>';
+          allowedBureaux.forEach(b => {
+            const isSelected = (window.responsesState.selectedBureau === b) ? 'selected' : '';
+            selectHtml += `<option value="${escapeHtml(b)}" ${isSelected}>${escapeHtml(b)}</option>`;
+          });
+          bureauSelect.innerHTML = selectHtml;
+        } else if (bureauFilterContainer) {
+          bureauFilterContainer.style.display = 'none';
+        }
+
+        renderResponsesTable();
+      })
+      .withFailureHandler(err => {
+        if (loader) loader.style.display = 'none';
+        if (errorMsg) {
+          errorMsg.style.display = 'block';
+          errorMsg.textContent = "Erreur de chargement: " + err.message;
+        }
+      })
+      .getFormResponses(window.kanagaToken, selectedBureau);
+  }
+
+  function handleBureauFilterChange() {
+    const select = document.getElementById('responses-bureau-select');
+    if (select) {
+      window.responsesState.selectedBureau = select.value;
+      loadFormResponsesData();
+    }
+  }
+
+  function handleResponsesSearch() {
+    const input = document.getElementById('responses-search-input');
+    const query = input ? input.value.trim().toLowerCase() : '';
+    
+    if (!query) {
+      window.responsesState.filteredResponses = window.responsesState.responses;
+    } else {
+      window.responsesState.filteredResponses = window.responsesState.responses.filter(item => {
+        return item.values.some(val => String(val || '').toLowerCase().includes(query));
+      });
+    }
+    renderResponsesTable();
+  }
+
+  function renderResponsesTable() {
+    const tableContainer = document.getElementById('responses-table-container');
+    const headerTr = document.getElementById('responses-table-header');
+    const tbody = document.getElementById('responses-table-body');
+    const badge = document.getElementById('responses-count-badge');
+
+    if (!tbody || !headerTr) return;
+
+    const headers = window.responsesState.headers;
+    const responses = window.responsesState.filteredResponses;
+    const afIndex = window.responsesState.afColIndex;
+
+    if (badge) {
+      badge.textContent = responses.length + (responses.length > 1 ? ' réponses' : ' réponse');
+    }
+
+    if (headers.length === 0 || responses.length === 0) {
+      if (tableContainer) tableContainer.style.display = 'block';
+      tbody.innerHTML = '<tr><td colspan="10" style="text-align: center; color: #888; padding: 20px;">Aucune réponse trouvée pour les critères choisis.</td></tr>';
+      return;
+    }
+
+    const timestampHeader = headers[0] || 'Horodateur';
+    const bureauHeader = (afIndex >= 0 && afIndex < headers.length) ? headers[afIndex] : 'Bureau Kanaga';
+    
+    let extraCols = [];
+    for (let i = 1; i < headers.length; i++) {
+      if (i !== afIndex && extraCols.length < 3) {
+        extraCols.push(i);
+      }
+    }
+
+    let headerHtml = `<th>${escapeHtml(timestampHeader)}</th>`;
+    headerHtml += `<th>${escapeHtml(bureauHeader)}</th>`;
+    extraCols.forEach(colIdx => {
+      headerHtml += `<th>${escapeHtml(headers[colIdx] || ('Col ' + (colIdx + 1)))}</th>`;
+    });
+    headerHtml += `<th style="text-align: center;">Actions</th>`;
+    headerTr.innerHTML = headerHtml;
+
+    let bodyHtml = '';
+    responses.forEach((item, rIdx) => {
+      const timestamp = item.values[0] || '';
+      const bureauVal = item.bureau || (afIndex >= 0 ? item.values[afIndex] : '');
+
+      bodyHtml += `<tr>`;
+      bodyHtml += `<td><strong>${escapeHtml(timestamp)}</strong></td>`;
+      bodyHtml += `<td><span class="badge" style="background: #e2e8f0; color: #2d3748; font-weight: 600;">${escapeHtml(bureauVal || 'N/A')}</span></td>`;
+      
+      extraCols.forEach(colIdx => {
+        const val = item.values[colIdx] || '';
+        const shortVal = val.length > 50 ? val.substring(0, 50) + '...' : val;
+        bodyHtml += `<td title="${escapeHtml(val)}">${escapeHtml(shortVal)}</td>`;
+      });
+
+      bodyHtml += `<td style="text-align: center;">
+        <button class="btn btn-outline btn-sm" onclick="openResponseDetailModal(${rIdx})">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 3px; vertical-align: middle;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+          Détails
+        </button>
+      </td>`;
+      bodyHtml += `</tr>`;
+    });
+
+    tbody.innerHTML = bodyHtml;
+    if (tableContainer) tableContainer.style.display = 'block';
+  }
+
+  function getRespondentName(headers, values) {
+    if (!headers || !values) return '';
+
+    let fullName = '';
+    let nom = '';
+    let prenom = '';
+    let email = '';
+
+    headers.forEach((h, idx) => {
+      if (!h) return;
+      const lower = h.toLowerCase().trim();
+      const val = String(values[idx] || '').trim();
+      if (!val) return;
+
+      if (lower.includes('nom complet') || lower.includes('nom et prénom') || lower.includes('nom et prenom') || lower.includes('nom & prénom')) {
+        if (!fullName) fullName = val;
+      } else if (lower === 'nom' || lower.includes('votre nom') || lower.endsWith(' nom')) {
+        if (!nom) nom = val;
+      } else if (lower.includes('prénom') || lower.includes('prenom')) {
+        if (!prenom) prenom = val;
+      } else if (lower.includes('email') || lower.includes('e-mail') || lower.includes('courriel')) {
+        if (!email) email = val;
+      }
+    });
+
+    if (fullName) return fullName;
+    if (prenom && nom) return prenom + ' ' + nom;
+    if (nom) return nom;
+    if (prenom) return prenom;
+    if (email) return email;
+
+    return '';
+  }
+
+  function openResponseDetailModal(filteredIndex) {
+    window.currentActiveDetailIndex = filteredIndex;
+    const item = window.responsesState.filteredResponses[filteredIndex];
+    if (!item) return;
+
+    const headers = window.responsesState.headers;
+    const values = item.values;
+    const modalTitle = document.getElementById('response-modal-title');
+    const modalBody = document.getElementById('response-modal-body');
+
+    const personName = getRespondentName(headers, values);
+    const bureauVal = item.bureau || (window.responsesState.afColIndex >= 0 ? values[window.responsesState.afColIndex] : '');
+
+    if (modalTitle) {
+      modalTitle.textContent = personName ? `${personName} — Réponse #${item.rowIndex} (${bureauVal || 'Kanaga'})` : `Réponse #${item.rowIndex} - ${bureauVal || 'Formulaire'}`;
+    }
+
+    let detailHtml = '<div style="display: flex; flex-direction: column; gap: 12px;">';
+    headers.forEach((h, idx) => {
+      const val = values[idx] !== undefined ? values[idx] : '';
+      const isAf = (idx === window.responsesState.afColIndex);
+      const bgStyle = isAf ? 'background: #F5EFEB; border-left: 4px solid #7C4C26;' : 'background: #F9F6F0; border: 1px solid #E0CC99;';
+
+      detailHtml += `
+        <div style="padding: 12px 15px; border-radius: 6px; ${bgStyle}">
+          <div style="font-weight: 600; font-size: 13px; color: #7C4C26; margin-bottom: 4px;">
+            ${escapeHtml(h || ('Question ' + (idx + 1)))}
+          </div>
+          <div style="font-size: 14px; color: #2D1A0A; white-space: pre-wrap; word-break: break-word;">
+            ${val ? escapeHtml(val) : '<em style="color: #a0aec0;">Non renseigné</em>'}
+          </div>
+        </div>
+      `;
+    });
+    detailHtml += '</div>';
+
+    if (modalBody) modalBody.innerHTML = detailHtml;
+    const modal = document.getElementById('response-detail-modal');
+    if (modal) modal.style.display = 'flex';
+  }
+
+  function closeResponseDetailModal() {
+    const modal = document.getElementById('response-detail-modal');
+    if (modal) modal.style.display = 'none';
+  }
+
+  function exportResponsesToPDF() {
+    const headers = window.responsesState.headers;
+    const responses = window.responsesState.filteredResponses;
+    const afIndex = window.responsesState.afColIndex;
+    const selectedBureau = window.responsesState.selectedBureau || 'ALL';
+    const hideEmptyCheckbox = document.getElementById('responses-hide-empty-pdf');
+    const hideEmpty = hideEmptyCheckbox ? hideEmptyCheckbox.checked : false;
+
+    if (!headers || headers.length === 0 || !responses || responses.length === 0) {
+      alert("Aucune donnée à exporter.");
+      return;
+    }
+
+    const printWin = window.open('', '_blank');
+    if (!printWin) {
+      alert("Veuillez autoriser les fenêtres surgissantes (pop-ups) pour exporter le document PDF.");
+      return;
+    }
+
+    const dateStr = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const bureauText = selectedBureau === 'ALL' ? 'Tous les bureaux' : selectedBureau;
+
+    let responsesHtml = '';
+    responses.forEach((item) => {
+      const timestamp = item.values[0] || '';
+      const bureauVal = item.bureau || (afIndex >= 0 ? item.values[afIndex] : 'Kanaga');
+      const personName = getRespondentName(headers, item.values);
+      const titleName = personName ? `${personName} (${bureauVal})` : `Réponse #${item.rowIndex} — ${bureauVal}`;
+
+      let questionsBlockHtml = '';
+      headers.forEach((h, qIdx) => {
+        const rawVal = item.values[qIdx];
+        const valStr = String(rawVal !== null && rawVal !== undefined ? rawVal : '').trim();
+
+        if (hideEmpty && (!valStr || valStr === 'Non renseigné')) {
+          return;
+        }
+
+        const isAf = (qIdx === afIndex);
+        const cardStyle = isAf ? 'border-left: 4px solid #7C4C26; background: #F5EFEB;' : 'background: #ffffff; border: 1px solid #E0CC99;';
+
+        questionsBlockHtml += `
+          <div class="qa-item" style="${cardStyle}">
+            <div class="q-title">${escapeHtml(h || ('Question ' + (qIdx + 1)))}</div>
+            <div class="a-text">${valStr ? escapeHtml(valStr) : '<em style="color: #a0aec0;">Non renseigné</em>'}</div>
+          </div>
+        `;
+      });
+
+      responsesHtml += `
+        <div class="response-card">
+          <div class="card-header">
+            <div class="card-title">${escapeHtml(titleName)}</div>
+            <div class="card-date">Date: ${escapeHtml(timestamp)} | N° #${item.rowIndex}</div>
+          </div>
+          <div class="card-body">
+            ${questionsBlockHtml || '<p style="color: #a0aec0; font-style: italic;">Toutes les questions sont non renseignées.</p>'}
+          </div>
+        </div>
+      `;
+    });
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html lang="fr">
+      <head>
+        <meta charset="UTF-8">
+        <title>Rapport PDF - Réponses au Formulaire Kanaga Consulting</title>
+        <style>
+          @page { size: A4 portrait; margin: 15mm; }
+          body { font-family: 'Segoe UI', 'Inter', Arial, sans-serif; font-size: 12px; color: #2D1A0A; margin: 0; padding: 20px; background: #F8F6F0; }
+          .no-print { display: flex; justify-content: space-between; align-items: center; background: white; padding: 14px 22px; border-radius: 8px; border: 1px solid #E0CC99; box-shadow: 0 2px 8px rgba(124,76,38,0.08); margin-bottom: 20px; }
+          .doc-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #7C4C26; padding-bottom: 15px; margin-bottom: 25px; background: white; padding: 20px 24px; border-radius: 8px; border: 1px solid #E0CC99; }
+          .doc-title { font-size: 22px; font-weight: bold; color: #7C4C26; margin: 0; letter-spacing: -0.5px; }
+          .doc-subtitle { font-size: 13px; color: #7C4C26; margin-top: 4px; font-weight: 500; }
+          .badge { background: #7C4C26; color: white; padding: 6px 14px; border-radius: 20px; font-weight: 600; font-size: 12px; }
+          .response-card { background: white; border-radius: 8px; border: 1px solid #E0CC99; margin-bottom: 25px; overflow: hidden; page-break-inside: avoid; box-shadow: 0 2px 4px rgba(124,76,38,0.06); }
+          .card-header { background: #F4F0E8; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #E0CC99; }
+          .card-title { font-weight: bold; font-size: 15px; color: #7C4C26; }
+          .card-date { font-size: 12px; color: #633A10; }
+          .card-body { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+          .qa-item { padding: 14px 16px; border-radius: 6px; page-break-inside: avoid; }
+          .q-title { font-weight: 700; font-size: 12px; color: #7C4C26; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.4px; }
+          .a-text { font-size: 13px; color: #2D1A0A; white-space: pre-wrap; word-break: break-word; line-height: 1.5; }
+          .footer { margin-top: 30px; font-size: 11px; color: #7C4C26; text-align: center; border-top: 2px solid #E0CC99; padding-top: 15px; font-weight: 500; }
+          @media print {
+            body { background: white; padding: 0; }
+            .no-print { display: none !important; }
+            .response-card { box-shadow: none; border: 1px solid #7C4C26; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="no-print">
+          <span style="font-weight: 600; color: #7C4C26; font-size: 14px;">📄 Rapport d'export PDF Kanaga Consulting (${responses.length} réponses)</span>
+          <button onclick="window.print()" style="background: #7C4C26; color: white; border: none; padding: 10px 22px; font-size: 13px; font-weight: bold; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 8px;">💾 Enregistrer au format PDF / Imprimer</button>
+        </div>
+
+        <div class="doc-header">
+          <div>
+            <h1 class="doc-title">Kanaga Consulting — Rapport des Réponses</h1>
+            <div class="doc-subtitle">Bureau: <strong>${escapeHtml(bureauText)}</strong> ${hideEmpty ? '<span style="color:#ef4444; margin-left:10px;">(Questions non renseignées masquées)</span>' : ''}</div>
+          </div>
+          <div>
+            <span class="badge">${responses.length} réponse(s) — ${dateStr}</span>
+          </div>
+        </div>
+
+        ${responsesHtml}
+
+        <div class="footer">
+          Document officiel généré depuis le Portail Kanaga Consulting
+        </div>
+      </body>
+      </html>
+    `;
+
+    printWin.document.open();
+    printWin.document.write(htmlContent);
+    printWin.document.close();
+    setTimeout(() => {
+      try {
+        printWin.focus();
+        printWin.print();
+      } catch(e) {}
+    }, 500);
+  }
+
+  function exportSingleResponseToPDF() {
+    const idx = window.currentActiveDetailIndex;
+    if (idx === undefined || idx === null) return;
+    const item = window.responsesState.filteredResponses[idx];
+    if (!item) return;
+
+    const headers = window.responsesState.headers;
+    const values = item.values;
+    const afIndex = window.responsesState.afColIndex;
+
+    const personName = getRespondentName(headers, values);
+    const bureauVal = item.bureau || (afIndex >= 0 ? values[afIndex] : 'Kanaga');
+
+    const modalHideCheckbox = document.getElementById('modal-hide-empty-pdf');
+    const mainHideCheckbox = document.getElementById('responses-hide-empty-pdf');
+    const hideEmpty = (modalHideCheckbox && modalHideCheckbox.checked) || (mainHideCheckbox && mainHideCheckbox.checked) || false;
+
+    const printWin = window.open('', '_blank');
+    if (!printWin) {
+      alert("Veuillez autoriser les fenêtres surgissantes (pop-ups) pour imprimer / exporter en PDF.");
+      return;
+    }
+
+    const dateStr = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const displayName = personName || (`Réponse #${item.rowIndex}`);
+
+    let qaPairsHtml = '';
+    headers.forEach((h, qIdx) => {
+      const rawVal = values[qIdx];
+      const valStr = String(rawVal !== null && rawVal !== undefined ? rawVal : '').trim();
+
+      if (hideEmpty && (!valStr || valStr === 'Non renseigné')) {
+        return;
+      }
+
+      const isAf = (qIdx === afIndex);
+      const cardStyle = isAf ? 'border-left: 4px solid #7C4C26; background: #F5EFEB;' : 'background: #ffffff; border: 1px solid #E0CC99;';
+
+      qaPairsHtml += `
+        <div class="qa-item" style="${cardStyle}">
+          <div class="q-title">${escapeHtml(h || ('Question ' + (qIdx + 1)))}</div>
+          <div class="a-text">${valStr ? escapeHtml(valStr) : '<em style="color: #a0aec0;">Non renseigné</em>'}</div>
+        </div>
+      `;
+    });
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html lang="fr">
+      <head>
+        <meta charset="UTF-8">
+        <title>Fiche Individuelle de Réponse - ${escapeHtml(displayName)}</title>
+        <style>
+          @page { size: A4 portrait; margin: 15mm; }
+          body { font-family: 'Segoe UI', 'Inter', Arial, sans-serif; font-size: 12px; color: #2D1A0A; margin: 0; padding: 20px; background: #F8F6F0; }
+          .no-print { display: flex; justify-content: space-between; align-items: center; background: white; padding: 14px 22px; border-radius: 8px; border: 1px solid #E0CC99; box-shadow: 0 2px 8px rgba(124,76,38,0.08); margin-bottom: 20px; }
+          .doc-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #7C4C26; padding-bottom: 15px; margin-bottom: 25px; background: white; padding: 22px 26px; border-radius: 8px; border: 1px solid #E0CC99; }
+          .doc-title { font-size: 22px; font-weight: bold; color: #7C4C26; margin: 0; letter-spacing: -0.5px; }
+          .doc-subtitle { font-size: 13px; color: #633A10; margin-top: 6px; font-weight: 500; }
+          .badge { background: #7C4C26; color: white; padding: 6px 14px; border-radius: 20px; font-weight: 600; font-size: 12px; }
+          .qa-container { display: flex; flex-direction: column; gap: 14px; }
+          .qa-item { padding: 15px 18px; border-radius: 8px; page-break-inside: avoid; box-shadow: 0 1px 3px rgba(124,76,38,0.04); }
+          .q-title { font-weight: 700; font-size: 12px; color: #7C4C26; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.4px; }
+          .a-text { font-size: 13px; color: #2D1A0A; white-space: pre-wrap; word-break: break-word; line-height: 1.5; }
+          .footer { margin-top: 30px; font-size: 11px; color: #7C4C26; text-align: center; border-top: 2px solid #E0CC99; padding-top: 15px; font-weight: 500; }
+          @media print {
+            body { background: white; padding: 0; }
+            .no-print { display: none !important; }
+            .qa-item { box-shadow: none; border: 1px solid #7C4C26; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="no-print">
+          <span style="font-weight: 600; color: #7C4C26; font-size: 14px;">📄 Fiche Individuelle: ${escapeHtml(displayName)}</span>
+          <button onclick="window.print()" style="background: #7C4C26; color: white; border: none; padding: 10px 22px; font-size: 13px; font-weight: bold; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 8px;">💾 Enregistrer au format PDF / Imprimer</button>
+        </div>
+
+        <div class="doc-header">
+          <div>
+            <h1 class="doc-title">${escapeHtml(personName ? 'Fiche de : ' + personName : 'Fiche Individuelle de Réponse')}</h1>
+            <div class="doc-subtitle">Nom complet: <strong>${escapeHtml(personName || 'Non renseigné')}</strong> | Bureau Kanaga: <strong>${escapeHtml(bureauVal)}</strong> | Ligne #${item.rowIndex} ${hideEmpty ? '<span style="color:#ef4444; margin-left:10px;">(Masqué si non renseigné)</span>' : ''}</div>
+          </div>
+          <div>
+            <span class="badge">${escapeHtml(bureauVal)}</span>
+          </div>
+        </div>
+
+        <div class="qa-container">
+          ${qaPairsHtml || '<p style="color: #a0aec0; font-style: italic;">Toutes les questions sont non renseignées.</p>'}
+        </div>
+
+        <div class="footer">
+          Document officiel généré le ${dateStr} via Portail Kanaga Consulting
+        </div>
+      </body>
+      </html>
+    `;
+
+    printWin.document.open();
+    printWin.document.write(htmlContent);
+    printWin.document.close();
+    setTimeout(() => {
+      try {
+        printWin.focus();
+        printWin.print();
+      } catch(e) {}
+    }, 500);
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+</script>

@@ -1,0 +1,190 @@
+<div class="view-header" style="position: relative;">
+  <h2>Portail d'Évaluation</h2>
+  <p>Gérez vos objectifs, auto-évaluations et évaluations d'équipe.</p>
+  <div id="eval-header-actions" style="display: none; position: absolute; right: 0; top: 0;">
+    <button class="btn btn-outline" onclick="showEvalSelectionScreen()">Retour à l'accueil</button>
+  </div>
+</div>
+
+<!-- SELECTION SCREEN -->
+<div id="eval-selection-screen" class="content-grid">
+  <div class="grid-col form-col" id="employee-pending-evals" style="display: none;">
+  </div>
+
+  <div class="grid-col form-col">
+    <div class="panel">
+      <h3>Mes Évaluations</h3>
+      <p class="text-muted" style="margin-bottom:20px; font-size:14px;">Consultez vos évaluations initiées et vos historiques.</p>
+      <button class="btn btn-outline" onclick="showEmployeeDashboard()" style="width: 100%;">Consulter mes évaluations</button>
+    </div>
+  </div>
+
+  <div class="grid-col data-col" id="manager-eval-portal" style="display: none;">
+    <div class="panel">
+      <h3>Portail Manager</h3>
+      <p class="text-muted" style="margin-bottom:20px; font-size:14px;">Initiez des évaluations pour votre équipe et consultez leurs auto-évaluations.</p>
+      <button class="btn btn-success" onclick="startEvaluationWizard('Initiation')" style="width: 100%; margin-bottom: 10px;">Initier une Évaluation</button>
+      <button class="btn btn-outline" onclick="showManagerDashboard()" style="width: 100%; margin-bottom: 20px;">Tableau de bord des Évaluations</button>
+    </div>
+  </div>
+</div>
+
+<!-- WIZARD SCREEN (Creation) -->
+<div id="eval-wizard-screen" style="display: none;">
+  <div class="panel" style="max-width: 800px; margin: 0 auto;">
+    <div id="eval-wizard-progress" class="wizard-progress">
+      <div class="wizard-step active" id="step-nav-1">1. Infos</div>
+      <div class="wizard-step" id="step-nav-2">2. Fondamentales</div>
+      <div class="wizard-step" id="step-nav-3">3. Spécifiques</div>
+      <div class="wizard-step" id="step-nav-4">4. Synthèse</div>
+    </div>
+
+    <form id="eval-wizard-form">
+      <!-- Etape 1 -->
+      <div class="wizard-content active" id="wizard-step-1">
+        <h3 id="step-1-title">I. Informations Générales</h3>
+        <div class="form-group">
+          <label>Type d'évaluation</label>
+          <input type="text" id="eval-type" class="form-control" readonly>
+        </div>
+        <div class="form-group">
+          <label>Période d'évaluation (Ex: Du 01/01 au 31/12) *</label>
+          <input type="text" id="eval-period" class="form-control" required>
+        </div>
+        <div class="form-group">
+          <label>Employé(e)(s) évalué(e)(s) *</label>
+          <select id="eval-employee-email" class="form-control" multiple required></select>
+        </div>
+        <div class="form-group" style="margin-top: 15px;">
+          <label>Quel est le profil de poste de l'employé(e) ? *</label>
+          <p class="text-muted" style="font-size:12px;">Détermine les questions de l'évaluation.</p>
+          <select id="eval-profile-select" class="form-control" required onchange="handleEvalProfileChange()">
+            <option value="">-- Choisir --</option>
+            <option value="Autre">Autre profil</option>
+          </select>
+        </div>
+        <div class="wizard-actions">
+          <button type="button" class="btn btn-primary" id="btn-next-step1" onclick="nextEvalStep(1, 2)">Suivant</button>
+        </div>
+      </div>
+
+      <!-- Etape 2 -->
+      <div class="wizard-content" id="wizard-step-2">
+        <h3>III. Évaluation des Compétences - Fondamentales</h3>
+        <div class="eval-legend">
+          <strong>Légende:</strong> PI: Perf. Insatisfaisante | PA: À Améliorer | CA: Conforme | PS: Supérieure | PE: Exceptionnelle | N/A
+        </div>
+        <div id="grid-fondamentales" class="eval-grid">
+           <!-- Injected via JS -->
+        </div>
+        <div class="wizard-actions">
+          <button type="button" class="btn btn-outline" onclick="prevEvalStep(2, 1)">Précédent</button>
+          <button type="button" class="btn btn-primary" onclick="nextEvalStep(2, 3)">Suivant</button>
+        </div>
+      </div>
+
+      <!-- Etape 3 -->
+      <div class="wizard-content" id="wizard-step-3">
+        <h3 id="step-3-title">Compétences Spécifiques</h3>
+        <div class="eval-legend">
+          <strong>Légende:</strong> PI | PA | CA | PS | PE | N/A
+        </div>
+        <div id="grid-specifiques" class="eval-grid">
+           <!-- Injected via JS -->
+        </div>
+        <div class="wizard-actions">
+          <button type="button" class="btn btn-outline" onclick="prevEvalStep(3, 2)">Précédent</button>
+          <button type="button" class="btn btn-primary" onclick="nextEvalStep(3, 4)">Suivant</button>
+        </div>
+      </div>
+
+      <!-- Etape 4 -->
+      <div class="wizard-content" id="wizard-step-4">
+        <h3>IV. Objectifs et Synthèse</h3>
+        <div class="form-group">
+          <label>Réalisation des Objectifs de la période écoulée</label>
+          <textarea id="eval-past-goals" class="form-control" rows="3" placeholder="Détaillez les objectifs fixés, résultats atteints..."></textarea>
+        </div>
+        <div class="form-group">
+          <label>1. Principaux Points Forts de l'Employé(e)</label>
+          <textarea id="eval-strengths" class="form-control" rows="3"></textarea>
+        </div>
+        <div class="form-group">
+          <label>2. Axes d'Amélioration Prioritaires</label>
+          <textarea id="eval-improvements" class="form-control" rows="3"></textarea>
+        </div>
+        <div class="form-group">
+          <label>3. Commentaire Général sur la Performance Globale *</label>
+          <select id="eval-global-rating" class="form-control" required>
+            <option value="">-- Choisir --</option>
+            <option value="PI">PI - Performance Insatisfaisante</option>
+            <option value="PA">PA - Performance à Améliorer</option>
+            <option value="CA">CA - Performance Conforme aux Attentes</option>
+            <option value="PS">PS - Performance Supérieure</option>
+            <option value="PE">PE - Performance Exceptionnelle</option>
+          </select>
+        </div>
+        <h3 style="margin-top:30px;">VI. Plan de Développement</h3>
+        <div class="form-group">
+          <label>VI. 1. Besoins en Formation</label>
+          <textarea id="eval-training" class="form-control" rows="2"></textarea>
+        </div>
+        <div class="form-group">
+          <label>VI. 2. Objectifs SMART Prochaine Période</label>
+          <textarea id="eval-smart-goals" class="form-control" rows="3"></textarea>
+        </div>
+        <div class="form-group">
+          <label>VI. 3. Aspirations Professionnelles</label>
+          <textarea id="eval-aspirations" class="form-control" rows="2"></textarea>
+        </div>
+        <div class="form-group">
+          <label>VII. Commentaires de l'Employé(e) Évalué(e)</label>
+          <textarea id="eval-emp-comments" class="form-control" rows="3"></textarea>
+        </div>
+        <div class="wizard-actions">
+          <button type="button" class="btn btn-outline" onclick="prevEvalStep(4, 3)">Précédent</button>
+          <button type="button" class="btn btn-primary" id="btn-pre-eval" style="display:none;" onclick="submitPreEvaluation()">Pré-évaluer (pour réunion)</button>
+          <button type="submit" class="btn btn-success" id="btn-submit-eval">Soumettre l'Évaluation</button>
+        </div>
+        <div id="eval-submit-status" class="status-msg" style="margin-top: 15px;"></div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MANAGER DASHBOARD SCREEN (Single Page View) -->
+<div id="eval-manager-dashboard" style="display: none;">
+  <div class="panel">
+    <h3>Dossiers d'Évaluation</h3>
+    <div id="eval-dashboard-loader" class="status-msg" style="color:var(--primary-color);">Chargement des évaluations...</div>
+    <div class="table-responsive" style="margin-top:20px;">
+      <table class="modern-table" id="evals-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Type</th>
+            <th>Employé</th>
+            <th>Évaluateur</th>
+            <th>Note Globale</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- SINGLE PAGE EVALUATION VIEWER -->
+<div id="eval-viewer-screen" style="display: none;">
+  <div class="panel" style="max-width: 900px; margin: 0 auto; background-color: var(--surface-1);">
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--primary-color); padding-bottom: 15px; margin-bottom: 25px;">
+      <h2 style="margin: 0; color: var(--primary-color);">Fiche d'Évaluation</h2>
+      <button class="btn btn-outline" onclick="showManagerDashboard()">Fermer</button>
+    </div>
+    
+    <div id="eval-viewer-content">
+       <!-- Populated dynamically via JS -->
+    </div>
+  </div>
+</div>

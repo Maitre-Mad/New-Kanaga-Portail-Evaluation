@@ -1,0 +1,152 @@
+<div class="view-header">
+  <h2>Portail de Feuille de Temps</h2>
+  <p>Enregistrez vos heures de travail et consultez votre historique.</p>
+</div>
+
+<div class="content-grid">
+  <!-- Left Column: Form -->
+  <div class="grid-col form-col">
+    <div class="panel" id="form-container">
+      <h3>Enregistrer une nouvelle entrée</h3>
+      <form id="timesheet-form">
+        <div class="form-group">
+          <label for="entryDate">Date</label>
+          <input type="date" id="entryDate" name="entryDate" required>
+        </div>
+        
+        <div class="form-group">
+          <label for="project">Projet</label>
+          <select id="project" name="project" required></select>
+        </div>
+        
+        <div class="form-group">
+          <label for="task">Tâche <span class="text-muted">(Optionnel)</span></label>
+          <div style="margin-bottom: 8px; font-size: 13px; color: var(--text-color);">
+            <label style="display:flex; align-items:center; gap:5px; font-weight:normal; cursor:pointer;">
+              <input type="checkbox" id="hide-completed-tasks" checked onchange="updateTaskDropdown('project', 'task', 'sub-task')">
+              Masquer les tâches terminées
+            </label>
+          </div>
+          <select id="task" name="task"></select>
+        </div>
+        
+        <div class="form-group" id="sub-task-group" style="display: none;">
+          <label for="sub-task">Sous-tâche</label>
+          <select id="sub-task" name="sub-task"></select>
+        </div>
+        
+        <div class="form-group">
+          <label for="description">Description <span class="text-muted">(Optionnel)</span></label>
+          <input type="text" id="description" name="description" placeholder="Ex: Réunion de synchronisation">
+        </div>
+        
+        <div class="form-group">
+          <label for="duration">Durée (en heures)</label>
+          <input type="number" id="duration" name="duration" step="0.25" min="0" required placeholder="Ex: 2.5">
+        </div>
+        
+        <button type="submit" class="btn btn-primary btn-block">Enregistrer l'entrée</button>
+        <div id="status" class="status-msg"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Right Column: Data & Calendar -->
+  <div class="grid-col data-col">
+    <div class="panel" id="data-container">
+      <div class="panel-header">
+        <h3>Vos Entrées de la Semaine</h3>
+      </div>
+      <div id="timesheet-loader" class="local-loader" style="display: none;">Chargement des données...</div>
+      
+      <div class="tabs">
+        <button class="tab-btn active" onclick="switchTimesheetTab('list')">Vue Liste</button>
+        <button class="tab-btn" onclick="switchTimesheetTab('calendar')">Vue Calendrier</button>
+      </div>
+
+      <!-- Tab: List View -->
+      <div id="tab-list" class="tab-content active">
+        <div class="table-responsive">
+          <table id="timesheet-table" class="modern-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Projet</th>
+                <th>Tâche</th>
+                <th>Description</th>
+                <th>Durée</th>
+                <th class="actions-cell">Actions</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Tab: Calendar View -->
+      <div id="tab-calendar" class="tab-content">
+        <div class="table-responsive">
+          <table class="calendar-grid modern-table">
+            <thead>
+              <tr>
+                <th>Lun</th><th>Mar</th><th>Mer</th><th>Jeu</th><th>Ven</th><th>Sam</th><th>Dim</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td id="day-1"></td><td id="day-2"></td><td id="day-3"></td><td id="day-4"></td><td id="day-5"></td><td id="day-6"></td><td id="day-0"></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Edit Modal -->
+<div id="edit-modal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>Modifier l'entrée</h3>
+      <span class="close-button" onclick="closeModal('edit-modal')">&times;</span>
+    </div>
+    <div class="modal-body">
+      <form id="edit-form">
+        <input type="hidden" id="edit-row-id">
+        <div class="form-group">
+          <label for="edit-entryDate">Date</label>
+          <input type="date" id="edit-entryDate" required>
+        </div>
+        <div class="form-group">
+          <label for="edit-project">Projet</label>
+          <select id="edit-project" required></select>
+        </div>
+        <div class="form-group">
+          <label for="edit-task">Tâche <span class="text-muted">(Optionnel)</span></label>
+          <div style="margin-bottom: 8px; font-size: 13px; color: var(--text-color);">
+            <label style="display:flex; align-items:center; gap:5px; font-weight:normal; cursor:pointer;">
+              <input type="checkbox" id="edit-hide-completed-tasks" checked onchange="updateTaskDropdown('edit-project', 'edit-task', 'edit-sub-task')">
+              Masquer les tâches terminées
+            </label>
+          </div>
+          <select id="edit-task"></select>
+        </div>
+        <div class="form-group" id="edit-sub-task-group" style="display: none;">
+          <label for="edit-sub-task">Sous-tâche</label>
+          <select id="edit-sub-task"></select>
+        </div>
+        <div class="form-group">
+          <label for="edit-description">Description <span class="text-muted">(Optionnel)</span></label>
+          <input type="text" id="edit-description">
+        </div>
+        <div class="form-group">
+          <label for="edit-duration">Durée (en heures)</label>
+          <input type="number" id="edit-duration" step="0.25" min="0" required>
+        </div>
+        <button type="submit" class="btn btn-warning btn-block">Enregistrer les modifications</button>
+      </form>
+    </div>
+  </div>
+</div>

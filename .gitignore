@@ -1,0 +1,14 @@
+# Clasp credentials (DO NOT COMMIT)
+.clasprc.json
+
+# Dependencies
+node_modules/
+package-lock.json
+
+# Logs & temp
+*.log
+.temp/
+
+# OS files
+.DS_Store
+Thumbs.db

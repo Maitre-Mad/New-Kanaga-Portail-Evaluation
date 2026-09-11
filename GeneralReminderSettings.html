@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <style>
+      body { font-family: Arial, sans-serif; margin: 20px; }
+      label { display: block; margin-top: 15px; font-weight: bold; }
+      input[type="text"], select, textarea {
+        width: 100%;
+        padding: 8px;
+        margin-top: 5px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        box-sizing: border-box; /* Important */
+      }
+      textarea { height: 150px; }
+      button {
+        background-color: #4CAF50;
+        color: white;
+        padding: 10px 15px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        margin-top: 20px;
+      }
+      #cancel { background-color: #f44336; }
+      #status { margin-top: 15px; font-weight: bold; color: green; }
+    </style>
+  </head>
+  <body>
+    <h2>Paramètres du Rappel Général (Pour tous)</h2>
+    <p>Ce rappel envoie un e-mail générique à un groupe (par exemple, "tous@societe.com") pour leur rappeler de remplir leurs feuilles de temps. Il ne vérifie aucune donnée.</p>
+
+    <form id="settings-form">
+      <label for="activation">Activer ce rappel ?</label>
+      <select id="activation" name="activation">
+        <option value="OUI">OUI</option>
+        <option value="NON">NON</option>
+      </select>
+
+      <label for="destinataires">Groupe(s) de destinataires (séparés par une virgule)</label>
+      <input type="text" id="destinataires" name="destinataires">
+
+      <label for="sujet">Sujet de l'e-mail</label>
+      <input type="text" id="sujet" name="sujet">
+
+      <label for="message">Message (HTML autorisé pour les liens)</label>
+      <textarea id="message" name="message"></textarea>
+
+      <button type="submit">Enregistrer</button>
+      <button type="button" id="cancel">Annuler</button>
+      <div id="status"></div>
+    </form>
+
+    <script>
+      // 1. On load, fetch current settings
+      window.addEventListener('load', function() {
+        document.getElementById('status').innerText = "Chargement...";
+        google.script.run
+          .withSuccessHandler(populateForm)
+          .withFailureHandler(showError)
+          .getGeneralReminderSettings(); // <-- MODIFIED
+      });
+
+      // 2. Fill the form with data from the server
+      function populateForm(settings) {
+        document.getElementById('activation').value = settings.activation;
+        document.getElementById('destinataires').value = settings.destinataires;
+        document.getElementById('sujet').value = settings.sujet;
+        document.getElementById('message').value = settings.message;
+        document.getElementById('status').innerText = "";
+      }
+
+      // 3. Handle the form submission
+      document.getElementById('settings-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        document.getElementById('status').innerText = "Enregistrement...";
+        var settings = {
+          activation: document.getElementById('activation').value,
+          destinataires: document.getElementById('destinataires').value,
+          sujet: document.getElementById('sujet').value,
+          message: document.getElementById('message').value
+        };
+        google.script.run
+          .withSuccessHandler(onSaveSuccess)
+          .withFailureHandler(showError)
+          .saveGeneralReminderSettings(settings); // <-- MODIFIED
+      });
+      
+      // 4. Close button
+      document.getElementById('cancel').addEventListener('click', function() {
+        google.script.host.close();
+      });
+
+      // 5. Success/Error helpers
+      function onSaveSuccess() {
+        document.getElementById('status').innerText = "Paramètres enregistrés !";
+        setTimeout(function() {
+          google.script.host.close();
+        }, 1500);
+      }
+
+      function showError(error) {
+        document.getElementById('status').innerText = "Erreur: " + error.message;
+        document.getElementById('status').style.color = "red";
+      }
+    </script>
+  </body>
+</html>
