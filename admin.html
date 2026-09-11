@@ -48,22 +48,89 @@
     </div>
   </div>
 
+  <!-- PANEL : MODÈLES D'E-MAILS D'ÉVALUATION -->
   <div class="panel admin-panel" id="admin-panel-email" style="display:none;">
-    <h3>Modèle d'E-mail : Initiation d'Évaluation</h3>
-    <p class="text-muted" style="font-size:13px; margin-bottom: 20px;">Personnalisez l'e-mail envoyé automatiquement aux employés lorsqu'une nouvelle évaluation est initiée. Les balises <code style="background:#f4f4f4; padding:2px 4px; border-radius:3px;">{periode}</code> et <code style="background:#f4f4f4; padding:2px 4px; border-radius:3px;">{lien_portail}</code> seront remplacées dynamiquement.</p>
-    
-    <form id="admin-eval-email-form">
-      <div class="form-group">
-        <label>Sujet de l'e-mail</label>
-        <input type="text" id="eval-email-subject" class="form-control" required>
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:15px;">
+      <div>
+        <h3 style="margin:0; color:var(--primary-color);">Modèles d'E-mails Automatiques</h3>
+        <p class="text-muted" style="font-size:13px; margin:4px 0 0 0;">
+          Personnalisez les e-mails envoyés automatiquement aux collaborateurs et évaluateurs à chaque étape clé.
+        </p>
       </div>
-      <div class="form-group">
-        <label>Corps du message (HTML autorisé)</label>
-        <textarea id="eval-email-message" class="form-control" rows="8" required style="font-family: monospace; font-size: 13px;"></textarea>
+      <div style="display:flex; align-items:center; gap:8px; background:#FAF6EE; border:1px solid #E0CC99; padding:6px 12px; border-radius:6px;">
+        <label for="eval-notif-activation" style="font-size:12px; font-weight:700; color:#5D4037; margin:0; cursor:pointer;">Envois automatiques :</label>
+        <select id="eval-notif-activation" class="form-control" style="width:auto; height:30px; padding:2px 8px; font-size:12px; font-weight:700;" onchange="saveNotificationActivation(this.value)">
+          <option value="OUI">Activés (OUI)</option>
+          <option value="NON">Désactivés (NON)</option>
+        </select>
       </div>
-      <button type="submit" class="btn btn-primary" id="btn-save-eval-email">Enregistrer le modèle</button>
-      <span id="eval-email-status" class="status-msg" style="margin-left: 10px;"></span>
+    </div>
+
+    <!-- Sélecteur d'Événement -->
+    <div class="form-group" style="margin-bottom:15px; background:#F8F9FA; padding:12px 16px; border-radius:6px; border:1px solid #E2E8F0;">
+      <label style="font-weight:700; color:#2D3748; display:block; margin-bottom:6px;">
+        Événement / Étape d'évaluation à configurer :
+      </label>
+      <select id="eval-email-event-select" class="form-control" style="font-weight:600; font-size:13px;" onchange="onNotificationEventSelectChange()">
+        <option value="initiation_employee">1. Initiation : Invitation à l'Employé (Auto-évaluation)</option>
+        <option value="initiation_secondary">2. Initiation : Information aux Évaluateurs Secondaires (Désignation)</option>
+        <option value="self_eval_submitted">3. Auto-évaluation soumise : Alerte Évaluateurs (Avis attendu)</option>
+        <option value="secondary_completed">4. Retours secondaires complétés : Alerte Manager Principal (Prêt pour Entretien)</option>
+        <option value="eval_finalized">5. Évaluation clôturée : Notification finale avec lien PDF (Employé)</option>
+      </select>
+    </div>
+
+    <!-- Formulaire d'édition du modèle sélectionné -->
+    <form id="admin-eval-email-form" onsubmit="saveCurrentNotificationTemplate(event)">
+      <div class="form-group">
+        <label style="font-weight:600;">Sujet de l'e-mail</label>
+        <input type="text" id="eval-email-subject" class="form-control" required style="font-weight:600;">
+      </div>
+
+      <div class="form-group" style="margin-top:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+          <label style="font-weight:600; margin:0;">Corps du message (HTML autorisé)</label>
+          <button type="button" class="btn btn-outline" style="font-size:11px; padding:2px 8px;" onclick="resetCurrentNotificationTemplate()">
+            Rétablir le modèle par défaut
+          </button>
+        </div>
+        <textarea id="eval-email-message" class="form-control" rows="9" required style="font-family: monospace; font-size: 13px; line-height: 1.5;"></textarea>
+      </div>
+
+      <!-- Balises d'aide -->
+      <div style="background:#FAF8F5; border:1px solid #E2D9C8; border-radius:6px; padding:10px 14px; margin:12px 0 16px 0;">
+        <div style="font-size:12px; font-weight:700; color:#5D4037; margin-bottom:4px;">Balises dynamiques disponibles :</div>
+        <div style="font-size:12px; color:#4A5568; line-height:1.6;">
+          <code style="background:#fff; border:1px solid #CBD5E0; padding:1px 5px; border-radius:3px;">{nom_employe}</code> : Nom du collaborateur &nbsp;|&nbsp;
+          <code style="background:#fff; border:1px solid #CBD5E0; padding:1px 5px; border-radius:3px;">{periode}</code> : Période évaluée &nbsp;|&nbsp;
+          <code style="background:#fff; border:1px solid #CBD5E0; padding:1px 5px; border-radius:3px;">{profil}</code> : Métier &nbsp;|&nbsp;
+          <code style="background:#fff; border:1px solid #CBD5E0; padding:1px 5px; border-radius:3px;">{evaluateur_principal}</code> : Nom du manager principal &nbsp;|&nbsp;
+          <code style="background:#fff; border:1px solid #CBD5E0; padding:1px 5px; border-radius:3px;">{evaluateurs_secondaires}</code> : Évaluateurs secondaires &nbsp;|&nbsp;
+          <code style="background:#fff; border:1px solid #CBD5E0; padding:1px 5px; border-radius:3px;">{lien_portail}</code> : Lien du portail &nbsp;|&nbsp;
+          <code style="background:#fff; border:1px solid #CBD5E0; padding:1px 5px; border-radius:3px;">{bloc_pdf}</code> : Bouton de téléchargement du PDF (Étape 5)
+        </div>
+      </div>
+
+      <div style="display:flex; align-items:center; gap:10px;">
+        <button type="submit" class="btn btn-primary" id="btn-save-eval-email">Enregistrer ce modèle</button>
+        <span id="eval-email-status" class="status-msg"></span>
+      </div>
     </form>
+
+    <!-- Zone de test d'envoi -->
+    <div style="margin-top:24px; padding-top:16px; border-top:1px dashed #CBD5E0;">
+      <h4 style="margin:0 0 8px 0; font-size:14px; color:#2D3748;">Tester l'envoi d'e-mail pour cet événement</h4>
+      <p class="text-muted" style="font-size:12px; margin-bottom:10px;">
+        Envoyez un e-mail réel avec des données factices à l'adresse de votre choix pour vérifier la mise en page dans votre boîte mail.
+      </p>
+      <div style="display:flex; gap:10px; max-width:550px; align-items:center;">
+        <input type="email" id="eval-test-email-input" class="form-control" placeholder="Entrez votre adresse e-mail (ex: moi@kanagaconsulting.com)">
+        <button type="button" class="btn btn-outline" id="btn-send-test-email" onclick="sendTestNotificationEmail()" style="white-space:nowrap;">
+          Envoyer un test
+        </button>
+      </div>
+      <div id="eval-test-email-status" class="status-msg" style="margin-top:8px;"></div>
+    </div>
   </div>
 
   <!-- PANEL : QUESTIONS D'ÉVALUATION (ARCHITECTURE SABLIER / MODÈLE EN Y) -->

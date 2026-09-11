@@ -936,23 +936,327 @@ function saveGeneralReminderSettings(token, settings) {
   });
 }
 
-function getEvaluationEmailSettings(token) {
-  const sessionUser = verifySession(token);
+// ==========================================
+// NOTIFICATIONS AUTOMATIQUES D'ÉVALUATION
+// ==========================================
 
-  const props = PropertiesService.getUserProperties();
+const DEFAULT_EVAL_NOTIFICATION_SETTINGS = {
+  activation: 'OUI',
+  // 1. Initiation : Employé
+  initiation_employee_subject: '[Portail Kanaga] Votre auto-évaluation de performance est ouverte - Période {periode}',
+  initiation_employee_message: 'Bonjour <strong>{nom_employe}</strong>,<br><br>Votre évaluateur principal (<strong>{evaluateur_principal}</strong>) a initié votre campagne d\'évaluation de la performance pour la période <strong>{periode}</strong>.<br><br>Nous vous invitons à vous connecter sur le portail Kanaga pour compléter votre auto-évaluation en cliquant sur le bouton ci-dessous :<br><br><div style="text-align:center;"><a href="{lien_portail}" class="btn-email">Accéder à mon Auto-Évaluation</a></div><br><br><em>Conseil : Prenez le temps de bien détailler vos réalisations, points forts et axes d\'amélioration.</em><br><br>Cordialement,<br><strong>L\'équipe Kanaga Consulting</strong>',
+
+  // 2. Initiation : Évaluateur Secondaire
+  initiation_secondary_subject: '[Portail Kanaga] Désignation comme évaluateur secondaire - {nom_employe}',
+  initiation_secondary_message: 'Bonjour,<br><br>Vous avez été désigné(e) comme <strong>évaluateur(trice) secondaire</strong> pour l\'évaluation de la performance de <strong>{nom_employe}</strong> (Période : <strong>{periode}</strong>) par <strong>{evaluateur_principal}</strong>.<br><br>Dès que le collaborateur aura validé son auto-évaluation, vous recevrez une notification pour renseigner vos appréciations.<br><br><div style="text-align:center;"><a href="{lien_portail}" class="btn-email">Consulter le Portail Kanaga</a></div><br><br>Cordialement,<br><strong>L\'équipe Kanaga Consulting</strong>',
+
+  // 3. Auto-évaluation soumise : Notifier Évaluateurs
+  self_eval_submitted_subject: '[Portail Kanaga] Auto-évaluation soumise par {nom_employe} - Action attendue',
+  self_eval_submitted_message: 'Bonjour,<br><br>Le collaborateur <strong>{nom_employe}</strong> a complété et soumis son auto-évaluation pour la période <strong>{periode}</strong>.<br><br>Vous pouvez dès à présent consulter ses réponses et renseigner votre évaluation sur le portail :<br><br><div style="text-align:center;"><a href="{lien_portail}" class="btn-email">Accéder à l\'Évaluation</a></div><br><br>Cordialement,<br><strong>L\'équipe Kanaga Consulting</strong>',
+
+  // 4. Évaluations secondaires complétées : Notifier Évaluateur Principal
+  secondary_completed_subject: '[Portail Kanaga] Évaluations secondaires terminées pour {nom_employe}',
+  secondary_completed_message: 'Bonjour <strong>{evaluateur_principal}</strong>,<br><br>Tous les évaluateurs secondaires ont finalisé leur évaluation pour <strong>{nom_employe}</strong> (Période : <strong>{periode}</strong>).<br><br>Le dossier est désormais complet et prêt pour votre entretien managérial et la finalisation de l\'évaluation.<br><br><div style="text-align:center;"><a href="{lien_portail}" class="btn-email">Finaliser l\'Évaluation sur le Portail</a></div><br><br>Cordialement,<br><strong>L\'équipe Kanaga Consulting</strong>',
+
+  // 5. Évaluation clôturée & PDF : Notifier Employé
+  eval_finalized_subject: '[Portail Kanaga] Votre évaluation de performance est finalisée - Période {periode}',
+  eval_finalized_message: 'Bonjour <strong>{nom_employe}</strong>,<br><br>Votre entretien et votre évaluation de performance pour la période <strong>{periode}</strong> ont été finalisés et validés par votre évaluateur principal (<strong>{evaluateur_principal}</strong>).<br><br>Votre compte-rendu officiel d\'évaluation est accessible sur le portail :<br><br><div style="text-align:center;"><a href="{lien_portail}" class="btn-email">Consulter mon Évaluation sur le Portail</a></div><br><br>{bloc_pdf}Nous vous remercions pour votre engagement et votre contribution continue aux succès de Kanaga Consulting.<br><br>Cordialement,<br><strong>Direction des Ressources Humaines - Kanaga Consulting</strong>'
+};
+
+function getEvaluationNotificationSettings(token) {
+  if (token) {
+    try { verifySession(token); } catch(e) {}
+  }
+  const props = PropertiesService.getScriptProperties();
+  const raw = props.getProperty('EVAL_NOTIFICATION_SETTINGS');
+  if (!raw) {
+    return Object.assign({}, DEFAULT_EVAL_NOTIFICATION_SETTINGS);
+  }
+  try {
+    const saved = JSON.parse(raw);
+    return Object.assign({}, DEFAULT_EVAL_NOTIFICATION_SETTINGS, saved);
+  } catch(e) {
+    return Object.assign({}, DEFAULT_EVAL_NOTIFICATION_SETTINGS);
+  }
+}
+
+function saveEvaluationNotificationSettings(token, settings) {
+  verifySession(token);
+  if (!settings || typeof settings !== 'object') throw new Error("Paramètres invalides.");
+  PropertiesService.getScriptProperties().setProperty('EVAL_NOTIFICATION_SETTINGS', JSON.stringify(settings));
+  return { success: true };
+}
+
+// Fonction de rétro-compatibilité
+function getEvaluationEmailSettings(token) {
+  const settings = getEvaluationNotificationSettings(token);
   return {
-    sujet: props.getProperty('eval_email_sujet') || 'Nouvelle évaluation initiée',
-    message: props.getProperty('eval_email_message') || 'Bonjour,<br><br>Votre manager a initié une nouvelle évaluation pour la période <strong>{periode}</strong>.<br><br>Veuillez vous connecter au portail Kanaga pour compléter votre auto-évaluation en cliquant sur le lien suivant :<br><a href="{lien_portail}">Accéder au Portail</a><br><br>Cordialement,<br>L\'équipe Kanaga'
+    sujet: settings.initiation_employee_subject,
+    message: settings.initiation_employee_message
   };
 }
 
 function saveEvaluationEmailSettings(token, settings) {
-  const sessionUser = verifySession(token);
+  const current = getEvaluationNotificationSettings(token);
+  current.initiation_employee_subject = settings.sujet;
+  current.initiation_employee_message = settings.message;
+  return saveEvaluationNotificationSettings(token, current);
+}
 
-  PropertiesService.getUserProperties().setProperties({
-    'eval_email_sujet': settings.sujet,
-    'eval_email_message': settings.message
-  });
+function findUserEmailByName(nameOrUsername) {
+  if (!nameOrUsername) return '';
+  const clean = String(nameOrUsername).trim();
+  if (clean.includes('@')) return clean;
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const sheet = ss.getSheetByName('Utilisateurs');
+    if (!sheet) return '';
+    const data = sheet.getDataRange().getValues();
+    const search = clean.toLowerCase();
+    for (let i = 1; i < data.length; i++) {
+      const email = String(data[i][0] || '').trim();
+      const fullName = String(data[i][2] || '').trim();
+      if (email.toLowerCase() === search || fullName.toLowerCase() === search) {
+        return email;
+      }
+    }
+  } catch(e) {}
+  return '';
+}
+
+function buildStyledEmailHtml(title, bodyHtml, metaData) {
+  let metaRows = '';
+  if (metaData) {
+    if (metaData.employeeName) {
+      metaRows += '<tr><td style="padding:5px 8px; font-weight:700; color:#5D4037; width:150px;">Collaborateur :</td><td style="padding:5px 8px; font-weight:600; color:#2D3748;">' + metaData.employeeName + '</td></tr>';
+    }
+    if (metaData.period) {
+      metaRows += '<tr><td style="padding:5px 8px; font-weight:700; color:#5D4037;">Période :</td><td style="padding:5px 8px; font-weight:600; color:#2D3748;">' + metaData.period + '</td></tr>';
+    }
+    if (metaData.profile) {
+      metaRows += '<tr><td style="padding:5px 8px; font-weight:700; color:#5D4037;">Profil de poste :</td><td style="padding:5px 8px; font-weight:600; color:#2D3748;">' + metaData.profile + '</td></tr>';
+    }
+    if (metaData.principalEvaluatorName) {
+      metaRows += '<tr><td style="padding:5px 8px; font-weight:700; color:#5D4037;">Évaluateur Principal :</td><td style="padding:5px 8px; font-weight:600; color:#2D3748;">' + metaData.principalEvaluatorName + '</td></tr>';
+    }
+    if (metaData.stepStatus) {
+      metaRows += '<tr><td style="padding:5px 8px; font-weight:700; color:#5D4037;">Étape / Statut :</td><td style="padding:5px 8px; font-weight:700; color:#7A2537;">' + metaData.stepStatus + '</td></tr>';
+    }
+  }
+
+  const metaHtml = metaRows ? `
+    <table style="width:100%; border-collapse:collapse; background:#FAF6EE; border:1px solid #E0CC99; border-radius:6px; margin:16px 0; font-size:13px;">
+      <tbody>${metaRows}</tbody>
+    </table>
+  ` : '';
+
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #F7F5F0; margin: 0; padding: 20px; color: #2D3748; }
+    .email-container { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 8px; overflow: hidden; border: 1px solid #E2D9C8; box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
+    .email-header { background: linear-gradient(135deg, #7A2537 0%, #5D4037 100%); padding: 22px 28px; text-align: center; color: #ffffff; }
+    .email-header h1 { margin: 0; font-size: 19px; font-weight: 700; letter-spacing: 0.5px; color: #ffffff; }
+    .email-header p { margin: 5px 0 0 0; font-size: 12px; opacity: 0.9; color: #f0e6d2; }
+    .email-body { padding: 26px 28px; line-height: 1.6; font-size: 14px; color: #333333; }
+    .btn-email { display: inline-block; background: #7A2537; color: #ffffff !important; text-decoration: none; padding: 11px 22px; border-radius: 5px; font-weight: 700; font-size: 13px; margin: 10px 0; text-align: center; }
+    .email-footer { background: #FAF8F5; padding: 16px 28px; border-top: 1px solid #E2D9C8; text-align: center; font-size: 11px; color: #718096; line-height: 1.4; }
+  </style>
+</head>
+<body>
+  <div class="email-container">
+    <div class="email-header">
+      <h1>Kanaga Consulting</h1>
+      <p>Portail d'Évaluation de la Performance</p>
+    </div>
+    <div class="email-body">
+      ${metaHtml}
+      ${bodyHtml}
+    </div>
+    <div class="email-footer">
+      Cet e-mail a été envoyé automatiquement par le Portail d'Évaluation Kanaga Consulting.<br>
+      Pour toute question ou assistance, contactez le support RH ou l'administrateur.
+    </div>
+  </div>
+</body>
+</html>
+  `;
+}
+
+function sendEvaluationNotification(eventType, context) {
+  try {
+    const settings = getEvaluationNotificationSettings();
+    if (String(settings.activation).toUpperCase() === 'NON') {
+      Logger.log("Notifications désactivées par l'administrateur.");
+      return;
+    }
+
+    let portailUrl = '';
+    try {
+      portailUrl = ScriptApp.getService().getUrl();
+    } catch(e) {
+      portailUrl = 'https://script.google.com';
+    }
+
+    const empName = context.employeeName || 'Collaborateur';
+    const empEmail = context.employeeEmail || findUserEmailByName(empName);
+    const period = context.period || '';
+    const profile = context.profile || '';
+    const princName = context.principalEvaluatorName || 'Évaluateur Principal';
+    const princEmail = context.principalEvaluatorEmail || findUserEmailByName(princName);
+    const secList = context.secondaryEvaluators || [];
+    const secEmails = secList.map(s => s.email || findUserEmailByName(s.name)).filter(Boolean);
+    const secNames = secList.map(s => s.name || s.email).join(', ') || 'Aucun';
+    const pdfUrl = context.pdfUrl || '';
+
+    function replaceTags(str) {
+      if (!str) return '';
+      let res = str
+        .replace(/{nom_employe}/g, empName)
+        .replace(/{periode}/g, period)
+        .replace(/{profil}/g, profile)
+        .replace(/{evaluateur_principal}/g, princName)
+        .replace(/{evaluateurs_secondaires}/g, secNames)
+        .replace(/{lien_portail}/g, portailUrl);
+      
+      if (pdfUrl) {
+        res = res.replace(/{bloc_pdf}/g, `<div style="text-align:center; margin:10px 0;"><a href="${pdfUrl}" class="btn-email" style="background:#5D4037;" target="_blank">📄 Télécharger le Compte-Rendu PDF</a></div><br>`);
+        res = res.replace(/{lien_pdf}/g, pdfUrl);
+      } else {
+        res = res.replace(/{bloc_pdf}/g, '');
+        res = res.replace(/{lien_pdf}/g, portailUrl);
+      }
+      return res;
+    }
+
+    function safeSend(toEmail, rawSubject, rawBody, stepStatusLabel) {
+      if (!toEmail || !toEmail.includes('@')) return;
+      try {
+        const subject = replaceTags(rawSubject);
+        const bodyContent = replaceTags(rawBody);
+        const finalHtml = buildStyledEmailHtml(subject, bodyContent, {
+          employeeName: empName,
+          period: period,
+          profile: profile,
+          principalEvaluatorName: princName,
+          stepStatus: stepStatusLabel
+        });
+        MailApp.sendEmail({
+          to: toEmail,
+          subject: subject,
+          htmlBody: finalHtml
+        });
+        Logger.log(`Email envoyé à ${toEmail} pour [${eventType}]`);
+      } catch(mErr) {
+        Logger.log(`Erreur envoi email à ${toEmail}: ${mErr.message}`);
+      }
+    }
+
+    if (eventType === 'initiation') {
+      // 1. Employé
+      if (empEmail) {
+        safeSend(empEmail, settings.initiation_employee_subject, settings.initiation_employee_message, "Initiée (Auto-évaluation attendue)");
+      }
+      // 2. Évaluateurs secondaires
+      if (secEmails.length > 0) {
+        secEmails.forEach(sEmail => {
+          safeSend(sEmail, settings.initiation_secondary_subject, settings.initiation_secondary_message, "Initiée (Désignation secondaire)");
+        });
+      }
+      // 3. Évaluateur principal (confirmation)
+      if (princEmail && princEmail !== empEmail) {
+        const confSubject = `[Portail Kanaga] Confirmation de lancement - Évaluation de ${empName}`;
+        const confBody = `Bonjour <strong>${princName}</strong>,<br><br>Vous avez initié avec succès l'évaluation de <strong>${empName}</strong> pour la période <strong>${period}</strong>.<br><br>Le collaborateur a été notifié pour compléter son auto-évaluation.<br><br><div style="text-align:center;"><a href="${portailUrl}" class="btn-email">Accéder au Portail Kanaga</a></div>`;
+        safeSend(princEmail, confSubject, confBody, "Initiée");
+      }
+    } else if (eventType === 'self_evaluation_submitted') {
+      if (secEmails.length > 0) {
+        secEmails.forEach(sEmail => {
+          safeSend(sEmail, settings.self_eval_submitted_subject, settings.self_eval_submitted_message, "Attente Évaluateur Secondaire");
+        });
+        if (princEmail) {
+          const pSubject = `[Portail Kanaga] Auto-évaluation soumise par ${empName}`;
+          const pBody = `Bonjour <strong>${princName}</strong>,<br><br>Le collaborateur <strong>${empName}</strong> a soumis son auto-évaluation (Période : <strong>${period}</strong>).<br><br>L'évaluation est actuellement en attente du retour des évaluateurs secondaires (<strong>${secNames}</strong>). Vous serez prévenu(e) dès que ces avis seront complétés.<br><br><div style="text-align:center;"><a href="${portailUrl}" class="btn-email">Suivre sur le Portail</a></div>`;
+          safeSend(princEmail, pSubject, pBody, "Attente Évaluateur Secondaire");
+        }
+      } else {
+        if (princEmail) {
+          safeSend(princEmail, settings.self_eval_submitted_subject, settings.self_eval_submitted_message, "Attente Évaluateur Principal");
+        }
+      }
+      if (empEmail) {
+        const empSubject = `[Portail Kanaga] Confirmation de transmission de votre auto-évaluation (${period})`;
+        const empBody = `Bonjour <strong>${empName}</strong>,<br><br>Votre auto-évaluation pour la période <strong>${period}</strong> a été transmise avec succès à votre évaluateur.<br><br>Elle sera examinée dans le cadre de votre entretien d'évaluation.<br><br><div style="text-align:center;"><a href="${portailUrl}" class="btn-email">Accéder au Portail Kanaga</a></div>`;
+        safeSend(empEmail, empSubject, empBody, context.nextStatus || "Auto-évaluation soumise");
+      }
+    } else if (eventType === 'secondary_evaluation_submitted') {
+      if (context.allCompleted) {
+        if (princEmail) {
+          safeSend(princEmail, settings.secondary_completed_subject, settings.secondary_completed_message, "Attente Évaluateur Principal (Prêt pour Entretien)");
+        }
+        if (empEmail) {
+          const empSubject = `[Portail Kanaga] Avancement de votre évaluation - Avis secondaires collectés`;
+          const empBody = `Bonjour <strong>${empName}</strong>,<br><br>La phase des retours secondaires pour votre évaluation de la période <strong>${period}</strong> est terminée.<br><br>Votre dossier est désormais entre les mains de votre évaluateur principal (<strong>${princName}</strong>) pour fixer la réunion finale d'évaluation.<br><br><div style="text-align:center;"><a href="${portailUrl}" class="btn-email">Consulter le Portail</a></div>`;
+          safeSend(empEmail, empSubject, empBody, "Attente Évaluateur Principal");
+        }
+      } else {
+        if (princEmail) {
+          const subEvalName = context.evaluatorName || "Un évaluateur secondaire";
+          const pSubject = `[Portail Kanaga] Évaluation secondaire soumise par ${subEvalName} pour ${empName}`;
+          const pBody = `Bonjour <strong>${princName}</strong>,<br><br><strong>${subEvalName}</strong> a soumis son évaluation secondaire pour <strong>${empName}</strong>.<br><br>D'autres avis secondaires sont encore en attente avant la finalisation du dossier.<br><br><div style="text-align:center;"><a href="${portailUrl}" class="btn-email">Consulter le Portail</a></div>`;
+          safeSend(princEmail, pSubject, pBody, "Attente Évaluateur Secondaire");
+        }
+      }
+    } else if (eventType === 'advance_to_principal') {
+      if (princEmail) {
+        const pSubject = `[Portail Kanaga] Évaluation de ${empName} prête pour entretien final`;
+        const pBody = `Bonjour <strong>${princName}</strong>,<br><br>L'évaluation de <strong>${empName}</strong> est désormais passée en attente de l'évaluateur principal.<br><br>Vous pouvez mener l'entretien et finaliser l'évaluation sur le portail.<br><br><div style="text-align:center;"><a href="${portailUrl}" class="btn-email">Accéder à l'Évaluation</a></div>`;
+        safeSend(princEmail, pSubject, pBody, "Attente Évaluateur Principal");
+      }
+    } else if (eventType === 'evaluation_completed') {
+      if (empEmail) {
+        safeSend(empEmail, settings.eval_finalized_subject, settings.eval_finalized_message, "Complétée & Clôturée");
+      }
+      if (secEmails.length > 0) {
+        secEmails.forEach(sEmail => {
+          const sSubject = `[Portail Kanaga] Clôture de l'évaluation de ${empName}`;
+          const sBody = `Bonjour,<br><br>L'évaluation de <strong>${empName}</strong> (Période : <strong>${period}</strong>) a été finalisée et validée par <strong>${princName}</strong>.<br><br>Merci pour votre collaboration.<br><br><div style="text-align:center;"><a href="${portailUrl}" class="btn-email">Consulter le Portail</a></div>`;
+          safeSend(sEmail, sSubject, sBody, "Complétée");
+        });
+      }
+      if (princEmail && princEmail !== empEmail) {
+        const pSubject = `[Portail Kanaga] Évaluation de ${empName} clôturée avec succès`;
+        const pBody = `Bonjour <strong>${princName}</strong>,<br><br>L'évaluation de <strong>${empName}</strong> (Période : <strong>${period}</strong>) a été enregistrée avec succès et marquée comme complétée.<br><br>Le compte-rendu officiel PDF a été généré et le collaborateur en a été notifié.<br><br><div style="text-align:center;"><a href="${portailUrl}" class="btn-email">Consulter le Portail</a></div>`;
+        safeSend(princEmail, pSubject, pBody, "Complétée");
+      }
+    }
+  } catch(err) {
+    Logger.log("Erreur globale sendEvaluationNotification: " + err.message);
+  }
+}
+
+function testSendEvaluationNotification(token, eventKey, testEmail) {
+  verifySession(token);
+  if (!testEmail || !testEmail.includes('@')) throw new Error("Veuillez saisir une adresse e-mail de test valide.");
+
+  const dummyContext = {
+    employeeName: "Abdoulaye Diarra (Test)",
+    employeeEmail: testEmail,
+    period: "2025-2026 (Test)",
+    profile: "Chef de Projet",
+    principalEvaluatorName: "Ibrahim Traoré (Manager Test)",
+    principalEvaluatorEmail: testEmail,
+    secondaryEvaluators: [{ name: "Zakaria Berthé (Test)", email: testEmail, status: "Complété" }],
+    pdfUrl: "https://drive.google.com",
+    allCompleted: true,
+    evaluatorName: "Zakaria Berthé (Test)"
+  };
+
+  sendEvaluationNotification(eventKey || 'initiation', dummyContext);
+  return { success: true, message: `E-mail de test [${eventKey}] envoyé avec succès à ${testEmail} !` };
 }
 function sendGeneralTimesheetReminder() {
   const settings = getGeneralReminderSettings();
@@ -1439,25 +1743,16 @@ function initiateEvaluationsBatch(token, formData) {
 
         sheet.appendRow(rowData);
         
-        // Envoi d'email de notification au collaborateur
-        if (emp.email) {
-           try {
-             const emailSettings = getEvaluationEmailSettings();
-             const portailUrl = ScriptApp.getService().getUrl();
-             const subject = emailSettings.sujet.replace('{periode}', formData.period || "");
-             const bodyHtml = emailSettings.message
-                                .replace(/{periode}/g, formData.period || "")
-                                .replace(/{lien_portail}/g, portailUrl);
-                                
-             MailApp.sendEmail({
-               to: emp.email,
-               subject: subject,
-               htmlBody: bodyHtml
-             });
-           } catch(mailErr) {
-             console.error("Erreur envoi email: " + mailErr.message);
-           }
-        }
+        // Envoi des notifications automatiques (Employé, Évaluateurs secondaires, Évaluateur principal)
+        sendEvaluationNotification('initiation', {
+          employeeName: emp.name || '',
+          employeeEmail: emp.email || findUserEmailByName(emp.name),
+          period: formData.period || '',
+          profile: formData.profile || '',
+          principalEvaluatorName: principalName,
+          principalEvaluatorEmail: principalEmail || findUserEmailByName(principalName),
+          secondaryEvaluators: secondaryList
+        });
     });
     
     return { success: true };
@@ -1509,6 +1804,28 @@ function submitSelfEvaluation(token, rowId, formData) {
     sheet.getRange(row, 18).setValue(formData.smartGoals || '');
     sheet.getRange(row, 19).setValue(formData.aspirations || '');
     sheet.getRange(row, 20).setValue(formData.empComments || '');
+
+    try {
+      const empName = sheet.getRange(row, 4).getValue();
+      const period = sheet.getRange(row, 3).getValue();
+      const profile = sheet.getRange(row, 10).getValue();
+      const empEmail = sheet.getRange(row, 30).getValue() || findUserEmailByName(empName);
+      const princEmail = sheet.getRange(row, 32).getValue();
+      const princName = sheet.getRange(row, 33).getValue() || sheet.getRange(row, 7).getValue();
+
+      sendEvaluationNotification('self_evaluation_submitted', {
+        employeeName: empName,
+        employeeEmail: empEmail,
+        period: period,
+        profile: profile,
+        principalEvaluatorName: princName,
+        principalEvaluatorEmail: princEmail || findUserEmailByName(princName),
+        secondaryEvaluators: secondaryList,
+        nextStatus: nextStatus
+      });
+    } catch(notifErr) {
+      Logger.log("Erreur notification self_eval: " + notifErr.message);
+    }
 
     return { success: true, nextStatus: nextStatus };
   } catch (e) {
@@ -1621,6 +1938,29 @@ function submitSecondaryEvaluation(token, rowId, formData) {
     sheet.getRange(row, 36).setValue(JSON.stringify(secSpec));
     sheet.getRange(row, 37).setValue(JSON.stringify(secSynth));
 
+    try {
+      const empName = sheet.getRange(row, 4).getValue();
+      const period = sheet.getRange(row, 3).getValue();
+      const profile = sheet.getRange(row, 10).getValue();
+      const empEmail = sheet.getRange(row, 30).getValue() || findUserEmailByName(empName);
+      const princEmail = sheet.getRange(row, 32).getValue();
+      const princName = sheet.getRange(row, 33).getValue() || sheet.getRange(row, 7).getValue();
+
+      sendEvaluationNotification('secondary_evaluation_submitted', {
+        employeeName: empName,
+        employeeEmail: empEmail,
+        period: period,
+        profile: profile,
+        principalEvaluatorName: princName,
+        principalEvaluatorEmail: princEmail || findUserEmailByName(princName),
+        secondaryEvaluators: secondaryList,
+        evaluatorName: evaluatorName,
+        allCompleted: allCompleted
+      });
+    } catch(notifErr) {
+      Logger.log("Erreur notification secondary_eval: " + notifErr.message);
+    }
+
     return { success: true, nextStatus: nextStatus, allCompleted: allCompleted };
   } catch (e) {
     throw new Error("Erreur lors de l'enregistrement de l'évaluation secondaire: " + e.message);
@@ -1635,6 +1975,25 @@ function advanceToPrincipalEvaluation(token, rowId) {
     if (!sheet) throw new Error("Feuille Evaluations introuvable.");
     const row = parseInt(rowId);
     sheet.getRange(row, 2).setValue('Attente Évaluateur Principal');
+
+    try {
+      const empName = sheet.getRange(row, 4).getValue();
+      const period = sheet.getRange(row, 3).getValue();
+      const empEmail = sheet.getRange(row, 30).getValue() || findUserEmailByName(empName);
+      const princEmail = sheet.getRange(row, 32).getValue();
+      const princName = sheet.getRange(row, 33).getValue() || sheet.getRange(row, 7).getValue();
+
+      sendEvaluationNotification('advance_to_principal', {
+        employeeName: empName,
+        employeeEmail: empEmail,
+        period: period,
+        principalEvaluatorName: princName,
+        principalEvaluatorEmail: princEmail || findUserEmailByName(princName)
+      });
+    } catch(notifErr) {
+      Logger.log("Erreur notification advance_to_principal: " + notifErr.message);
+    }
+
     return { success: true };
   } catch(e) {
     throw new Error("Erreur advanceToPrincipalEvaluation: " + e.message);
@@ -1986,6 +2345,31 @@ function submitAttachedManagerEvaluation(token, rowId, formData, managerNameFall
     const pdfUrl = generateEvaluationPDF(row);
     if(pdfUrl) {
        sheet.getRange(row, 31).setValue(pdfUrl);
+    }
+
+    try {
+      const empName = sheet.getRange(row, 4).getValue();
+      const period = sheet.getRange(row, 3).getValue();
+      const profile = sheet.getRange(row, 10).getValue();
+      const empEmail = sheet.getRange(row, 30).getValue() || findUserEmailByName(empName);
+      const princEmail = sheet.getRange(row, 32).getValue();
+      const princName = updatedMgrName;
+      const secStr = sheet.getRange(row, 34).getValue();
+      let secList = [];
+      try { if (secStr) secList = JSON.parse(secStr); } catch(e) {}
+
+      sendEvaluationNotification('evaluation_completed', {
+        employeeName: empName,
+        employeeEmail: empEmail,
+        period: period,
+        profile: profile,
+        principalEvaluatorName: princName,
+        principalEvaluatorEmail: princEmail || findUserEmailByName(princName),
+        secondaryEvaluators: secList,
+        pdfUrl: pdfUrl || ''
+      });
+    } catch(notifErr) {
+      Logger.log("Erreur notification eval_completed: " + notifErr.message);
     }
 
     return { success: true };

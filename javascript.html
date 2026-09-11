@@ -93,34 +93,172 @@
       .authenticateUser(username, password);
   }
 
-  // Gérer la sauvegarde du modèle d'e-mail
-  document.getElementById('admin-eval-email-form').addEventListener('submit', function(e) {
-    e.preventDefault();
-    const btn = document.getElementById('btn-save-eval-email');
-    const statusMsg = document.getElementById('eval-email-status');
-    btn.disabled = true;
-    statusMsg.innerText = "Enregistrement...";
-    statusMsg.style.color = "var(--primary-color)";
-    
-    const settings = {
-      sujet: document.getElementById('eval-email-subject').value,
-      message: document.getElementById('eval-email-message').value
-    };
-    
+  // ====================================================
+  // GESTION DES NOTIFICATIONS AUTOMATIQUES D'ÉVALUATION
+  // ====================================================
+  window.adminNotifSettings = null;
+
+  const DEFAULT_FRONTEND_NOTIF_TEMPLATES = {
+    initiation_employee: {
+      subject: '[Portail Kanaga] Votre auto-évaluation de performance est ouverte - Période {periode}',
+      message: 'Bonjour <strong>{nom_employe}</strong>,<br><br>Votre évaluateur principal (<strong>{evaluateur_principal}</strong>) a initié votre campagne d\'évaluation de la performance pour la période <strong>{periode}</strong>.<br><br>Nous vous invitons à vous connecter sur le portail Kanaga pour compléter votre auto-évaluation en cliquant sur le bouton ci-dessous :<br><br><div style="text-align:center;"><a href="{lien_portail}" class="btn-email">Accéder à mon Auto-Évaluation</a></div><br><br><em>Conseil : Prenez le temps de bien détailler vos réalisations, points forts et axes d\'amélioration.</em><br><br>Cordialement,<br><strong>L\'équipe Kanaga Consulting</strong>'
+    },
+    initiation_secondary: {
+      subject: '[Portail Kanaga] Désignation comme évaluateur secondaire - {nom_employe}',
+      message: 'Bonjour,<br><br>Vous avez été désigné(e) comme <strong>évaluateur(trice) secondaire</strong> pour l\'évaluation de la performance de <strong>{nom_employe}</strong> (Période : <strong>{periode}</strong>) par <strong>{evaluateur_principal}</strong>.<br><br>Dès que le collaborateur aura validé son auto-évaluation, vous recevrez une notification pour renseigner vos appréciations.<br><br><div style="text-align:center;"><a href="{lien_portail}" class="btn-email">Consulter le Portail Kanaga</a></div><br><br>Cordialement,<br><strong>L\'équipe Kanaga Consulting</strong>'
+    },
+    self_eval_submitted: {
+      subject: '[Portail Kanaga] Auto-évaluation soumise par {nom_employe} - Action attendue',
+      message: 'Bonjour,<br><br>Le collaborateur <strong>{nom_employe}</strong> a complété et soumis son auto-évaluation pour la période <strong>{periode}</strong>.<br><br>Vous pouvez dès à présent consulter ses réponses et renseigner votre évaluation sur le portail :<br><br><div style="text-align:center;"><a href="{lien_portail}" class="btn-email">Accéder à l\'Évaluation</a></div><br><br>Cordialement,<br><strong>L\'équipe Kanaga Consulting</strong>'
+    },
+    secondary_completed: {
+      subject: '[Portail Kanaga] Évaluations secondaires terminées pour {nom_employe}',
+      message: 'Bonjour <strong>{evaluateur_principal}</strong>,<br><br>Tous les évaluateurs secondaires ont finalisé leur évaluation pour <strong>{nom_employe}</strong> (Période : <strong>{periode}</strong>).<br><br>Le dossier est désormais complet et prêt pour votre entretien managérial et la finalisation de l\'évaluation.<br><br><div style="text-align:center;"><a href="{lien_portail}" class="btn-email">Finaliser l\'Évaluation sur le Portail</a></div><br><br>Cordialement,<br><strong>L\'équipe Kanaga Consulting</strong>'
+    },
+    eval_finalized: {
+      subject: '[Portail Kanaga] Votre évaluation de performance est finalisée - Période {periode}',
+      message: 'Bonjour <strong>{nom_employe}</strong>,<br><br>Votre entretien et votre évaluation de performance pour la période <strong>{periode}</strong> ont été finalisés et validés par votre évaluateur principal (<strong>{evaluateur_principal}</strong>).<br><br>Votre compte-rendu officiel d\'évaluation est accessible sur le portail :<br><br><div style="text-align:center;"><a href="{lien_portail}" class="btn-email">Consulter mon Évaluation sur le Portail</a></div><br><br>{bloc_pdf}Nous vous remercions pour votre engagement et votre contribution continue aux succès de Kanaga Consulting.<br><br>Cordialement,<br><strong>Direction des Ressources Humaines - Kanaga Consulting</strong>'
+    }
+  };
+
+  function loadEvaluationNotificationSettings() {
     google.script.run
-      .withSuccessHandler(function() {
-         btn.disabled = false;
-         statusMsg.innerText = "Modèle enregistré avec succès.";
-         statusMsg.style.color = "green";
-         setTimeout(() => statusMsg.innerText = "", 3000);
+      .withSuccessHandler(function(settings) {
+        window.adminNotifSettings = settings || {};
+        const actSelect = document.getElementById('eval-notif-activation');
+        if (actSelect) {
+          actSelect.value = (window.adminNotifSettings.activation || 'OUI').toUpperCase();
+        }
+        onNotificationEventSelectChange();
       })
       .withFailureHandler(function(err) {
-         btn.disabled = false;
-         statusMsg.innerText = "Erreur: " + err.message;
-         statusMsg.style.color = "red";
+        console.error("Erreur chargement notif settings: " + err.message);
       })
-      .saveEvaluationEmailSettings(window.kanagaToken, settings);
-  });
+      .getEvaluationNotificationSettings(window.kanagaToken);
+  }
+
+  function onNotificationEventSelectChange() {
+    const select = document.getElementById('eval-email-event-select');
+    if (!select) return;
+    const evt = select.value || 'initiation_employee';
+    const settings = window.adminNotifSettings || {};
+
+    const subjectInput = document.getElementById('eval-email-subject');
+    const messageInput = document.getElementById('eval-email-message');
+    const defaultTpl = DEFAULT_FRONTEND_NOTIF_TEMPLATES[evt] || {};
+
+    if (subjectInput) {
+      subjectInput.value = settings[evt + '_subject'] || defaultTpl.subject || '';
+    }
+    if (messageInput) {
+      messageInput.value = settings[evt + '_message'] || defaultTpl.message || '';
+    }
+    const statusMsg = document.getElementById('eval-email-status');
+    if (statusMsg) statusMsg.innerText = '';
+  }
+
+  function saveCurrentNotificationTemplate(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    const select = document.getElementById('eval-email-event-select');
+    const evt = select ? select.value : 'initiation_employee';
+    const subject = document.getElementById('eval-email-subject').value;
+    const message = document.getElementById('eval-email-message').value;
+    const btn = document.getElementById('btn-save-eval-email');
+    const statusMsg = document.getElementById('eval-email-status');
+
+    if (!window.adminNotifSettings) window.adminNotifSettings = {};
+    window.adminNotifSettings[evt + '_subject'] = subject;
+    window.adminNotifSettings[evt + '_message'] = message;
+
+    if (btn) btn.disabled = true;
+    if (statusMsg) {
+      statusMsg.innerText = "⏳ Enregistrement du modèle...";
+      statusMsg.style.color = "var(--primary-color)";
+    }
+
+    google.script.run
+      .withSuccessHandler(function() {
+        if (btn) btn.disabled = false;
+        if (statusMsg) {
+          statusMsg.innerText = "✅ Modèle enregistré avec succès !";
+          statusMsg.style.color = "green";
+          setTimeout(() => { if (statusMsg) statusMsg.innerText = ""; }, 4000);
+        }
+      })
+      .withFailureHandler(function(err) {
+        if (btn) btn.disabled = false;
+        if (statusMsg) {
+          statusMsg.innerText = "❌ Erreur: " + err.message;
+          statusMsg.style.color = "red";
+        }
+      })
+      .saveEvaluationNotificationSettings(window.kanagaToken, window.adminNotifSettings);
+  }
+
+  function saveNotificationActivation(val) {
+    if (!window.adminNotifSettings) window.adminNotifSettings = {};
+    window.adminNotifSettings.activation = val;
+    google.script.run
+      .withSuccessHandler(function() {
+        alert(val === 'OUI' 
+          ? "Les notifications par e-mail automatiques sont désormais ACTIVÉES." 
+          : "Les notifications par e-mail automatiques sont désormais DÉSACTIVÉES.");
+      })
+      .withFailureHandler(function(err) {
+        alert("Erreur activation: " + err.message);
+      })
+      .saveEvaluationNotificationSettings(window.kanagaToken, window.adminNotifSettings);
+  }
+
+  function resetCurrentNotificationTemplate() {
+    const select = document.getElementById('eval-email-event-select');
+    const evt = select ? select.value : 'initiation_employee';
+    const defaultTpl = DEFAULT_FRONTEND_NOTIF_TEMPLATES[evt];
+    if (!defaultTpl) return;
+
+    if (confirm("Voulez-vous rétablir le modèle par défaut pour cet événement ?")) {
+      document.getElementById('eval-email-subject').value = defaultTpl.subject;
+      document.getElementById('eval-email-message').value = defaultTpl.message;
+      saveCurrentNotificationTemplate();
+    }
+  }
+
+  function sendTestNotificationEmail() {
+    const input = document.getElementById('eval-test-email-input');
+    const testEmail = (input ? input.value : '').trim();
+    if (!testEmail || !testEmail.includes('@')) {
+      alert("Veuillez renseigner une adresse e-mail valide pour le test.");
+      return;
+    }
+    const select = document.getElementById('eval-email-event-select');
+    const evt = select ? select.value : 'initiation_employee';
+    const btn = document.getElementById('btn-send-test-email');
+    const status = document.getElementById('eval-test-email-status');
+
+    if (btn) btn.disabled = true;
+    if (status) {
+      status.innerText = "⏳ Envoi de l'e-mail de test en cours...";
+      status.style.color = "var(--primary-color)";
+    }
+
+    google.script.run
+      .withSuccessHandler(function(res) {
+        if (btn) btn.disabled = false;
+        if (status) {
+          status.innerText = "✅ " + (res.message || "E-mail de test envoyé avec succès !");
+          status.style.color = "green";
+          setTimeout(() => { if (status) status.innerText = ""; }, 6000);
+        }
+      })
+      .withFailureHandler(function(err) {
+        if (btn) btn.disabled = false;
+        if (status) {
+          status.innerText = "❌ Erreur: " + err.message;
+          status.style.color = "red";
+        }
+      })
+      .testSendEvaluationNotification(window.kanagaToken, evt, testEmail);
+  }
 
   function initAuthenticatedApp(user) {
     document.getElementById('view-login').style.display = 'none';
@@ -2793,6 +2931,8 @@
 
       if (tabId === 'country-groups') {
         loadAdminCountryGroups();
+      } else if (tabId === 'email') {
+        loadEvaluationNotificationSettings();
       }
   }
 
@@ -2946,10 +3086,7 @@
     populateAdminQuestionsConfig();
     
     // Charger les paramètres de l'e-mail d'évaluation
-    google.script.run.withSuccessHandler(function(settings) {
-       document.getElementById('eval-email-subject').value = settings.sujet;
-       document.getElementById('eval-email-message').value = settings.message;
-    }).getEvaluationEmailSettings(window.kanagaToken);
+    loadEvaluationNotificationSettings();
     
     google.script.run
       .withSuccessHandler(function(users) {
