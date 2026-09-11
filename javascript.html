@@ -1025,8 +1025,8 @@
                 autoevalBanner.style.display = 'block';
                 const evaluatorDisplayName = ev.principalEvaluatorName || ev.evaluatorName || "votre évaluateur principal";
                 autoevalBanner.innerHTML = `
-                  <strong>Auto-évaluation de la performance</strong><br>
-                  Cette évaluation a été initiée par <strong>${escapeHtml(evaluatorDisplayName)}</strong> pour la période <strong>${escapeHtml(ev.period)}</strong> sur le profil <strong>${escapeHtml(ev.profile)}</strong>. Ces informations sont verrouillées et déterminent vos questions.
+                  <div style="font-weight:700; color:var(--primary-color, #7C4C26); font-size:14px; margin-bottom:4px;">📋 Auto-évaluation de la performance</div>
+                  <div style="color:#2D1A0A;">Cette évaluation a été initiée par <strong>${escapeHtml(evaluatorDisplayName)}</strong> pour la période <strong>${escapeHtml(ev.period)}</strong> sur le profil <strong>${escapeHtml(ev.profile)}</strong>. Ces informations sont verrouillées et déterminent vos questions.</div>
                 `;
             }
         }
@@ -2210,9 +2210,10 @@
     }
     if (status) {
       status.style.display = 'block';
-      status.style.background = '#e3f2fd';
-      status.style.color = '#0d47a1';
-      status.style.border = '1px solid #bbdefb';
+      status.style.background = '#FAF6EE';
+      status.style.color = 'var(--primary-color, #7C4C26)';
+      status.style.border = '1px solid #E0CC99';
+      status.style.borderRadius = '6px';
       status.innerHTML = '⏳ <strong>Enregistrement en cours...</strong> Veuillez patienter pendant la transmission de votre évaluation.';
     }
     

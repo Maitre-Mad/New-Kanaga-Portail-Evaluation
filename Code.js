@@ -1040,7 +1040,7 @@ function buildStyledEmailHtml(title, bodyHtml, metaData) {
       metaRows += '<tr><td style="padding:5px 8px; font-weight:700; color:#5D4037;">Évaluateur Principal :</td><td style="padding:5px 8px; font-weight:600; color:#2D3748;">' + metaData.principalEvaluatorName + '</td></tr>';
     }
     if (metaData.stepStatus) {
-      metaRows += '<tr><td style="padding:5px 8px; font-weight:700; color:#5D4037;">Étape / Statut :</td><td style="padding:5px 8px; font-weight:700; color:#7A2537;">' + metaData.stepStatus + '</td></tr>';
+      metaRows += '<tr><td style="padding:5px 8px; font-weight:700; color:#5D4037;">Étape / Statut :</td><td style="padding:5px 8px; font-weight:700; color:#7C4C26;">' + metaData.stepStatus + '</td></tr>';
     }
   }
 
@@ -1056,14 +1056,14 @@ function buildStyledEmailHtml(title, bodyHtml, metaData) {
 <head>
   <meta charset="utf-8">
   <style>
-    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #F7F5F0; margin: 0; padding: 20px; color: #2D3748; }
-    .email-container { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 8px; overflow: hidden; border: 1px solid #E2D9C8; box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
-    .email-header { background: linear-gradient(135deg, #7A2537 0%, #5D4037 100%); padding: 22px 28px; text-align: center; color: #ffffff; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #F8F6F0; margin: 0; padding: 20px; color: #2D1A0A; }
+    .email-container { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 8px; overflow: hidden; border: 1px solid #E0CC99; box-shadow: 0 4px 12px rgba(124, 76, 38, 0.08); }
+    .email-header { background: linear-gradient(135deg, #7C4C26 0%, #552F0C 100%); border-bottom: 3px solid #BF9959; padding: 22px 28px; text-align: center; color: #ffffff; }
     .email-header h1 { margin: 0; font-size: 19px; font-weight: 700; letter-spacing: 0.5px; color: #ffffff; }
-    .email-header p { margin: 5px 0 0 0; font-size: 12px; opacity: 0.9; color: #f0e6d2; }
-    .email-body { padding: 26px 28px; line-height: 1.6; font-size: 14px; color: #333333; }
-    .btn-email { display: inline-block; background: #7A2537; color: #ffffff !important; text-decoration: none; padding: 11px 22px; border-radius: 5px; font-weight: 700; font-size: 13px; margin: 10px 0; text-align: center; }
-    .email-footer { background: #FAF8F5; padding: 16px 28px; border-top: 1px solid #E2D9C8; text-align: center; font-size: 11px; color: #718096; line-height: 1.4; }
+    .email-header p { margin: 5px 0 0 0; font-size: 12px; opacity: 0.95; color: #F8F6F0; }
+    .email-body { padding: 26px 28px; line-height: 1.6; font-size: 14px; color: #2D1A0A; }
+    .btn-email { display: inline-block; background: #7C4C26; color: #ffffff !important; text-decoration: none; padding: 11px 24px; border-radius: 5px; font-weight: 700; font-size: 13px; margin: 10px 0; text-align: center; border-bottom: 2px solid #552F0C; }
+    .email-footer { background: #FAF8F5; padding: 16px 28px; border-top: 1px solid #E0CC99; text-align: center; font-size: 11px; color: #7C4C26; line-height: 1.4; }
   </style>
 </head>
 <body>
@@ -1144,11 +1144,20 @@ function sendEvaluationNotification(eventType, context) {
           principalEvaluatorName: princName,
           stepStatus: stepStatusLabel
         });
-        MailApp.sendEmail({
+        const mailOptions = {
           to: toEmail,
           subject: subject,
-          htmlBody: finalHtml
-        });
+          htmlBody: finalHtml,
+          from: 'notifications@kanagaconsulting.com',
+          name: 'Portail Kanaga Consulting'
+        };
+        try {
+          MailApp.sendEmail(mailOptions);
+        } catch(fromErr) {
+          Logger.log("Envoi avec alias échoué, repli vers envoi standard: " + fromErr.message);
+          delete mailOptions.from;
+          MailApp.sendEmail(mailOptions);
+        }
         Logger.log(`Email envoyé à ${toEmail} pour [${eventType}]`);
       } catch(mErr) {
         Logger.log(`Erreur envoi email à ${toEmail}: ${mErr.message}`);
