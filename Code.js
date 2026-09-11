@@ -1246,9 +1246,11 @@ function getEvaluationConfig(token) {
       config[p].sort((a, b) => (a.order || 0) - (b.order || 0));
     }
 
+    config._stepTitles = getEvaluationStepTitles();
     return config;
   } catch(e) {
     Logger.log("Erreur lecture EvaluationQuestions: " + e.message);
+    defaultConfig._stepTitles = getEvaluationStepTitles();
     return defaultConfig;
   }
 }
@@ -1275,6 +1277,7 @@ function saveEvaluationConfig(token, config) {
   const defaultScale = "PI, PA, CA, PS, PE, N/A";
 
   for (let profile in config) {
+    if (profile.startsWith('_') || !Array.isArray(config[profile])) continue;
     const qList = config[profile];
     const baseAssociee = (profile.toLowerCase() === 'fondamentales' || profile.toLowerCase() === 'conclusion') ? '' : 'fondamentales';
     if (Array.isArray(qList)) {
@@ -1298,6 +1301,48 @@ function saveEvaluationConfig(token, config) {
   }
 
   return { success: true, count: rowsToAdd.length };
+}
+
+function getEvaluationStepTitles() {
+  const defaultTitles = {
+    step1: "1. Entonnoir (Infos)",
+    step2: "2. Tronc Commun",
+    step3: "3. Aiguillage Profil",
+    step4: "4. Réunion Finale"
+  };
+  try {
+    const raw = PropertiesService.getScriptProperties().getProperty('EVALUATION_STEP_TITLES');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return {
+        step1: parsed.step1 || defaultTitles.step1,
+        step2: parsed.step2 || defaultTitles.step2,
+        step3: parsed.step3 || defaultTitles.step3,
+        step4: parsed.step4 || defaultTitles.step4
+      };
+    }
+  } catch(e) {
+    Logger.log("Erreur lecture step titles: " + e.message);
+  }
+  return defaultTitles;
+}
+
+function saveEvaluationStepTitles(token, titles) {
+  const sessionUser = verifySession(token);
+  const userRole = ((sessionUser && sessionUser.role) || '').toLowerCase().trim();
+  if (userRole !== 'admin' && userRole !== 'manager' && userRole !== 'directeur') {
+    throw new Error("Action non autorisée. Seuls les administrateurs et managers peuvent modifier les intitulés des étapes.");
+  }
+
+  const cleanTitles = {
+    step1: String((titles && titles.step1) || "1. Entonnoir (Infos)").trim(),
+    step2: String((titles && titles.step2) || "2. Tronc Commun").trim(),
+    step3: String((titles && titles.step3) || "3. Aiguillage Profil").trim(),
+    step4: String((titles && titles.step4) || "4. Réunion Finale").trim()
+  };
+
+  PropertiesService.getScriptProperties().setProperty('EVALUATION_STEP_TITLES', JSON.stringify(cleanTitles));
+  return { success: true, titles: cleanTitles };
 }
 
 function initiateEvaluationsBatch(token, formData) {

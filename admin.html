@@ -68,31 +68,63 @@
 
   <!-- PANEL : QUESTIONS D'ÉVALUATION (ARCHITECTURE SABLIER / MODÈLE EN Y) -->
   <div class="panel admin-panel" id="admin-panel-questions" style="display:none;">
-    <!-- Bannière explicative : Architecture Sablier / Modèle en Y -->
+    <!-- Bannière explicative : Architecture et Parcours du Questionnaire -->
     <div class="sablier-banner">
       <div class="sablier-header">
-        <span style="font-weight: 700;">Structure en Sablier (Modèle en Y) du Questionnaire d'Évaluation</span>
+        <span style="font-weight: 700;">Structure et Parcours du Questionnaire d'Évaluation</span>
       </div>
       <p style="font-size: 13px; color: #5D4037; margin-bottom: 12px; line-height: 1.5;">
         Le questionnaire s'adapte dynamiquement au profil de chaque collaborateur tout en garantissant un cadre commun et équitable.
       </p>
       <div class="sablier-diagram">
         <div class="sablier-node sablier-node-start">
-          <strong>1. Entonnoir de départ</strong><br>
+          <strong id="sablier-node-1-title">1. Entonnoir de départ</strong><br>
           <em>(Identité, période, sélection du profil de poste)</em>
         </div>
         <div class="sablier-arrow">→</div>
         <div class="sablier-node sablier-node-split">
-          <strong>2. Tronc Commun & Aiguillage</strong><br>
+          <strong id="sablier-node-2-title">2. Tronc Commun & Aiguillage</strong><br>
           • <strong>Fondamentales :</strong> 8 compétences communes pour tous<br>
           • <strong>Aiguillage profil :</strong> Questions spécifiques selon le métier (ex: <em>Junior privé</em> vs <em>Assistant public</em>)
         </div>
         <div class="sablier-arrow">→</div>
         <div class="sablier-node sablier-node-merge">
-          <strong>3. Réunion Finale</strong><br>
+          <strong id="sablier-node-3-title">3. Réunion Finale</strong><br>
           <em>(Bilan objectifs, points forts, axes d'amélioration, objectifs SMART)</em>
         </div>
       </div>
+    </div>
+
+    <!-- Personnalisation des Intitulés des Étapes du Questionnaire -->
+    <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 8px; padding: 16px 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+        <div>
+          <h4 style="margin:0; color: #2D3748; font-size:15px; font-weight:700;">Intitulés des Étapes du Questionnaire</h4>
+          <p class="text-muted" style="margin:2px 0 0 0; font-size:12px;">Personnalisez les noms affichés sur la barre de progression et les sections du questionnaire.</p>
+        </div>
+        <button type="button" class="btn btn-outline" onclick="saveAdminStepTitles()" id="btn-save-step-titles" style="font-size:12px; padding:6px 14px; font-weight:600;" title="Enregistrer les intitulés des étapes">
+          Enregistrer les Intitulés
+        </button>
+      </div>
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px;">
+        <div>
+          <label style="font-size:11px; font-weight:700; color:#718096; text-transform:uppercase; display:block; margin-bottom:4px;">Étape 1 (Informations Générales)</label>
+          <input type="text" id="admin-step1-name" class="form-control" style="font-size:13px; font-weight:600;" placeholder="1. Entonnoir (Infos)" oninput="markAdminQuestionsUnsaved()">
+        </div>
+        <div>
+          <label style="font-size:11px; font-weight:700; color:#718096; text-transform:uppercase; display:block; margin-bottom:4px;">Étape 2 (Tronc Commun)</label>
+          <input type="text" id="admin-step2-name" class="form-control" style="font-size:13px; font-weight:600;" placeholder="2. Tronc Commun" oninput="markAdminQuestionsUnsaved()">
+        </div>
+        <div>
+          <label style="font-size:11px; font-weight:700; color:#718096; text-transform:uppercase; display:block; margin-bottom:4px;">Étape 3 (Aiguillage Profil Métier)</label>
+          <input type="text" id="admin-step3-name" class="form-control" style="font-size:13px; font-weight:600;" placeholder="3. Aiguillage Profil" oninput="markAdminQuestionsUnsaved()">
+        </div>
+        <div>
+          <label style="font-size:11px; font-weight:700; color:#718096; text-transform:uppercase; display:block; margin-bottom:4px;">Étape 4 (Réunion Finale / Synthèse)</label>
+          <input type="text" id="admin-step4-name" class="form-control" style="font-size:13px; font-weight:600;" placeholder="4. Réunion Finale" oninput="markAdminQuestionsUnsaved()">
+        </div>
+      </div>
+      <span id="admin-step-titles-msg" class="status-msg" style="display:block; margin-top:8px; font-size:12px;"></span>
     </div>
 
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px; flex-wrap:wrap; gap:10px;">

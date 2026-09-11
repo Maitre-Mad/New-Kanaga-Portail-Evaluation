@@ -187,6 +187,13 @@
       })
       .getNativeEvaluations(window.kanagaToken);
     
+    // Charger les intitulés personnalisés des étapes du questionnaire
+    google.script.run
+      .withSuccessHandler(function(titles) {
+        if (titles) applyEvaluationStepTitles(titles);
+      })
+      .getEvaluationStepTitles();
+
     loadTimesheetData();
   }
 
@@ -3015,12 +3022,107 @@
     document.getElementById('admin-edit-modal').style.display = 'flex';
   }
 
-  // --- Gestion de la configuration des questions (Admin) ---
+  // --- Gestion des Intitulés des Étapes du Questionnaire & Configuration Questions ---
+  let currentEvaluationStepTitles = {
+    step1: "1. Entonnoir (Infos)",
+    step2: "2. Tronc Commun",
+    step3: "3. Aiguillage Profil",
+    step4: "4. Réunion Finale"
+  };
+
+  function applyEvaluationStepTitles(titles) {
+    if (!titles) return;
+    currentEvaluationStepTitles = Object.assign({}, currentEvaluationStepTitles, titles);
+
+    // Barre de navigation du wizard
+    const nav1 = document.getElementById('step-nav-1');
+    const nav2 = document.getElementById('step-nav-2');
+    const nav3 = document.getElementById('step-nav-3');
+    const nav4 = document.getElementById('step-nav-4');
+    if (nav1) nav1.innerText = currentEvaluationStepTitles.step1;
+    if (nav2) nav2.innerText = currentEvaluationStepTitles.step2;
+    if (nav3) nav3.innerText = currentEvaluationStepTitles.step3;
+    if (nav4) nav4.innerText = currentEvaluationStepTitles.step4;
+
+    // Titres intérieurs des sections
+    const title1 = document.getElementById('step-1-title');
+    const title2 = document.getElementById('step-2-title');
+    const title3 = document.getElementById('step-3-title');
+    const title4 = document.getElementById('step-4-title');
+    if (title1) title1.innerText = "Section 0 : " + currentEvaluationStepTitles.step1 + " (Informations Générales)";
+    if (title2) title2.innerText = "Section 1 : " + currentEvaluationStepTitles.step2 + " - Compétences Fondamentales";
+    if (title3) {
+      const curProfile = document.getElementById('eval-profile-select') ? document.getElementById('eval-profile-select').value : '';
+      title3.innerText = "Section 2 : " + currentEvaluationStepTitles.step3 + (curProfile ? " - " + curProfile : "");
+    }
+    if (title4) title4.innerText = "Section 3 : " + currentEvaluationStepTitles.step4 + " - Objectifs & Synthèse Globale";
+
+    // Champs du formulaire administrateur
+    const in1 = document.getElementById('admin-step1-name');
+    const in2 = document.getElementById('admin-step2-name');
+    const in3 = document.getElementById('admin-step3-name');
+    const in4 = document.getElementById('admin-step4-name');
+    if (in1) in1.value = currentEvaluationStepTitles.step1;
+    if (in2) in2.value = currentEvaluationStepTitles.step2;
+    if (in3) in3.value = currentEvaluationStepTitles.step3;
+    if (in4) in4.value = currentEvaluationStepTitles.step4;
+
+    // Diagramme du parcours dans l'admin
+    const s1 = document.getElementById('sablier-node-1-title');
+    const s2 = document.getElementById('sablier-node-2-title');
+    const s3 = document.getElementById('sablier-node-3-title');
+    if (s1) s1.innerText = currentEvaluationStepTitles.step1;
+    if (s2) s2.innerText = currentEvaluationStepTitles.step2 + " & " + currentEvaluationStepTitles.step3;
+    if (s3) s3.innerText = currentEvaluationStepTitles.step4;
+  }
+
+  function saveAdminStepTitles() {
+    const btn = document.getElementById('btn-save-step-titles');
+    const msg = document.getElementById('admin-step-titles-msg');
+    const in1 = document.getElementById('admin-step1-name');
+    const in2 = document.getElementById('admin-step2-name');
+    const in3 = document.getElementById('admin-step3-name');
+    const in4 = document.getElementById('admin-step4-name');
+
+    const titles = {
+      step1: ((in1 && in1.value) || "1. Entonnoir (Infos)").trim(),
+      step2: ((in2 && in2.value) || "2. Tronc Commun").trim(),
+      step3: ((in3 && in3.value) || "3. Aiguillage Profil").trim(),
+      step4: ((in4 && in4.value) || "4. Réunion Finale").trim()
+    };
+
+    if (btn) { btn.disabled = true; btn.innerText = "Enregistrement..."; }
+    if (msg) { msg.innerText = "Enregistrement des intitulés..."; msg.style.color = "var(--primary-color)"; }
+
+    google.script.run
+      .withSuccessHandler(function(res) {
+        if (btn) { btn.disabled = false; btn.innerText = "Enregistrer les Intitulés"; }
+        applyEvaluationStepTitles(titles);
+        updateAdminProfileSelect();
+        if (msg) {
+          msg.innerText = "✅ Intitulés des étapes enregistrés avec succès !";
+          msg.style.color = "green";
+          setTimeout(() => { if (msg) msg.innerText = ''; }, 4000);
+        }
+      })
+      .withFailureHandler(function(err) {
+        if (btn) { btn.disabled = false; btn.innerText = "Enregistrer les Intitulés"; }
+        if (msg) {
+          msg.innerText = "Erreur: " + err.message;
+          msg.style.color = "#d32f2f";
+        }
+      })
+      .saveEvaluationStepTitles(window.kanagaToken, titles);
+  }
+
   let adminEvalConfigData = null;
 
   function populateAdminQuestionsConfig() {
      google.script.run
        .withSuccessHandler(function(config) {
+          if (config && config._stepTitles) {
+            applyEvaluationStepTitles(config._stepTitles);
+          }
           if (config && config.conclusion && config.conclusion.length >= 5) {
             const allP1 = config.conclusion.every(q => (parseInt(q.page, 10) || 1) === 1);
             if (allP1) {
@@ -3046,6 +3148,9 @@
      google.script.run
        .withSuccessHandler(function(config) {
           if (btn) btn.disabled = false;
+          if (config && config._stepTitles) {
+            applyEvaluationStepTitles(config._stepTitles);
+          }
           if (config && config.conclusion && config.conclusion.length >= 5) {
             const allP1 = config.conclusion.every(q => (parseInt(q.page, 10) || 1) === 1);
             if (allP1) {
@@ -3066,12 +3171,12 @@
           if (btn) btn.disabled = false;
           if (statusEl) {
             statusEl.style.color = 'var(--danger-color)';
-            statusEl.textContent = 'Erreur lors du rechargement : ' + err.message;
-          }
-       })
-       .getEvaluationConfig(window.kanagaToken);
+             statusEl.textContent = 'Erreur lors du rechargement : ' + err.message;
+           }
+        })
+        .getEvaluationConfig(window.kanagaToken);
   }
-  
+
   function updateAdminProfileSelect(selectedKey) {
       const select = document.getElementById('admin-profile-select');
       if (!select) return;
@@ -3080,12 +3185,12 @@
       
       const fondaOpt = document.createElement('option');
       fondaOpt.value = 'fondamentales';
-      fondaOpt.text = 'Tronc Commun : Fondamentales (Communes à tous)';
+      fondaOpt.text = (currentEvaluationStepTitles.step2 || 'Tronc Commun') + ' : Fondamentales (Communes à tous)';
       select.appendChild(fondaOpt);
 
       const conclusionOpt = document.createElement('option');
       conclusionOpt.value = 'conclusion';
-      conclusionOpt.text = 'Section 3 : Conclusion Commune - Objectifs & Synthèse (Commune à tous)';
+      conclusionOpt.text = 'Section 3 : ' + (currentEvaluationStepTitles.step4 || 'Conclusion Commune') + ' (Commune à tous)';
       select.appendChild(conclusionOpt);
       
       const cloneSelect = document.getElementById('admin-clone-profile-select');
@@ -3103,7 +3208,7 @@
       }
       
       for (const key in adminEvalConfigData) {
-         if (key.toLowerCase() !== 'fondamentales' && key.toLowerCase() !== 'conclusion') {
+         if (key.toLowerCase() !== 'fondamentales' && key.toLowerCase() !== 'conclusion' && !key.startsWith('_')) {
             const opt = document.createElement('option');
             opt.value = key;
             opt.text = "Profil : " + key;
@@ -3155,20 +3260,20 @@
       
       if (titleEl) {
         if (isFonda) {
-          titleEl.textContent = "Section 1 : Tronc Commun - Compétences Fondamentales";
+          titleEl.textContent = "Section 1 : " + (currentEvaluationStepTitles.step2 || "Tronc Commun") + " - Compétences Fondamentales";
         } else if (isConclusion) {
-          titleEl.textContent = "Section 3 : Conclusion Commune - Objectifs & Synthèse Globale";
+          titleEl.textContent = "Section 3 : " + (currentEvaluationStepTitles.step4 || "Conclusion Commune") + " - Objectifs & Synthèse Globale";
         } else {
-          titleEl.textContent = `Aiguillage Spécifique : Profil "${profile}"`;
+          titleEl.textContent = (currentEvaluationStepTitles.step3 || "Aiguillage Spécifique") + `: Profil "${profile}"`;
         }
       }
       if (descEl) {
         if (isFonda) {
-          descEl.textContent = "Section 1 du Sablier : Posée obligatoirement à tous les collaborateurs, quel que soit leur métier.";
+          descEl.textContent = "Section commune : Posée obligatoirement à tous les collaborateurs, quel que soit leur métier.";
         } else if (isConclusion) {
-          descEl.textContent = "Section 3 du Sablier : Page finale commune remplie après l'évaluation du profil spécifique par tous les collaborateurs et managers.";
+          descEl.textContent = "Page finale commune remplie après l'évaluation du profil spécifique par tous les collaborateurs et managers.";
         } else {
-          descEl.textContent = `Section 2 du Sablier : Posée uniquement aux collaborateurs avec le profil "${profile}".`;
+          descEl.textContent = `Posée uniquement aux collaborateurs avec le profil "${profile}".`;
         }
       }
 
@@ -3547,7 +3652,22 @@
         status.innerText = "⏳ Enregistrement de la configuration et des pages sur la feuille EvaluationQuestions...";
         status.style.color = "var(--primary-color)";
       }
-      
+      // Enregistrer également les intitulés d'étapes s'ils sont renseignés
+      const in1 = document.getElementById('admin-step1-name');
+      const in2 = document.getElementById('admin-step2-name');
+      const in3 = document.getElementById('admin-step3-name');
+      const in4 = document.getElementById('admin-step4-name');
+      if (in1 && in2 && in3 && in4) {
+        const titlesToSave = {
+          step1: (in1.value || "1. Entonnoir (Infos)").trim(),
+          step2: (in2.value || "2. Tronc Commun").trim(),
+          step3: (in3.value || "3. Aiguillage Profil").trim(),
+          step4: (in4.value || "4. Réunion Finale").trim()
+        };
+        google.script.run.saveEvaluationStepTitles(window.kanagaToken, titlesToSave);
+        applyEvaluationStepTitles(titlesToSave);
+      }
+
       google.script.run
         .withSuccessHandler(function(res) {
             if (btnTop) {
