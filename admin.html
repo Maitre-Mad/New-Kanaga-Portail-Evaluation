@@ -95,11 +95,21 @@
       </div>
     </div>
 
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px;">
-       <h3 style="margin:0; color: var(--primary-color);">Personnalisation des Profils et Questions</h3>
-       <button class="btn btn-primary" onclick="saveAdminQuestionsConfig()" id="btn-save-questions" style="font-weight: 600; box-shadow: var(--shadow-sm);">
-         Enregistrer la Configuration
-       </button>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px; flex-wrap:wrap; gap:10px;">
+       <div>
+         <h3 style="margin:0; color: var(--primary-color);">Personnalisation des Profils et Questions</h3>
+         <p class="text-muted" style="margin: 4px 0 0 0; font-size: 13px;">
+           Les questions sont synchronisées avec la feuille Google Sheets <strong>EvaluationQuestions</strong>.
+         </p>
+       </div>
+       <div style="display: flex; gap: 8px;">
+         <button type="button" class="btn btn-outline" onclick="reloadQuestionsFromSheet()" id="btn-reload-sheet-questions" style="font-weight: 600;" title="Recharger les questions depuis le tableau Google Sheets">
+           Recharger depuis la feuille
+         </button>
+         <button class="btn btn-primary" onclick="saveAdminQuestionsConfig()" id="btn-save-questions" style="font-weight: 600; box-shadow: var(--shadow-sm);">
+           Enregistrer la Configuration
+         </button>
+       </div>
     </div>
     <span id="questions-status-msg" class="status-msg" style="display:block; margin-bottom:15px; font-weight: 500;"></span>
     

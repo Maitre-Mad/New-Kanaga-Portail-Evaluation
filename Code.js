@@ -1047,13 +1047,6 @@ function syncOdooEmployees() {
 function getEvaluationConfig(token) {
   const sessionUser = verifySession(token);
 
-  const scriptProps = PropertiesService.getScriptProperties();
-  const userProps = PropertiesService.getUserProperties();
-  let saved = scriptProps.getProperty('eval_config');
-  if (!saved) {
-    saved = userProps.getProperty('eval_config');
-  }
-  
   const defaultScale = "PI, PA, CA, PS, PE, N/A";
   const defaultConfig = {
     fondamentales: [
@@ -1112,51 +1105,93 @@ function getEvaluationConfig(token) {
     ]
   };
 
-  if (saved) {
-    try {
-      let config = JSON.parse(saved);
-      let migrated = false;
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    let sheet = ss.getSheetByName('EvaluationQuestions');
 
-      // Fusion automatique des profils standards manquants
-      for (let stdKey in defaultConfig) {
-        if (!config[stdKey]) {
-          config[stdKey] = defaultConfig[stdKey];
-          migrated = true;
-        }
+    // Si la feuille n'existe pas ou est vide, l'initialiser avec les questions par défaut
+    if (!sheet || sheet.getLastRow() <= 1) {
+      if (!sheet) {
+        sheet = ss.insertSheet('EvaluationQuestions');
+      } else {
+        sheet.clear();
+      }
+      const headers = ['Profil', 'Base Associée', 'Page', 'Ordre', 'Question', 'Description', 'Type', 'Options'];
+      sheet.appendRow(headers);
+      sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold').setBackground('#f3f3f3');
+
+      const initialRows = [];
+      for (let prof in defaultConfig) {
+        const baseAssociee = (prof.toLowerCase() === 'fondamentales') ? '' : 'fondamentales';
+        defaultConfig[prof].forEach((q, idx) => {
+          initialRows.push([
+            prof,
+            baseAssociee,
+            q.page || 1,
+            idx + 1,
+            q.text || '',
+            q.description || '',
+            q.type || 'scale',
+            q.options || defaultScale
+          ]);
+        });
+      }
+      if (initialRows.length > 0) {
+        sheet.getRange(2, 1, initialRows.length, headers.length).setValues(initialRows);
+      }
+      return defaultConfig;
+    }
+
+    // Lecture dynamique depuis la feuille EvaluationQuestions
+    const data = sheet.getDataRange().getValues();
+    const headerRow = data[0].map(h => String(h || '').trim().toLowerCase());
+
+    const colProfil = headerRow.indexOf('profil');
+    const colPage = headerRow.indexOf('page');
+    const colOrdre = headerRow.indexOf('ordre');
+    const colQuestion = headerRow.indexOf('question');
+    const colDesc = headerRow.indexOf('description');
+    const colType = headerRow.indexOf('type');
+    const colOptions = headerRow.indexOf('options');
+
+    const config = {};
+
+    for (let r = 1; r < data.length; r++) {
+      const row = data[r];
+      const prof = String(row[colProfil !== -1 ? colProfil : 0] || '').trim();
+      if (!prof) continue;
+
+      if (!config[prof]) {
+        config[prof] = [];
       }
 
-      for (let key in config) {
-        if (Array.isArray(config[key])) {
-          config[key] = config[key].map(q => {
-            if (typeof q === 'string') {
-              migrated = true;
-              return { text: q, description: "", type: 'scale', options: defaultScale, page: 1 };
-            }
-            if (q.description === undefined) {
-               migrated = true;
-               q.description = "";
-            }
-            if (q.page === undefined) {
-               migrated = true;
-               q.page = 1;
-            } else {
-               q.page = parseInt(q.page, 10) || 1;
-            }
-            return q;
-          });
-        }
-      }
-      if (migrated) {
-         scriptProps.setProperty('eval_config', JSON.stringify(config));
-         userProps.setProperty('eval_config', JSON.stringify(config));
-      }
-      return config;
-    } catch(e) {}
+      const page = colPage !== -1 ? (parseInt(row[colPage], 10) || 1) : 1;
+      const order = colOrdre !== -1 ? (parseInt(row[colOrdre], 10) || (config[prof].length + 1)) : (config[prof].length + 1);
+      const text = String(colQuestion !== -1 ? row[colQuestion] : (row[3] || '')).trim();
+      const desc = String(colDesc !== -1 ? row[colDesc] : (row[4] || '')).trim();
+      const type = String(colType !== -1 ? row[colType] : (row[5] || 'scale')).trim() || 'scale';
+      const options = String(colOptions !== -1 ? row[colOptions] : (row[6] || defaultScale)).trim() || defaultScale;
+
+      config[prof].push({
+        text: text,
+        description: desc,
+        type: type,
+        options: options,
+        page: page,
+        order: order
+      });
+    }
+
+    // Tri de chaque profil par la colonne Ordre
+    for (let p in config) {
+      config[p].sort((a, b) => (a.order || 0) - (b.order || 0));
+    }
+
+    return config;
+  } catch(e) {
+    Logger.log("Erreur lecture EvaluationQuestions: " + e.message);
+    return defaultConfig;
   }
-  
-  scriptProps.setProperty('eval_config', JSON.stringify(defaultConfig));
-  userProps.setProperty('eval_config', JSON.stringify(defaultConfig));
-  return defaultConfig;
 }
 
 function saveEvaluationConfig(token, config) {
@@ -1164,9 +1199,44 @@ function saveEvaluationConfig(token, config) {
   if (!sessionUser || (sessionUser.role !== 'Admin' && sessionUser.role !== 'Manager')) {
     throw new Error("Action non autorisée. Seuls les administrateurs et managers peuvent modifier les profils et questions.");
   }
-  const configJson = JSON.stringify(config);
-  PropertiesService.getScriptProperties().setProperty('eval_config', configJson);
-  PropertiesService.getUserProperties().setProperty('eval_config', configJson);
+
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  let sheet = ss.getSheetByName('EvaluationQuestions');
+  if (!sheet) {
+    sheet = ss.insertSheet('EvaluationQuestions');
+  }
+
+  sheet.clear();
+  const headers = ['Profil', 'Base Associée', 'Page', 'Ordre', 'Question', 'Description', 'Type', 'Options'];
+  sheet.appendRow(headers);
+  sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold').setBackground('#f3f3f3');
+
+  const rowsToAdd = [];
+  const defaultScale = "PI, PA, CA, PS, PE, N/A";
+
+  for (let profile in config) {
+    const qList = config[profile];
+    const baseAssociee = (profile.toLowerCase() === 'fondamentales') ? '' : 'fondamentales';
+    if (Array.isArray(qList)) {
+      qList.forEach((q, idx) => {
+        rowsToAdd.push([
+          profile,
+          baseAssociee,
+          q.page || 1,
+          idx + 1,
+          q.text || '',
+          q.description || '',
+          q.type || 'scale',
+          q.options || defaultScale
+        ]);
+      });
+    }
+  }
+
+  if (rowsToAdd.length > 0) {
+    sheet.getRange(2, 1, rowsToAdd.length, headers.length).setValues(rowsToAdd);
+  }
+
   return { success: true };
 }
 

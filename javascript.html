@@ -2396,6 +2396,35 @@
        })
        .getEvaluationConfig(window.kanagaToken);
   }
+
+  function reloadQuestionsFromSheet() {
+     const statusEl = document.getElementById('questions-status-msg');
+     const btn = document.getElementById('btn-reload-sheet-questions');
+     if (btn) btn.disabled = true;
+     if (statusEl) {
+       statusEl.style.color = 'var(--primary-color)';
+       statusEl.textContent = 'Rechargement depuis la feuille EvaluationQuestions en cours...';
+     }
+     google.script.run
+       .withSuccessHandler(function(config) {
+          if (btn) btn.disabled = false;
+          adminEvalConfigData = config;
+          updateAdminProfileSelect();
+          if (statusEl) {
+            statusEl.style.color = 'var(--success-color)';
+            statusEl.textContent = 'Questions rechargées depuis la feuille EvaluationQuestions avec succès !';
+            setTimeout(() => { statusEl.textContent = ''; }, 3500);
+          }
+       })
+       .withFailureHandler(function(err) {
+          if (btn) btn.disabled = false;
+          if (statusEl) {
+            statusEl.style.color = 'var(--danger-color)';
+            statusEl.textContent = 'Erreur lors du rechargement : ' + err.message;
+          }
+       })
+       .getEvaluationConfig(window.kanagaToken);
+  }
   
   function updateAdminProfileSelect(selectedKey) {
       const select = document.getElementById('admin-profile-select');
