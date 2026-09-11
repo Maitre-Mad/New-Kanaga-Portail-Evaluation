@@ -912,10 +912,6 @@
     document.getElementById('eval-viewer-screen').style.display = 'none';
     document.getElementById('eval-wizard-screen').style.display = 'block';
     document.getElementById('eval-header-actions').style.display = 'block';
-    const headerInitBtn = document.getElementById('eval-header-initiate-btn');
-    if (headerInitBtn) {
-      headerInitBtn.style.display = (isUserManagerOrAdmin() && type !== 'Initiation') ? 'inline-block' : 'none';
-    }
     
     window.evalAttachedRowId = attachedRowId;
     window.evalCurrentMode = type;
@@ -2509,8 +2505,6 @@
     const isMgr = isUserManagerOrAdmin();
     const dashInitBtn = document.getElementById('manager-dashboard-initiate-btn');
     if (dashInitBtn) dashInitBtn.style.display = isMgr ? 'inline-block' : 'none';
-    const headerInitBtn = document.getElementById('eval-header-initiate-btn');
-    if (headerInitBtn) headerInitBtn.style.display = isMgr ? 'inline-block' : 'none';
 
     document.querySelector('#eval-manager-dashboard h3').innerText = "Dossiers d'Évaluation";
     document.getElementById('eval-dashboard-loader').style.display = 'block';
@@ -2572,8 +2566,6 @@
     const isMgr = isUserManagerOrAdmin();
     const dashInitBtn = document.getElementById('manager-dashboard-initiate-btn');
     if (dashInitBtn) dashInitBtn.style.display = isMgr ? 'inline-block' : 'none';
-    const headerInitBtn = document.getElementById('eval-header-initiate-btn');
-    if (headerInitBtn) headerInitBtn.style.display = isMgr ? 'inline-block' : 'none';
     
     document.querySelector('#eval-manager-dashboard h3').innerText = "Mes Historiques d'Évaluation";
     document.getElementById('eval-dashboard-loader').style.display = 'block';
