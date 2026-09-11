@@ -1,4 +1,4 @@
-﻿<script>
+<script>
   let currentUser = null;
   let projectData = {};
   let choicesInstances = { project: null, task: null, editProject: null, editTask: null };
@@ -1133,7 +1133,7 @@
         collabSummaryHtml = `
           <div class="eval-collab-summary">
             <div class="eval-collab-summary-header">
-              <span>ðŸ‘¤ Auto-Ã©valuation du Collaborateur</span>
+              <span>Auto-évaluation du Collaborateur</span>
               <span class="eval-badge eval-badge-${badgeCls}">${collabAnswer || 'Non renseignÃ©e'}</span>
             </div>
             <div class="eval-collab-comment-content">
@@ -1158,7 +1158,7 @@
                   secondarySummaryHtml += `
                     <div class="eval-collab-summary" style="border-left: 3px solid #ff9800; background: #fffcf5; margin-top: 6px;">
                       <div class="eval-collab-summary-header">
-                        <span style="color:#b25900;">ðŸ‘¥ Ã‰valuateur Secondaire (${escapeHtml(entry.evaluatorName || entry.evaluatorEmail)})</span>
+                        <span style="color:#b25900;">Évaluateur Secondaire (${escapeHtml(entry.evaluatorName || entry.evaluatorEmail)})</span>
                         <span class="eval-badge eval-badge-${bCls}">${escapeHtml(resp.answer)}</span>
                       </div>
                       ${comm ? `<div class="eval-collab-comment-content"><strong>Commentaire :</strong> ${escapeHtml(comm)}</div>` : ''}
@@ -1169,6 +1169,14 @@
             }
           }
         } catch(e) {}
+      }
+
+      if (q.type === 'section') {
+          html += `<div class="eval-section-header" style="margin-top: 30px; margin-bottom: 15px; padding: 15px 20px; background: #FAF8F5; border-left: 4px solid var(--secondary-color); border-radius: 4px;">
+                     <h3 style="margin: 0; color: var(--primary-color); font-size: 18px;">${text}</h3>
+                     ${q.description ? `<p style="margin: 5px 0 0 0; color: #666; font-size: 13px;">${q.description.replace(/`/g, "'")}</p>` : ''}
+                   </div>`;
+          return; // Skip the rest of the rendering for this item
       }
 
       html += `<div class="eval-grid-row">
@@ -1200,24 +1208,24 @@
       // Commentaires collaborateur et Ã©valuateur
       if (q.type === 'scale' || q.type === 'boolean') {
           html += `<div class="eval-question-comments">`;
-          if (window.evalCurrentMode === 'Ã‰valuation Manager') {
+          if (window.evalCurrentMode === 'Évaluation Manager') {
               html += `
                 <div class="eval-comment-group">
-                  <label class="eval-comment-label">ðŸ“ Commentaire de l'Ã©valuateur principal :</label>
-                  <textarea name="${prefix}_mgr_comment_${idx}" class="eval-comment-box" rows="2" placeholder="Saisissez votre apprÃ©ciation, remarques ou justifications..."></textarea>
+                  <label class="eval-comment-label">Commentaire de l'évaluateur principal :</label>
+                  <textarea name="${prefix}_mgr_comment_${idx}" class="eval-comment-box" rows="2" placeholder="Saisissez votre appréciation, remarques ou justifications..."></textarea>
                 </div>
               `;
-          } else if (window.evalCurrentMode === 'Ã‰valuation Secondaire') {
+          } else if (window.evalCurrentMode === 'Évaluation Secondaire') {
               html += `
                 <div class="eval-comment-group">
-                  <label class="eval-comment-label">ðŸ“ Commentaire de l'Ã©valuateur secondaire :</label>
-                  <textarea name="${prefix}_sec_comment_${idx}" class="eval-comment-box" rows="2" placeholder="Saisissez votre apprÃ©ciation, remarques ou justifications..."></textarea>
+                  <label class="eval-comment-label">Commentaire de l'évaluateur secondaire :</label>
+                  <textarea name="${prefix}_sec_comment_${idx}" class="eval-comment-box" rows="2" placeholder="Saisissez votre appréciation, remarques ou justifications..."></textarea>
                 </div>
               `;
           } else {
               html += `
                 <div class="eval-comment-group">
-                  <label class="eval-comment-label">ðŸ’¬ Commentaire du collaborateur :</label>
+                  <label class="eval-comment-label">Commentaire du collaborateur :</label>
                   <textarea name="${prefix}_emp_comment_${idx}" class="eval-comment-box" rows="2" placeholder="Vos explications, exemples de rÃ©alisations ou faits marquants..."></textarea>
                 </div>
               `;
@@ -1254,6 +1262,8 @@
         let ans = '';
         if (q.type === 'text') {
           ans = document.querySelector(`textarea[name="${prefix}_q${idx}"]`)?.value || '';
+        } else if (q.type === 'section') {
+          ans = '';
         } else {
           const selected = document.querySelector(`input[name="${prefix}_q${idx}"]:checked`);
           ans = selected ? selected.value : '';
@@ -1798,7 +1808,7 @@
         <div class="eval-rating-scale-card" style="margin-top: 25px;">
           <div class="eval-scale-header">
             <div class="eval-scale-title">
-              <span>ðŸ“Š</span>
+              <span></span>
               <span>BarÃ¨me d'Ã©valuation de la performance</span>
             </div>
           </div>
@@ -2289,7 +2299,7 @@
       
       const fondaOpt = document.createElement('option');
       fondaOpt.value = 'fondamentales';
-      fondaOpt.text = 'ðŸ“Œ Tronc Commun : Fondamentales (Communes Ã  tous)';
+      fondaOpt.text = 'Tronc Commun : Fondamentales (Communes à tous)';
       select.appendChild(fondaOpt);
       
       const cloneSelect = document.getElementById('admin-clone-profile-select');
@@ -2305,7 +2315,7 @@
          if (key.toLowerCase() !== 'fondamentales') {
             const opt = document.createElement('option');
             opt.value = key;
-            opt.text = "ðŸŽ¯ Profil : " + key;
+            opt.text = "Profil : " + key;
             select.appendChild(opt);
 
             if (cloneSelect) {
@@ -2396,20 +2406,21 @@
           card.innerHTML = `
             <div class="admin-q-header">
                <span class="admin-q-num">#${idx + 1}</span>
-               <input type="text" class="form-control" style="flex:1; font-weight:600;" value="${escapeHtml(q.text)}" onchange="updateAdminQuestion(${idx}, 'text', this.value)" placeholder="Titre de la compÃ©tence ou question *">
+               <input type="text" class="form-control" style="flex:1; font-weight:600;" value="${escapeHtml(q.text)}" onchange="updateAdminQuestion(${idx}, 'text', this.value)" placeholder="Titre de la compétence ou question *">
                <select class="form-control" style="width:190px;" onchange="updateAdminQuestion(${idx}, 'type', this.value)">
-                  <option value="scale" ${q.type === 'scale' ? 'selected' : ''}>Choix Multiple (BarÃ¨me)</option>
+                  <option value="scale" ${q.type === 'scale' ? 'selected' : ''}>Choix Multiple (Barème)</option>
                   <option value="text" ${q.type === 'text' ? 'selected' : ''}>Texte libre</option>
                   <option value="boolean" ${q.type === 'boolean' ? 'selected' : ''}>Oui / Non</option>
+                  <option value="section" ${q.type === 'section' ? 'selected' : ''}>Section (Titre / Séparateur)</option>
                </select>
                <div class="admin-q-actions">
-                 <button type="button" class="btn-q-tool" ${isFirst ? 'disabled style="opacity:0.3; cursor:not-allowed;"' : `onclick="moveAdminQuestion(${idx}, -1)"`} title="Monter">â–²</button>
-                 <button type="button" class="btn-q-tool" ${isLast ? 'disabled style="opacity:0.3; cursor:not-allowed;"' : `onclick="moveAdminQuestion(${idx}, 1)"`} title="Descendre">â–¼</button>
-                 <button type="button" class="btn-q-tool btn-q-del" onclick="deleteAdminFormQuestion(${idx})" title="Supprimer">ðŸ—‘ï¸</button>
+                 <button type="button" class="btn-q-tool" ${isFirst ? 'disabled style="opacity:0.3; cursor:not-allowed;"' : `onclick="moveAdminQuestion(${idx}, -1)"`} title="Monter">↑</button>
+                 <button type="button" class="btn-q-tool" ${isLast ? 'disabled style="opacity:0.3; cursor:not-allowed;"' : `onclick="moveAdminQuestion(${idx}, 1)"`} title="Descendre">↓</button>
+                 <button type="button" class="btn-q-tool btn-q-del" onclick="deleteAdminFormQuestion(${idx})" title="Supprimer">Supprimer</button>
                </div>
             </div>
             <div>
-               <input type="text" class="form-control" style="width:100%; font-size:13px;" value="${escapeHtml(q.description || '')}" onchange="updateAdminQuestion(${idx}, 'description', this.value)" placeholder="Description, consignes ou critÃ¨res attendus (Optionnel)">
+               <input type="text" class="form-control" style="width:100%; font-size:13px;" value="${escapeHtml(q.description || '')}" onchange="updateAdminQuestion(${idx}, 'description', this.value)" placeholder="Description, consignes ou critères attendus (Optionnel)">
             </div>
             ${optionsHtml}
           `;
@@ -2591,7 +2602,7 @@
       const status = document.getElementById('questions-status-msg');
       if (btn) btn.disabled = true;
       if (status) {
-        status.innerText = "â³ Enregistrement de la configuration des profils et questions...";
+        status.innerText = "Enregistrement de la configuration des profils et questions...";
         status.style.color = "var(--primary-color)";
       }
       
@@ -3316,8 +3327,8 @@
       </head>
       <body>
         <div class="no-print">
-          <span style="font-weight: 600; color: #7C4C26; font-size: 14px;">ðŸ“„ Rapport d'export PDF Kanaga Consulting (${responses.length} rÃ©ponses)</span>
-          <button onclick="window.print()" style="background: #7C4C26; color: white; border: none; padding: 10px 22px; font-size: 13px; font-weight: bold; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 8px;">ðŸ’¾ Enregistrer au format PDF / Imprimer</button>
+          <span style="font-weight: 600; color: #7C4C26; font-size: 14px;">Rapport d'export PDF Kanaga Consulting (${responses.length} réponses)</span>
+          <button onclick="window.print()" style="background: #7C4C26; color: white; border: none; padding: 10px 22px; font-size: 13px; font-weight: bold; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 8px;">Enregistrer au format PDF / Imprimer</button>
         </div>
 
         <div class="doc-header">
@@ -3424,8 +3435,8 @@
       </head>
       <body>
         <div class="no-print">
-          <span style="font-weight: 600; color: #7C4C26; font-size: 14px;">ðŸ“„ Fiche Individuelle: ${escapeHtml(displayName)}</span>
-          <button onclick="window.print()" style="background: #7C4C26; color: white; border: none; padding: 10px 22px; font-size: 13px; font-weight: bold; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 8px;">ðŸ’¾ Enregistrer au format PDF / Imprimer</button>
+          <span style="font-weight: 600; color: #7C4C26; font-size: 14px;">Fiche Individuelle: ${escapeHtml(displayName)}</span>
+          <button onclick="window.print()" style="background: #7C4C26; color: white; border: none; padding: 10px 22px; font-size: 13px; font-weight: bold; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 8px;">Enregistrer au format PDF / Imprimer</button>
         </div>
 
         <div class="doc-header">
