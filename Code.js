@@ -2046,7 +2046,7 @@ function savePreEvaluation(token, rowId, formData) {
       updatedMgrName = existingMgr + ', ' + managerName;
     }
     
-    sheet.getRange(row, 2).setValue('PrÃƒÂ©-ÃƒÂ©valuÃƒÂ©e');
+    sheet.getRange(row, 2).setValue('Pré-évaluée');
     
     sheet.getRange(row, 21).setValue(updatedMgrName);
     sheet.getRange(row, 22).setValue(JSON.stringify(formData.mgrFondamentales || []));
@@ -2060,7 +2060,7 @@ function savePreEvaluation(token, rowId, formData) {
 
     return { success: true };
   } catch (e) {
-    throw new Error('Erreur lors de la sauvegarde de la prÃƒÂ©-ÃƒÂ©valuation: ' + e.message);
+    throw new Error('Erreur lors de la sauvegarde de la pré-évaluation: ' + e.message);
   }
 }
 

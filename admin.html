@@ -1,12 +1,12 @@
 ﻿<div class="view-header" style="text-align: center;">
   <h2>Administration</h2>
-  <p>GÃ©rez les accÃ¨s, les rÃ´les et configurez le portail.</p>
+  <p>Gérez les accès, les rôles et configurez le portail.</p>
 </div>
 
 <div class="admin-tabs" style="display:flex; border-bottom:1px solid #ddd; margin-bottom:20px; gap:2px;">
    <button class="btn admin-tab active" id="tab-btn-users" onclick="switchAdminTab('users')" style="border-bottom-left-radius:0; border-bottom-right-radius:0; background:var(--primary-color); color:white;">Utilisateurs</button>
-   <button class="btn admin-tab" id="tab-btn-email" onclick="switchAdminTab('email')" style="border-bottom-left-radius:0; border-bottom-right-radius:0; background:#f0f0f0; color:#333;">ModÃ¨le d'E-mail</button>
-   <button class="btn admin-tab" id="tab-btn-questions" onclick="switchAdminTab('questions')" style="border-bottom-left-radius:0; border-bottom-right-radius:0; background:#f0f0f0; color:#333;">Formulaires d'Ã‰valuation</button>
+   <button class="btn admin-tab" id="tab-btn-email" onclick="switchAdminTab('email')" style="border-bottom-left-radius:0; border-bottom-right-radius:0; background:#f0f0f0; color:#333;">Modèle d'E-mail</button>
+   <button class="btn admin-tab" id="tab-btn-questions" onclick="switchAdminTab('questions')" style="border-bottom-left-radius:0; border-bottom-right-radius:0; background:#f0f0f0; color:#333;">Formulaires d'Évaluation</button>
    <button class="btn admin-tab" id="tab-btn-country-groups" onclick="switchAdminTab('country-groups')" style="border-bottom-left-radius:0; border-bottom-right-radius:0; background:#f0f0f0; color:#333;">Groupes Admin Formulaire</button>
 </div>
 
@@ -20,7 +20,7 @@
           <span class="btn-loader" style="display:none;"><div class="spinner" style="width:14px; height:14px; border-width:2px;"></div></span>
         </button>
         <button class="btn btn-outline" id="btn-debug-odoo" onclick="handleDebugOdoo()">
-          <span class="btn-text">DÃ©boguer Sous-TÃ¢ches</span>
+          <span class="btn-text">Déboguer Sous-Tâches</span>
           <span class="btn-loader" style="display:none;"><div class="spinner" style="width:14px; height:14px; border-width:2px;"></div></span>
         </button>
         <button class="btn btn-outline" id="btn-archive-timesheets" onclick="handleArchiveTimesheets()" style="border-color: var(--secondary-color); color: var(--secondary-color);">
@@ -38,8 +38,8 @@
           <tr>
             <th>Email</th>
             <th>Nom Complet</th>
-            <th>SociÃ©tÃ©</th>
-            <th>RÃ´le</th>
+            <th>Société</th>
+            <th>Rôle</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -49,8 +49,8 @@
   </div>
 
   <div class="panel admin-panel" id="admin-panel-email" style="display:none;">
-    <h3>ModÃ¨le d'E-mail : Initiation d'Ã‰valuation</h3>
-    <p class="text-muted" style="font-size:13px; margin-bottom: 20px;">Personnalisez l'e-mail envoyÃ© automatiquement aux employÃ©s lorsqu'une nouvelle Ã©valuation est initiÃ©e. Les balises <code style="background:#f4f4f4; padding:2px 4px; border-radius:3px;">{periode}</code> et <code style="background:#f4f4f4; padding:2px 4px; border-radius:3px;">{lien_portail}</code> seront remplacÃ©es dynamiquement.</p>
+    <h3>Modèle d'E-mail : Initiation d'Évaluation</h3>
+    <p class="text-muted" style="font-size:13px; margin-bottom: 20px;">Personnalisez l'e-mail envoyé automatiquement aux employés lorsqu'une nouvelle évaluation est initiée. Les balises <code style="background:#f4f4f4; padding:2px 4px; border-radius:3px;">{periode}</code> et <code style="background:#f4f4f4; padding:2px 4px; border-radius:3px;">{lien_portail}</code> seront remplacées dynamiquement.</p>
     
     <form id="admin-eval-email-form">
       <div class="form-group">
@@ -58,40 +58,40 @@
         <input type="text" id="eval-email-subject" class="form-control" required>
       </div>
       <div class="form-group">
-        <label>Corps du message (HTML autorisÃ©)</label>
+        <label>Corps du message (HTML autorisé)</label>
         <textarea id="eval-email-message" class="form-control" rows="8" required style="font-family: monospace; font-size: 13px;"></textarea>
       </div>
-      <button type="submit" class="btn btn-primary" id="btn-save-eval-email">Enregistrer le modÃ¨le</button>
+      <button type="submit" class="btn btn-primary" id="btn-save-eval-email">Enregistrer le modèle</button>
       <span id="eval-email-status" class="status-msg" style="margin-left: 10px;"></span>
     </form>
   </div>
 
-  <!-- PANEL : QUESTIONS D'Ã‰VALUATION (ARCHITECTURE SABLIER / MODÃˆLE EN Y) -->
+  <!-- PANEL : QUESTIONS D'ÉVALUATION (ARCHITECTURE SABLIER / MODÈLE EN Y) -->
   <div class="panel admin-panel" id="admin-panel-questions" style="display:none;">
-    <!-- BanniÃ¨re explicative : Architecture Sablier / ModÃ¨le en Y -->
+    <!-- Bannière explicative : Architecture Sablier / Modèle en Y -->
     <div class="sablier-banner">
       <div class="sablier-header">
         <span style="font-size: 20px;"></span>
-        <span>Structure en Sablier (ModÃ¨le en Y) du Questionnaire d'Ã‰valuation</span>
+        <span>Structure en Sablier (Modèle en Y) du Questionnaire d'Évaluation</span>
       </div>
       <p style="font-size: 13px; color: #5D4037; margin-bottom: 12px; line-height: 1.5;">
-        Le questionnaire s'adapte dynamiquement au profil de chaque collaborateur tout en garantissant un cadre commun et Ã©quitable.
+        Le questionnaire s'adapte dynamiquement au profil de chaque collaborateur tout en garantissant un cadre commun et équitable.
       </p>
       <div class="sablier-diagram">
         <div class="sablier-node sablier-node-start">
-          <strong>1. Entonnoir de dÃ©part</strong><br>
-          <em>(IdentitÃ©, pÃ©riode, sÃ©lection du profil de poste)</em>
+          <strong>1. Entonnoir de départ</strong><br>
+          <em>(Identité, période, sélection du profil de poste)</em>
         </div>
-        <div class="sablier-arrow">âž”</div>
+        <div class="sablier-arrow">→</div>
         <div class="sablier-node sablier-node-split">
           <strong>2. Tronc Commun & Aiguillage</strong><br>
-          â€¢ <strong>Fondamentales :</strong> 8 compÃ©tences communes pour tous<br>
-          â€¢ <strong>Aiguillage profil :</strong> Questions spÃ©cifiques selon le mÃ©tier (ex: <em>Junior privÃ©</em> vs <em>Assistant public</em>)
+          • <strong>Fondamentales :</strong> 8 compétences communes pour tous<br>
+          • <strong>Aiguillage profil :</strong> Questions spécifiques selon le métier (ex: <em>Junior privé</em> vs <em>Assistant public</em>)
         </div>
-        <div class="sablier-arrow">âž”</div>
+        <div class="sablier-arrow">→</div>
         <div class="sablier-node sablier-node-merge">
-          <strong>3. RÃ©union Finale</strong><br>
-          <em>(Bilan objectifs, points forts, axes d'amÃ©lioration, objectifs SMART)</em>
+          <strong>3. Réunion Finale</strong><br>
+          <em>(Bilan objectifs, points forts, axes d'amélioration, objectifs SMART)</em>
         </div>
       </div>
     </div>
@@ -108,17 +108,17 @@
     <div class="admin-profile-toolbar">
        <div class="admin-profile-selector-box">
           <label style="font-weight:bold; font-size:13px; color:#4A5568; display:block; margin-bottom:6px;">
-            Section ou Profil Ã  configurer :
+            Section ou Profil à configurer :
           </label>
           <select id="admin-profile-select" class="form-control" onchange="renderAdminFormBuilder()" style="font-weight: 600;">
             <!-- Rempli dynamiquement -->
           </select>
        </div>
        <div class="admin-profile-btns">
-          <button type="button" class="btn btn-outline" onclick="openAddProfileModal()" title="CrÃ©er un nouveau profil de poste">
+          <button type="button" class="btn btn-outline" onclick="openAddProfileModal()" title="Créer un nouveau profil de poste">
             Nouveau Profil
           </button>
-          <button type="button" class="btn btn-outline" onclick="duplicateAdminProfile()" id="btn-duplicate-profile" title="Dupliquer le profil sÃ©lectionnÃ©">
+          <button type="button" class="btn btn-outline" onclick="duplicateAdminProfile()" id="btn-duplicate-profile" title="Dupliquer le profil sélectionné">
             Dupliquer
           </button>
           <button type="button" class="btn btn-outline" onclick="openRenameProfileModal()" id="btn-rename-profile" title="Renommer ce profil">
@@ -130,11 +130,11 @@
        </div>
     </div>
 
-    <!-- En-tÃªte de section active -->
+    <!-- En-tête de section active -->
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
       <div>
         <h4 id="admin-current-section-title" style="margin: 0; color: var(--primary-color);">Questions du profil</h4>
-        <p id="admin-current-section-desc" class="text-muted" style="margin: 2px 0 0 0; font-size: 12px;">Questions posÃ©es lors de l'Ã©valuation</p>
+        <p id="admin-current-section-desc" class="text-muted" style="margin: 2px 0 0 0; font-size: 12px;">Questions posées lors de l'évaluation</p>
       </div>
       <span id="admin-question-count-badge" class="badge badge-primary">0 question(s)</span>
     </div>
@@ -145,18 +145,18 @@
     </div>
     
     <button class="btn btn-outline" style="margin-top:15px; width:100%; border:2px dashed #BF9959; color:var(--primary-color); font-weight:600; padding:10px;" onclick="addAdminFormQuestion()">
-      Ajouter une question Ã  cette section
+      Ajouter une question à cette section
     </button>
   </div>
 
-  <!-- PANEL : GROUPES D'ADMINISTRATION PAR PAYS (RÃ‰PONSES FORMULAIRE) -->
+  <!-- PANEL : GROUPES D'ADMINISTRATION PAR PAYS (RÉPONSES FORMULAIRE) -->
   <div class="panel admin-panel" id="admin-panel-country-groups" style="display:none;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px;">
-       <h3 style="margin:0;">Groupes d'Administration par Pays (RÃ©ponses Formulaire)</h3>
+       <h3 style="margin:0;">Groupes d'Administration par Pays (Réponses Formulaire)</h3>
        <button class="btn btn-primary" onclick="saveAdminCountryGroups()" id="btn-save-country-groups">Enregistrer la Configuration</button>
     </div>
     <p class="text-muted" style="font-size:13px; margin-bottom: 20px;">
-      GÃ©rez les adresses e-mail des personnes autorisÃ©es Ã  consulter les rÃ©ponses du formulaire pour chaque pays. Seuls ces membres (ainsi que les Administrateurs globaux) pourront accÃ©der Ã  l'onglet "RÃ©ponses Formulaire" et consulter les donnÃ©es des bureaux correspondants.
+      Gérez les adresses e-mail des personnes autorisées à consulter les réponses du formulaire pour chaque pays. Seuls ces membres (ainsi que les Administrateurs globaux) pourront accéder à l'onglet "Réponses Formulaire" et consulter les données des bureaux correspondants.
     </p>
 
     <div id="country-groups-loader" class="status-msg" style="color:var(--primary-color);">Chargement des groupes...</div>
@@ -184,7 +184,7 @@
           <input type="text" id="admin-edit-email-display" class="form-control" disabled>
         </div>
         <div class="form-group">
-          <label>Nouveau RÃ´le</label>
+          <label>Nouveau Rôle</label>
           <select id="admin-edit-role" class="form-control" onchange="handleAdminRoleChange()">
             <option value="Utilisateur">Utilisateur</option>
             <option value="ConsultantExterne">Consultant Externe</option>
@@ -194,12 +194,12 @@
           </select>
         </div>
         <div class="form-group" id="admin-edit-projects-group" style="display: none;">
-          <label>Projets AutorisÃ©s (Consultants)</label>
+          <label>Projets Autorisés (Consultants)</label>
           <select id="admin-edit-projects" class="form-control" multiple>
           </select>
         </div>
         <div class="form-group">
-          <label>SociÃ©tÃ©s (sÃ©parÃ©es par une virgule)</label>
+          <label>Sociétés (séparées par une virgule)</label>
           <input type="text" id="admin-edit-company" class="form-control" placeholder="Ex: Kanaga Consulting SARL (Mali)">
         </div>
         <div class="form-group">
@@ -213,28 +213,28 @@
   </div>
 </div>
 
-<!-- Modal : Nouveau Profil d'Ã‰valuation -->
+<!-- Modal : Nouveau Profil d'Évaluation -->
 <div id="admin-add-profile-modal" class="modal">
   <div class="modal-content" style="max-width: 500px;">
     <div class="modal-header">
-      <h3>CrÃ©er un Nouveau Profil</h3>
+      <h3>Créer un Nouveau Profil</h3>
       <span class="close-button" onclick="closeAddProfileModal()">&times;</span>
     </div>
     <div class="modal-body">
       <div class="form-group">
-        <label style="font-weight: 600;">Nom du Profil (ex: DÃ©veloppeur, Chef de Projet, Auditeur) *</label>
+        <label style="font-weight: 600;">Nom du Profil (ex: Développeur, Chef de Projet, Auditeur) *</label>
         <input type="text" id="admin-new-profile-name" class="form-control" placeholder="Entrez le titre du poste" required>
       </div>
       <div class="form-group" style="margin-top: 15px;">
-        <label style="font-weight: 600;">ModÃ¨le de dÃ©part (Optionnel) :</label>
+        <label style="font-weight: 600;">Modèle de départ (Optionnel) :</label>
         <p class="text-muted" style="font-size: 12px; margin-bottom: 6px;">Vous pouvez copier les questions d'un profil existant pour gagner du temps.</p>
         <select id="admin-clone-profile-select" class="form-control">
-          <option value="">-- DÃ©marrer avec une question vierge --</option>
+          <option value="">-- Démarrer avec une question vierge --</option>
         </select>
       </div>
       <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
         <button type="button" class="btn btn-outline" onclick="closeAddProfileModal()">Annuler</button>
-        <button type="button" class="btn btn-primary" onclick="confirmAddProfile()">CrÃ©er le Profil</button>
+        <button type="button" class="btn btn-primary" onclick="confirmAddProfile()">Créer le Profil</button>
       </div>
     </div>
   </div>

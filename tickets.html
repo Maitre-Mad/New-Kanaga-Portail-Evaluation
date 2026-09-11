@@ -1,6 +1,6 @@
 ﻿<div class="view-header">
   <h2>Support IT</h2>
-  <p>Soumettez un ticket pour obtenir de l'aide ou signaler un problÃ¨me Ã  l'Ã©quipe informatique.</p>
+  <p>Soumettez un ticket pour obtenir de l'aide ou signaler un problème à l'équipe informatique.</p>
 </div>
 
 <div class="content-grid">
@@ -11,19 +11,19 @@
       <form id="ticket-form" onsubmit="event.preventDefault(); submitTicket();">
         <div class="form-group">
           <label>Sujet *</label>
-          <input type="text" id="ticket-subject" class="form-control" required placeholder="RÃ©sumÃ© du problÃ¨me" />
+          <input type="text" id="ticket-subject" class="form-control" required placeholder="Résumé du problème" />
         </div>
         <div class="form-group">
-          <label>PrioritÃ©</label>
+          <label>Priorité</label>
           <select id="ticket-priority" class="form-control" required>
             <option value="Basse">Basse (Non urgent)</option>
-            <option value="Moyenne" selected>Moyenne (Impact modÃ©rÃ©)</option>
+            <option value="Moyenne" selected>Moyenne (Impact modéré)</option>
             <option value="Haute">Haute (Critique / Bloquant)</option>
           </select>
         </div>
         <div class="form-group">
           <label>Description *</label>
-          <textarea id="ticket-description" class="form-control" rows="5" required placeholder="Veuillez dÃ©crire votre problÃ¨me en dÃ©tail..."></textarea>
+          <textarea id="ticket-description" class="form-control" rows="5" required placeholder="Veuillez décrire votre problème en détail..."></textarea>
         </div>
         <button type="submit" class="btn btn-primary" id="btn-submit-ticket" style="width: 100%;">
           <span class="btn-text">Soumettre le ticket</span>
@@ -38,7 +38,7 @@
     <div class="panel">
       <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
         <h3 style="margin: 0;">Mes Tickets</h3>
-        <button class="btn btn-outline btn-sm" onclick="loadUserTickets()">RafraÃ®chir</button>
+        <button class="btn btn-outline btn-sm" onclick="loadUserTickets()">Rafraîchir</button>
       </div>
       <div class="table-container">
         <table class="data-table" id="user-tickets-table">
@@ -46,9 +46,9 @@
             <tr>
               <th>Date</th>
               <th>Sujet</th>
-              <th>PrioritÃ©</th>
+              <th>Priorité</th>
               <th>Statut</th>
-              <th>RÃ©ponse IT</th>
+              <th>Réponse IT</th>
             </tr>
           </thead>
           <tbody id="user-tickets-tbody">
