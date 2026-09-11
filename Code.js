@@ -1102,6 +1102,16 @@ function getEvaluationConfig(token) {
       { text: "4. Qualité rédactionnelle des constats et rapports", description: "Précision des faits, clarté de la synthèse et objectivité.", type: "scale", options: defaultScale, page: 2 },
       { text: "5. Recommandations pragmatiques à forte valeur ajoutée", description: "Pertinence opérationnelle, faisabilité et hiérarchisation des actions.", type: "scale", options: defaultScale, page: 2 },
       { text: "6. Posture professionnelle et indépendance", description: "Esprit critique constructif, neutralité et respect de la déontologie.", type: "scale", options: defaultScale, page: 2 }
+    ],
+    "conclusion": [
+      { text: "Réalisation des Objectifs de la période écoulée", description: "Détaillez les objectifs fixés, résultats atteints, faits marquants et difficultés rencontrées.", type: "text", options: "", page: 1 },
+      { text: "1. Principaux Points Forts de l'Employé(e)", description: "Compétences clés démontrées, succès et contributions notables.", type: "text", options: "", page: 1 },
+      { text: "2. Axes d'Amélioration Prioritaires", description: "Domaines nécessitant un perfectionnement ou un accompagnement particulier.", type: "text", options: "", page: 1 },
+      { text: "3. Appréciation de la Performance Globale", description: "Appréciation synthétique de la performance générale sur la période.", type: "scale", options: "PI, PA, CA, PS, PE", page: 1 },
+      { text: "VI. 1. Besoins en Formation", description: "Formations techniques, managériales ou linguistiques souhaitées pour la progression.", type: "text", options: "", page: 2 },
+      { text: "VI. 2. Objectifs SMART pour la Prochaine Période", description: "Objectifs Spécifiques, Mesurables, Atteignables, Réalistes et Temporellement définis.", type: "text", options: "", page: 2 },
+      { text: "VI. 3. Aspirations Professionnelles", description: "Évolution de carrière envisagée, souhaits de mobilité ou nouvelles responsabilités.", type: "text", options: "", page: 2 },
+      { text: "VII. Commentaires de l'Employé(e) Évalué(e)", description: "Remarques complémentaires du collaborateur.", type: "text", options: "", page: 2 }
     ]
   };
 
@@ -1122,7 +1132,7 @@ function getEvaluationConfig(token) {
 
       const initialRows = [];
       for (let prof in defaultConfig) {
-        const baseAssociee = (prof.toLowerCase() === 'fondamentales') ? '' : 'fondamentales';
+        const baseAssociee = (prof.toLowerCase() === 'fondamentales' || prof.toLowerCase() === 'conclusion') ? '' : 'fondamentales';
         defaultConfig[prof].forEach((q, idx) => {
           initialRows.push([
             prof,
@@ -1182,6 +1192,11 @@ function getEvaluationConfig(token) {
       });
     }
 
+    // Auto-fusion de la conclusion si absente de la feuille
+    if (!config['conclusion']) {
+      config['conclusion'] = defaultConfig['conclusion'];
+    }
+
     // Tri de chaque profil par la colonne Ordre
     for (let p in config) {
       config[p].sort((a, b) => (a.order || 0) - (b.order || 0));
@@ -1216,7 +1231,7 @@ function saveEvaluationConfig(token, config) {
 
   for (let profile in config) {
     const qList = config[profile];
-    const baseAssociee = (profile.toLowerCase() === 'fondamentales') ? '' : 'fondamentales';
+    const baseAssociee = (profile.toLowerCase() === 'fondamentales' || profile.toLowerCase() === 'conclusion') ? '' : 'fondamentales';
     if (Array.isArray(qList)) {
       qList.forEach((q, idx) => {
         rowsToAdd.push([

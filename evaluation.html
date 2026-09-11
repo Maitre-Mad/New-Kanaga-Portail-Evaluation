@@ -226,49 +226,38 @@
 
       <!-- Etape 4 -->
       <div class="wizard-content" id="wizard-step-4">
-        <h3>Section 3 : Réunion Finale - Objectifs et Synthèse Globale</h3>
-        <div class="form-group">
-          <label>Réalisation des Objectifs de la période écoulée</label>
-          <textarea id="eval-past-goals" class="form-control" rows="3" placeholder="Détaillez les objectifs fixés, résultats atteints..."></textarea>
+        <h3 id="step-4-title">Section 3 : Conclusion Commune - Objectifs &amp; Synthèse Globale</h3>
+        
+        <!-- Sous-navigation multi-pages pour la conclusion commune -->
+        <div id="eval-conclusion-pagination-bar" style="display:none; margin-bottom: 15px; background: #FAF6EE; border: 1px solid #E0CC99; border-radius: 6px; padding: 10px 16px; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+          <div>
+            <span style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #8C6D3B; font-weight: 700; display: block;">Progression Section Commune</span>
+            <span id="eval-conclusion-page-label" style="font-weight: 700; color: #5D4037; font-size: 14px;">Page 1 sur 2</span>
+          </div>
+          <div id="eval-conclusion-page-pills" style="display: flex; gap: 6px; align-items: center;">
+            <!-- Pastilles de pages dynamiques -->
+          </div>
         </div>
-        <div class="form-group">
-          <label>1. Principaux Points Forts de l'Employé(e)</label>
-          <textarea id="eval-strengths" class="form-control" rows="3"></textarea>
+
+        <div id="grid-conclusion" class="eval-grid">
+           <!-- Injected via JS -->
         </div>
-        <div class="form-group">
-          <label>2. Axes d'Amélioration Prioritaires</label>
-          <textarea id="eval-improvements" class="form-control" rows="3"></textarea>
+
+        <!-- Champs masqués pour préserver la rétrocompatibilité des scripts -->
+        <div style="display:none;">
+          <textarea id="eval-past-goals"></textarea>
+          <textarea id="eval-strengths"></textarea>
+          <textarea id="eval-improvements"></textarea>
+          <select id="eval-global-rating"><option value=""></option></select>
+          <textarea id="eval-training"></textarea>
+          <textarea id="eval-smart-goals"></textarea>
+          <textarea id="eval-aspirations"></textarea>
+          <textarea id="eval-emp-comments"></textarea>
         </div>
-        <div class="form-group">
-          <label>3. Commentaire Général sur la Performance Globale *</label>
-          <select id="eval-global-rating" class="form-control" required>
-            <option value="">-- Choisir --</option>
-            <option value="PI">PI - Performance Insatisfaisante</option>
-            <option value="PA">PA - Performance à Améliorer</option>
-            <option value="CA">CA - Performance Conforme aux Attentes</option>
-            <option value="PS">PS - Performance Supérieure</option>
-            <option value="PE">PE - Performance Exceptionnelle</option>
-          </select>
-        </div>
-        <h3 style="margin-top:30px;">VI. Plan de Développement</h3>
-        <div class="form-group">
-          <label>VI. 1. Besoins en Formation</label>
-          <textarea id="eval-training" class="form-control" rows="2"></textarea>
-        </div>
-        <div class="form-group">
-          <label>VI. 2. Objectifs SMART Prochaine Période</label>
-          <textarea id="eval-smart-goals" class="form-control" rows="3"></textarea>
-        </div>
-        <div class="form-group">
-          <label>VI. 3. Aspirations Professionnelles</label>
-          <textarea id="eval-aspirations" class="form-control" rows="2"></textarea>
-        </div>
-        <div class="form-group">
-          <label>VII. Commentaires de l'Employé(e) Évalué(e)</label>
-          <textarea id="eval-emp-comments" class="form-control" rows="3"></textarea>
-        </div>
+
         <div class="wizard-actions">
-          <button type="button" class="btn btn-outline" onclick="prevEvalStep(4, 3)">Précédent</button>
+          <button type="button" class="btn btn-outline" id="btn-eval-conclusion-prev" onclick="evalConclusionPrev()">Précédent</button>
+          <button type="button" class="btn btn-primary" id="btn-eval-conclusion-next" onclick="evalConclusionNext()">Suivant</button>
           <button type="button" class="btn btn-primary" id="btn-pre-eval" style="display:none;" onclick="submitPreEvaluation()">Pré-évaluer (pour réunion)</button>
           <button type="submit" class="btn btn-success" id="btn-submit-eval">Soumettre l'Évaluation</button>
         </div>

@@ -612,7 +612,7 @@
          select.appendChild(defaultOption);
          
          for (const key in config) {
-            if (key.toLowerCase() !== 'fondamentales') {
+            if (key.toLowerCase() !== 'fondamentales' && key.toLowerCase() !== 'conclusion') {
                const opt = document.createElement('option');
                opt.value = key;
                opt.text = "Profil : " + key;
@@ -820,6 +820,11 @@
         } else {
             document.getElementById('step-nav-3').style.display = 'none';
         }
+
+        const conclusionQuestions = (evalQuestions && evalQuestions.conclusion) ? evalQuestions.conclusion : [];
+        generateGrid('grid-conclusion', 'conclusion', conclusionQuestions);
+        window.evalCurrentConclusionPage = 1;
+        updateConclusionPageView();
         
         // Pré-remplissage pour l'auto-évaluation (si brouillon existant)
         if (type === 'Auto-évaluation' && ev) {
@@ -851,6 +856,35 @@
                         if(c) c.value = item.empComment || item.comment || '';
                     });
                 }
+                conclusionQuestions.forEach((q, idx) => {
+                    let ans = '';
+                    const qText = (q.text || '').toLowerCase();
+                    if (qText.includes('objectifs') && (qText.includes('écoulée') || qText.includes('passés'))) ans = ev.pastGoals || '';
+                    else if (qText.includes('points forts')) ans = ev.strengths || '';
+                    else if (qText.includes('amélioration')) ans = ev.improvements || '';
+                    else if (qText.includes('performance globale') || qText.includes('note globale')) ans = ev.globalRating || '';
+                    else if (qText.includes('formation')) ans = ev.training || '';
+                    else if (qText.includes('smart')) ans = ev.smartGoals || '';
+                    else if (qText.includes('aspirations')) ans = ev.aspirations || '';
+                    else if (qText.includes('commentaires')) ans = ev.empComments || '';
+                    else {
+                        if (idx === 0) ans = ev.pastGoals || '';
+                        if (idx === 1) ans = ev.strengths || '';
+                        if (idx === 2) ans = ev.improvements || '';
+                        if (idx === 3) ans = ev.globalRating || '';
+                        if (idx === 4) ans = ev.training || '';
+                        if (idx === 5) ans = ev.smartGoals || '';
+                        if (idx === 6) ans = ev.aspirations || '';
+                        if (idx === 7) ans = ev.empComments || '';
+                    }
+                    if (q.type === 'scale' || q.type === 'boolean') {
+                        const r = document.querySelector(`input[name="conclusion_q${idx}"][value="${ans}"]`);
+                        if(r) r.checked = true;
+                    } else if (q.type === 'text') {
+                        const t = document.querySelector(`textarea[name="conclusion_q${idx}"]`);
+                        if(t) t.value = ans;
+                    }
+                });
             } catch(e) {}
         }
 
@@ -906,6 +940,36 @@
                 });
               }
             } catch(e){}
+
+            conclusionQuestions.forEach((q, idx) => {
+              let ans = '';
+              const qText = (q.text || '').toLowerCase();
+              if (qText.includes('points forts')) ans = (mySynth ? mySynth.strengths : ev.strengths) || '';
+              else if (qText.includes('amélioration')) ans = (mySynth ? mySynth.improvements : ev.improvements) || '';
+              else if (qText.includes('performance globale') || qText.includes('note globale')) ans = (mySynth ? mySynth.globalRating : '') || '';
+              else if (qText.includes('formation')) ans = (mySynth ? mySynth.training : ev.training) || '';
+              else if (qText.includes('smart')) ans = (mySynth ? mySynth.smartGoals : ev.smartGoals) || '';
+              else if (qText.includes('commentaires')) ans = (mySynth ? mySynth.comments : '') || '';
+              else if (qText.includes('objectifs') && (qText.includes('écoulée') || qText.includes('passés'))) ans = ev.pastGoals || '';
+              else if (qText.includes('aspirations')) ans = ev.aspirations || '';
+              else {
+                if (idx === 0) ans = ev.pastGoals || '';
+                if (idx === 1) ans = (mySynth ? mySynth.strengths : ev.strengths) || '';
+                if (idx === 2) ans = (mySynth ? mySynth.improvements : ev.improvements) || '';
+                if (idx === 3) ans = (mySynth ? mySynth.globalRating : '') || '';
+                if (idx === 4) ans = (mySynth ? mySynth.training : ev.training) || '';
+                if (idx === 5) ans = (mySynth ? mySynth.smartGoals : ev.smartGoals) || '';
+                if (idx === 6) ans = ev.aspirations || '';
+                if (idx === 7) ans = (mySynth ? mySynth.comments : '') || '';
+              }
+              if (q.type === 'scale' || q.type === 'boolean') {
+                const r = document.querySelector(`input[name="conclusion_q${idx}"][value="${ans}"]`);
+                if(r) r.checked = true;
+              } else if (q.type === 'text') {
+                const t = document.querySelector(`textarea[name="conclusion_q${idx}"]`);
+                if(t) t.value = ans;
+              }
+            });
         }
 
         // Pré-remplissage pour l'évaluation manager / principale (si déjà pré-évalué ou évalué)
@@ -939,6 +1003,36 @@
                     });
                 }
             } catch(e) {}
+
+            conclusionQuestions.forEach((q, idx) => {
+              let ans = '';
+              const qText = (q.text || '').toLowerCase();
+              if (qText.includes('objectifs') && (qText.includes('écoulée') || qText.includes('passés'))) ans = ev.pastGoals || '';
+              else if (qText.includes('aspirations')) ans = ev.aspirations || '';
+              else if (qText.includes('points forts')) ans = ev.mgrStrengths || ev.strengths || '';
+              else if (qText.includes('amélioration')) ans = ev.mgrImprovements || ev.improvements || '';
+              else if (qText.includes('performance globale') || qText.includes('note globale')) ans = ev.mgrGlobalRating || '';
+              else if (qText.includes('formation')) ans = ev.mgrTraining || ev.training || '';
+              else if (qText.includes('smart')) ans = ev.mgrSmartGoals || ev.smartGoals || '';
+              else if (qText.includes('commentaires')) ans = ev.mgrComments || '';
+              else {
+                if (idx === 0) ans = ev.pastGoals || '';
+                if (idx === 1) ans = ev.mgrStrengths || ev.strengths || '';
+                if (idx === 2) ans = ev.mgrImprovements || ev.improvements || '';
+                if (idx === 3) ans = ev.mgrGlobalRating || '';
+                if (idx === 4) ans = ev.mgrTraining || ev.training || '';
+                if (idx === 5) ans = ev.mgrSmartGoals || ev.smartGoals || '';
+                if (idx === 6) ans = ev.aspirations || '';
+                if (idx === 7) ans = ev.mgrComments || '';
+              }
+              if (q.type === 'scale' || q.type === 'boolean') {
+                const r = document.querySelector(`input[name="conclusion_q${idx}"][value="${ans}"]`);
+                if(r) r.checked = true;
+              } else if (q.type === 'text') {
+                const t = document.querySelector(`textarea[name="conclusion_q${idx}"]`);
+                if(t) t.value = ans;
+              }
+            });
         }
         
         showEvalStep(2); 
@@ -1142,7 +1236,7 @@
         }
         const specQuestions = (profile !== 'Autre') ? findProfileQuestions(profile) : null;
         if (!specQuestions || specQuestions.length === 0 || profile === 'Autre') {
-            next = 4; // Aiguillage: pas de questions spécifiques, saut vers la Réunion Finale
+            next = 4; // Aiguillage: pas de questions spécifiques, saut direct vers la Section 3
         } else if(window.evalCurrentMode !== 'Initiation') {
             generateGrid('grid-specifiques', 'spec', specQuestions);
             document.getElementById('step-3-title').innerText = "Section 2 : Aiguillage - " + profile;
@@ -1150,6 +1244,10 @@
             window.evalCurrentSpecPage = 1;
             updateSpecPageView();
         }
+    }
+    if (next === 4) {
+        window.evalCurrentConclusionPage = 1;
+        updateConclusionPageView();
     }
     showEvalStep(next);
   }
@@ -1167,6 +1265,112 @@
         }
     }
     showEvalStep(prev);
+  }
+
+  window.evalCurrentConclusionPage = 1;
+
+  function getConclusionPageNumbers(conclusionQuestions) {
+    if (!conclusionQuestions || conclusionQuestions.length === 0) return [1];
+    const pages = Array.from(new Set(conclusionQuestions.map(q => parseInt(q.page, 10) || 1))).sort((a,b) => a - b);
+    return pages.length > 0 ? pages : [1];
+  }
+
+  function updateConclusionPageView() {
+    const conclusionQuestions = (evalQuestions && evalQuestions.conclusion) ? evalQuestions.conclusion : [];
+    const pageNumbers = getConclusionPageNumbers(conclusionQuestions);
+    const totalPages = pageNumbers.length;
+    
+    if (!pageNumbers.includes(window.evalCurrentConclusionPage)) {
+      window.evalCurrentConclusionPage = pageNumbers[0] || 1;
+    }
+    
+    const curPage = window.evalCurrentConclusionPage;
+    const curIdx = pageNumbers.indexOf(curPage) + 1;
+
+    const paginationBar = document.getElementById('eval-conclusion-pagination-bar');
+    const pageLabel = document.getElementById('eval-conclusion-page-label');
+    const pagePills = document.getElementById('eval-conclusion-page-pills');
+    
+    if (totalPages > 1) {
+      if (paginationBar) paginationBar.style.display = 'flex';
+      if (pageLabel) pageLabel.textContent = `Page ${curIdx} sur ${totalPages}`;
+      if (pagePills) {
+        pagePills.innerHTML = '';
+        pageNumbers.forEach((p, i) => {
+          const pill = document.createElement('span');
+          pill.style.cssText = `display:inline-block; width:28px; height:28px; border-radius:50%; text-align:center; line-height:28px; font-size:12px; font-weight:700; cursor:pointer; ` +
+            (p === curPage 
+              ? `background:var(--primary-color); color:white;` 
+              : `background:#E2D9C8; color:#5D4037;`);
+          pill.textContent = (i + 1);
+          pill.title = `Aller à la page ${i + 1}`;
+          pill.onclick = function() {
+            window.evalCurrentConclusionPage = p;
+            updateConclusionPageView();
+          };
+          pagePills.appendChild(pill);
+        });
+      }
+    } else {
+      if (paginationBar) paginationBar.style.display = 'none';
+    }
+
+    // Filtrer les questions visibles selon la page courante
+    const rows = document.querySelectorAll('#grid-conclusion .eval-grid-row, #grid-conclusion .eval-section-header');
+    rows.forEach(row => {
+      const qPage = parseInt(row.getAttribute('data-page'), 10) || 1;
+      row.style.display = (totalPages <= 1 || qPage === curPage) ? 'block' : 'none';
+    });
+
+    // Mettre à jour les boutons
+    const btnPrev = document.getElementById('btn-eval-conclusion-prev');
+    const btnNext = document.getElementById('btn-eval-conclusion-next');
+    const btnSubmit = document.getElementById('btn-submit-eval');
+    const btnPreEval = document.getElementById('btn-pre-eval');
+
+    if (btnPrev) {
+      btnPrev.textContent = (curIdx === 1) ? 'Précédent' : 'Page Précédente';
+    }
+    if (curIdx < totalPages) {
+      if (btnNext) {
+        btnNext.style.display = 'inline-block';
+        btnNext.textContent = 'Page Suivante';
+      }
+      if (btnSubmit) btnSubmit.style.display = 'none';
+      if (btnPreEval) btnPreEval.style.display = 'none';
+    } else {
+      if (btnNext) btnNext.style.display = 'none';
+      if (btnSubmit) btnSubmit.style.display = 'inline-block';
+      if (btnPreEval && window.evalCurrentMode === 'Évaluation Manager') {
+        btnPreEval.style.display = 'inline-block';
+      }
+    }
+  }
+
+  function evalConclusionPrev() {
+    const conclusionQuestions = (evalQuestions && evalQuestions.conclusion) ? evalQuestions.conclusion : [];
+    const pageNumbers = getConclusionPageNumbers(conclusionQuestions);
+    const curIdx = pageNumbers.indexOf(window.evalCurrentConclusionPage);
+    
+    if (curIdx > 0) {
+      window.evalCurrentConclusionPage = pageNumbers[curIdx - 1];
+      updateConclusionPageView();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      prevEvalStep(4, 3);
+    }
+  }
+
+  function evalConclusionNext() {
+    const conclusionQuestions = (evalQuestions && evalQuestions.conclusion) ? evalQuestions.conclusion : [];
+    const pageNumbers = getConclusionPageNumbers(conclusionQuestions);
+    const curIdx = pageNumbers.indexOf(window.evalCurrentConclusionPage);
+    
+    if (curIdx < pageNumbers.length - 1) {
+      window.evalCurrentConclusionPage = pageNumbers[curIdx + 1];
+      updateConclusionPageView();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   }
 
   function handleEvalProfileChange() {
@@ -1220,12 +1424,36 @@
       let collabComment = '';
       if (window.evalCurrentEv) {
         try {
-          const listStr = prefix === 'fonda' ? window.evalCurrentEv.fondamentales : window.evalCurrentEv.specifiques;
+          let listStr = null;
+          if (prefix === 'fonda') listStr = window.evalCurrentEv.fondamentales;
+          else if (prefix === 'spec') listStr = window.evalCurrentEv.specifiques;
+          else if (prefix === 'conclusion') listStr = window.evalCurrentEv.conclusion;
+
           if (listStr) {
             const parsed = JSON.parse(listStr);
             if (parsed && parsed[idx]) {
               collabAnswer = parsed[idx].answer || '';
               collabComment = parsed[idx].empComment || parsed[idx].comment || '';
+            }
+          } else if (prefix === 'conclusion') {
+            const qText = (q.text || '').toLowerCase();
+            if (qText.includes('objectifs') && (qText.includes('écoulée') || qText.includes('passés'))) collabAnswer = window.evalCurrentEv.pastGoals || '';
+            else if (qText.includes('points forts')) collabAnswer = window.evalCurrentEv.strengths || '';
+            else if (qText.includes('amélioration')) collabAnswer = window.evalCurrentEv.improvements || '';
+            else if (qText.includes('performance globale') || qText.includes('note globale')) collabAnswer = window.evalCurrentEv.globalRating || '';
+            else if (qText.includes('formation')) collabAnswer = window.evalCurrentEv.training || '';
+            else if (qText.includes('smart')) collabAnswer = window.evalCurrentEv.smartGoals || '';
+            else if (qText.includes('aspirations')) collabAnswer = window.evalCurrentEv.aspirations || '';
+            else if (qText.includes('commentaires')) collabAnswer = window.evalCurrentEv.empComments || '';
+            else {
+              if (idx === 0) collabAnswer = window.evalCurrentEv.pastGoals || '';
+              if (idx === 1) collabAnswer = window.evalCurrentEv.strengths || '';
+              if (idx === 2) collabAnswer = window.evalCurrentEv.improvements || '';
+              if (idx === 3) collabAnswer = window.evalCurrentEv.globalRating || '';
+              if (idx === 4) collabAnswer = window.evalCurrentEv.training || '';
+              if (idx === 5) collabAnswer = window.evalCurrentEv.smartGoals || '';
+              if (idx === 6) collabAnswer = window.evalCurrentEv.aspirations || '';
+              if (idx === 7) collabAnswer = window.evalCurrentEv.empComments || '';
             }
           }
         } catch(e) {}
@@ -1251,26 +1479,63 @@
       let secondarySummaryHtml = '';
       if (window.evalCurrentMode === 'Évaluation Manager' && window.evalCurrentEv) {
         try {
-          const secListStr = prefix === 'fonda' ? window.evalCurrentEv.secondaryFondamentales : window.evalCurrentEv.secondarySpecifiques;
-          if (secListStr) {
-            const secList = JSON.parse(secListStr);
-            if (Array.isArray(secList) && secList.length > 0) {
-              secList.forEach(entry => {
-                const resp = entry.responses && entry.responses[idx];
-                if (resp && resp.answer) {
-                  const bCls = getEvalBadgeClass(resp.answer);
-                  const comm = resp.comment || resp.secComment || resp.mgrComment || '';
+          if (prefix === 'conclusion') {
+            let secSynth = [];
+            try { secSynth = JSON.parse(window.evalCurrentEv.secondarySynthese || '[]'); } catch(e){}
+            if (Array.isArray(secSynth) && secSynth.length > 0) {
+              secSynth.forEach(s => {
+                let sVal = '';
+                const qText = (q.text || '').toLowerCase();
+                if (qText.includes('points forts')) sVal = s.strengths || '';
+                else if (qText.includes('amélioration')) sVal = s.improvements || '';
+                else if (qText.includes('performance globale') || qText.includes('note globale')) sVal = s.globalRating || '';
+                else if (qText.includes('formation')) sVal = s.training || '';
+                else if (qText.includes('smart')) sVal = s.smartGoals || '';
+                else if (qText.includes('commentaires')) sVal = s.comments || '';
+                else {
+                  if (idx === 1) sVal = s.strengths || '';
+                  if (idx === 2) sVal = s.improvements || '';
+                  if (idx === 3) sVal = s.globalRating || '';
+                  if (idx === 4) sVal = s.training || '';
+                  if (idx === 5) sVal = s.smartGoals || '';
+                  if (idx === 7) sVal = s.comments || '';
+                }
+                if (sVal) {
+                  const bCls = getEvalBadgeClass(sVal);
                   secondarySummaryHtml += `
                     <div class="eval-collab-summary" style="border-left: 3px solid #ff9800; background: #fffcf5; margin-top: 6px;">
                       <div class="eval-collab-summary-header">
-                        <span style="color:#b25900;">Évaluateur Secondaire (${escapeHtml(entry.evaluatorName || entry.evaluatorEmail)})</span>
-                        <span class="eval-badge eval-badge-${bCls}">${escapeHtml(resp.answer)}</span>
+                        <span style="color:#b25900;">Évaluateur Secondaire (${escapeHtml(s.evaluatorName || s.evaluatorEmail)})</span>
+                        ${q.type === 'scale' ? `<span class="eval-badge eval-badge-${bCls}">${escapeHtml(sVal)}</span>` : ''}
                       </div>
-                      ${comm ? `<div class="eval-collab-comment-content"><strong>Commentaire :</strong> ${escapeHtml(comm)}</div>` : ''}
+                      ${q.type !== 'scale' ? `<div class="eval-collab-comment-content">${escapeHtml(sVal).replace(/\n/g, '<br>')}</div>` : ''}
                     </div>
                   `;
                 }
               });
+            }
+          } else {
+            const secListStr = prefix === 'fonda' ? window.evalCurrentEv.secondaryFondamentales : window.evalCurrentEv.secondarySpecifiques;
+            if (secListStr) {
+              const secList = JSON.parse(secListStr);
+              if (Array.isArray(secList) && secList.length > 0) {
+                secList.forEach(entry => {
+                  const resp = entry.responses && entry.responses[idx];
+                  if (resp && resp.answer) {
+                    const bCls = getEvalBadgeClass(resp.answer);
+                    const comm = resp.comment || resp.secComment || resp.mgrComment || '';
+                    secondarySummaryHtml += `
+                      <div class="eval-collab-summary" style="border-left: 3px solid #ff9800; background: #fffcf5; margin-top: 6px;">
+                        <div class="eval-collab-summary-header">
+                          <span style="color:#b25900;">Évaluateur Secondaire (${escapeHtml(entry.evaluatorName || entry.evaluatorEmail)})</span>
+                          <span class="eval-badge eval-badge-${bCls}">${escapeHtml(resp.answer)}</span>
+                        </div>
+                        ${comm ? `<div class="eval-collab-comment-content"><strong>Commentaire :</strong> ${escapeHtml(comm)}</div>` : ''}
+                      </div>
+                    `;
+                  }
+                });
+              }
             }
           }
         } catch(e) {}
@@ -1347,6 +1612,7 @@
     const formData = {
       fondamentales: [],
       specifiques: [],
+      conclusion: [],
       pastGoals: document.getElementById('eval-past-goals').value,
       strengths: document.getElementById('eval-strengths').value,
       improvements: document.getElementById('eval-improvements').value,
@@ -1385,8 +1651,19 @@
         // Si non présent dans le formulaire actuel, récupérer les données du collaborateur
         if (window.evalCurrentEv) {
           try {
-            const listStr = prefix === 'fonda' ? window.evalCurrentEv.fondamentales : window.evalCurrentEv.specifiques;
-            const mgrListStr = prefix === 'fonda' ? window.evalCurrentEv.mgrFondamentales : window.evalCurrentEv.mgrSpecifiques;
+            let listStr = null;
+            let mgrListStr = null;
+            if (prefix === 'fonda') {
+              listStr = window.evalCurrentEv.fondamentales;
+              mgrListStr = window.evalCurrentEv.mgrFondamentales;
+            } else if (prefix === 'spec') {
+              listStr = window.evalCurrentEv.specifiques;
+              mgrListStr = window.evalCurrentEv.mgrSpecifiques;
+            } else if (prefix === 'conclusion') {
+              listStr = window.evalCurrentEv.conclusion;
+              mgrListStr = window.evalCurrentEv.mgrConclusion;
+            }
+
             if (listStr) {
               const p = JSON.parse(listStr);
               if (p && p[idx] && !empComment) {
@@ -1421,6 +1698,32 @@
     const specQuestions = (profile && profile !== 'Autre') ? findProfileQuestions(profile) : null;
     if (specQuestions && specQuestions.length > 0) {
       formData.specifiques = extractItems(specQuestions, 'spec');
+    }
+
+    if (evalQuestions && evalQuestions.conclusion) {
+      formData.conclusion = extractItems(evalQuestions.conclusion, 'conclusion');
+      formData.conclusion.forEach((item, idx) => {
+        const qText = (item.question || '').toLowerCase();
+        const val = item.answer || '';
+        if (qText.includes('objectifs') && (qText.includes('écoulée') || qText.includes('passés'))) formData.pastGoals = val;
+        else if (qText.includes('points forts')) formData.strengths = val;
+        else if (qText.includes('amélioration')) formData.improvements = val;
+        else if (qText.includes('performance globale') || qText.includes('note globale')) formData.globalRating = val;
+        else if (qText.includes('formation')) formData.training = val;
+        else if (qText.includes('smart')) formData.smartGoals = val;
+        else if (qText.includes('aspirations')) formData.aspirations = val;
+        else if (qText.includes('commentaires')) formData.empComments = val || item.comment || '';
+        else {
+          if (idx === 0 && !formData.pastGoals) formData.pastGoals = val;
+          if (idx === 1 && !formData.strengths) formData.strengths = val;
+          if (idx === 2 && !formData.improvements) formData.improvements = val;
+          if (idx === 3 && !formData.globalRating) formData.globalRating = val;
+          if (idx === 4 && !formData.training) formData.training = val;
+          if (idx === 5 && !formData.smartGoals) formData.smartGoals = val;
+          if (idx === 6 && !formData.aspirations) formData.aspirations = val;
+          if (idx === 7 && !formData.empComments) formData.empComments = val || item.comment || '';
+        }
+      });
     }
 
     return formData;
@@ -2436,6 +2739,11 @@
       fondaOpt.value = 'fondamentales';
       fondaOpt.text = 'Tronc Commun : Fondamentales (Communes à tous)';
       select.appendChild(fondaOpt);
+
+      const conclusionOpt = document.createElement('option');
+      conclusionOpt.value = 'conclusion';
+      conclusionOpt.text = 'Section 3 : Conclusion Commune - Objectifs & Synthèse (Commune à tous)';
+      select.appendChild(conclusionOpt);
       
       const cloneSelect = document.getElementById('admin-clone-profile-select');
       if (cloneSelect) {
@@ -2444,10 +2752,15 @@
         fondaClone.value = 'fondamentales';
         fondaClone.text = 'Copier depuis : Fondamentales (Communes)';
         cloneSelect.appendChild(fondaClone);
+
+        const conclusionClone = document.createElement('option');
+        conclusionClone.value = 'conclusion';
+        conclusionClone.text = 'Copier depuis : Conclusion Commune';
+        cloneSelect.appendChild(conclusionClone);
       }
       
       for (const key in adminEvalConfigData) {
-         if (key.toLowerCase() !== 'fondamentales') {
+         if (key.toLowerCase() !== 'fondamentales' && key.toLowerCase() !== 'conclusion') {
             const opt = document.createElement('option');
             opt.value = key;
             opt.text = "Profil : " + key;
@@ -2491,19 +2804,29 @@
       const btnDuplicate = document.getElementById('btn-duplicate-profile');
       
       const isFonda = (profile === 'fondamentales');
-      if (btnDelete) btnDelete.style.display = isFonda ? 'none' : 'inline-block';
-      if (btnRename) btnRename.style.display = isFonda ? 'none' : 'inline-block';
-      if (btnDuplicate) btnDuplicate.style.display = isFonda ? 'none' : 'inline-block';
+      const isConclusion = (profile === 'conclusion');
+      const isProtected = isFonda || isConclusion;
+      if (btnDelete) btnDelete.style.display = isProtected ? 'none' : 'inline-block';
+      if (btnRename) btnRename.style.display = isProtected ? 'none' : 'inline-block';
+      if (btnDuplicate) btnDuplicate.style.display = isProtected ? 'none' : 'inline-block';
       
       if (titleEl) {
-        titleEl.textContent = isFonda 
-          ? "Tronc Commun : Compétences Fondamentales" 
-          : `Aiguillage Spécifique : Profil "${profile}"`;
+        if (isFonda) {
+          titleEl.textContent = "Section 1 : Tronc Commun - Compétences Fondamentales";
+        } else if (isConclusion) {
+          titleEl.textContent = "Section 3 : Conclusion Commune - Objectifs & Synthèse Globale";
+        } else {
+          titleEl.textContent = `Aiguillage Spécifique : Profil "${profile}"`;
+        }
       }
       if (descEl) {
-        descEl.textContent = isFonda
-          ? "Section 1 du Sablier : Posée obligatoirement à tous les collaborateurs, quel que soit leur métier."
-          : `Section 2 du Sablier : Posée uniquement aux collaborateurs avec le profil "${profile}".`;
+        if (isFonda) {
+          descEl.textContent = "Section 1 du Sablier : Posée obligatoirement à tous les collaborateurs, quel que soit leur métier.";
+        } else if (isConclusion) {
+          descEl.textContent = "Section 3 du Sablier : Page finale commune remplie après l'évaluation du profil spécifique par tous les collaborateurs et managers.";
+        } else {
+          descEl.textContent = `Section 2 du Sablier : Posée uniquement aux collaborateurs avec le profil "${profile}".`;
+        }
       }
 
       if (!container) return;
@@ -2726,7 +3049,7 @@
           alert("Veuillez entrer un nom pour le nouveau profil.");
           return;
       }
-      if (name.toLowerCase() === 'fondamentales' || name.toLowerCase() === 'autre') {
+      if (name.toLowerCase() === 'fondamentales' || name.toLowerCase() === 'autre' || name.toLowerCase() === 'conclusion') {
           alert("Ce nom de profil est réservé par le système.");
           return;
       }
@@ -2757,7 +3080,7 @@
   function duplicateAdminProfile() {
       const select = document.getElementById('admin-profile-select');
       const current = select.value;
-      if (!current || current === 'fondamentales' || !adminEvalConfigData[current]) return;
+      if (!current || current === 'fondamentales' || current === 'conclusion' || !adminEvalConfigData[current]) return;
       
       let cloneName = prompt(`Nom du nouveau profil dupliqué depuis "${current}" :`, `${current} (Copie)`);
       if (!cloneName) return;
@@ -2775,7 +3098,7 @@
   function openRenameProfileModal() {
       const select = document.getElementById('admin-profile-select');
       const current = select.value;
-      if (!current || current === 'fondamentales') return;
+      if (!current || current === 'fondamentales' || current === 'conclusion') return;
       const input = document.getElementById('admin-rename-profile-name');
       if (input) input.value = current;
       const modal = document.getElementById('admin-rename-profile-modal');
@@ -2796,7 +3119,7 @@
           closeRenameProfileModal();
           return;
       }
-      if (newKey.toLowerCase() === 'fondamentales' || newKey.toLowerCase() === 'autre') {
+      if (newKey.toLowerCase() === 'fondamentales' || newKey.toLowerCase() === 'autre' || newKey.toLowerCase() === 'conclusion') {
           alert("Ce nom de profil est réservé par le système.");
           return;
       }
@@ -2823,7 +3146,7 @@
   function deleteAdminProfile() {
       const select = document.getElementById('admin-profile-select');
       const val = select.value;
-      if (!val || val === 'fondamentales' || !adminEvalConfigData[val]) return;
+      if (!val || val === 'fondamentales' || val === 'conclusion' || !adminEvalConfigData[val]) return;
       
       if (confirm(`Voulez-vous vraiment supprimer définitivement le profil "${val}" et toutes ses questions spécifiques ?`)) {
           delete adminEvalConfigData[val];
