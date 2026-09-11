@@ -2937,7 +2937,13 @@ const DEFAULT_COUNTRY_ADMIN_GROUPS = {
  * Récupère la configuration des groupes d'administration par pays depuis ScriptProperties (ou initialise les valeurs par défaut).
  */
 function getCountryAdminGroupsConfig(token) {
-  if (token) verifySession(token);
+  if (token) {
+    const sessionUser = verifySession(token);
+    const userRole = ((sessionUser && sessionUser.role) || '').toLowerCase().trim();
+    if (userRole !== 'admin' && sessionUser.username !== 'mhdicko@kanagaconsulting.com') {
+      throw new Error("Accès refusé. Seuls les administrateurs globaux peuvent accéder aux groupes d'administration.");
+    }
+  }
   const props = PropertiesService.getScriptProperties();
   const storedStr = props.getProperty('COUNTRY_ADMIN_GROUPS_V4');
   if (storedStr) {
@@ -2965,7 +2971,8 @@ function getCountryAdminGroupsConfig(token) {
  */
 function saveCountryAdminGroupsConfig(token, newGroupsData) {
   const sessionUser = verifySession(token);
-  if (sessionUser.role !== 'Admin') {
+  const userRole = ((sessionUser && sessionUser.role) || '').toLowerCase().trim();
+  if (userRole !== 'admin' && sessionUser.username !== 'mhdicko@kanagaconsulting.com') {
     throw new Error("Accès refusé. Seuls les administrateurs globaux peuvent modifier la configuration des groupes.");
   }
   

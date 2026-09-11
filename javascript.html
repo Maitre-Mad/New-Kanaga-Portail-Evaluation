@@ -2980,6 +2980,10 @@
   // --- Administration Logic ---
   
   function switchAdminTab(tabId) {
+      if (!isUserAdmin() && (tabId === 'country-groups' || tabId === 'users' || tabId === 'email')) {
+          tabId = 'questions';
+      }
+
       document.querySelectorAll('.admin-panel').forEach(p => p.style.display = 'none');
       document.querySelectorAll('.admin-tab').forEach(b => {
           b.style.background = '#f0f0f0';
@@ -2996,7 +3000,7 @@
       }
 
       if (tabId === 'country-groups') {
-        loadAdminCountryGroups();
+        if (isUserAdmin()) loadAdminCountryGroups();
       } else if (tabId === 'email') {
         loadEvaluationNotificationSettings();
       }
@@ -3135,13 +3139,20 @@
        window.adminAllProjects = projects;
     }).getAllProjectsForAdmin(window.kanagaToken);
     
-    if (currentUser && currentUser.role === 'Manager') {
-        document.getElementById('tab-btn-users').style.display = 'none';
-        document.getElementById('tab-btn-email').style.display = 'none';
+    const isAdmin = isUserAdmin();
+    const btnUsers = document.getElementById('tab-btn-users');
+    const btnEmail = document.getElementById('tab-btn-email');
+    const btnCountryGroups = document.getElementById('tab-btn-country-groups');
+
+    if (!isAdmin) {
+        if (btnUsers) btnUsers.style.display = 'none';
+        if (btnEmail) btnEmail.style.display = 'none';
+        if (btnCountryGroups) btnCountryGroups.style.display = 'none';
         switchAdminTab('questions');
     } else {
-        document.getElementById('tab-btn-users').style.display = 'inline-block';
-        document.getElementById('tab-btn-email').style.display = 'inline-block';
+        if (btnUsers) btnUsers.style.display = 'inline-block';
+        if (btnEmail) btnEmail.style.display = 'inline-block';
+        if (btnCountryGroups) btnCountryGroups.style.display = 'inline-block';
         switchAdminTab('users');
     }
   
