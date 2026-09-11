@@ -3252,6 +3252,16 @@
       });
   }
 
+  function markAdminQuestionsUnsaved() {
+      const badge = document.getElementById('admin-unsaved-badge');
+      if (badge) badge.style.display = 'inline-block';
+      const status = document.getElementById('questions-status-msg');
+      if (status && !status.innerText) {
+        status.innerText = "⚠️ Des modifications ont été apportées. Pensez à cliquer sur 'Enregistrer la Configuration' pour les reporter sur la feuille Google Sheets.";
+        status.style.color = "#b45309";
+      }
+  }
+
   function addAdminProfilePage() {
       const profile = document.getElementById('admin-profile-select').value;
       if (!profile || !adminEvalConfigData[profile]) return;
@@ -3266,6 +3276,7 @@
           options: "PI, PA, CA, PS, PE, N/A",
           page: newPage
       });
+      markAdminQuestionsUnsaved();
       renderAdminFormBuilder();
   }
 
@@ -3285,6 +3296,7 @@
               }
           });
           adminCurrentPage = 1;
+          markAdminQuestionsUnsaved();
           renderAdminFormBuilder();
       }
   }
@@ -3293,6 +3305,7 @@
       const profile = document.getElementById('admin-profile-select').value;
       if (!profile || !adminEvalConfigData[profile] || !adminEvalConfigData[profile][globalIdx]) return;
       adminEvalConfigData[profile][globalIdx].page = parseInt(newPage, 10) || 1;
+      markAdminQuestionsUnsaved();
       renderAdminFormBuilder();
   }
 
@@ -3305,6 +3318,7 @@
       const temp = list[idx];
       list[idx] = list[targetIdx];
       list[targetIdx] = temp;
+      markAdminQuestionsUnsaved();
       renderAdminFormBuilder();
   }
 
@@ -3312,6 +3326,7 @@
       const profile = document.getElementById('admin-profile-select').value;
       if (adminEvalConfigData[profile] && adminEvalConfigData[profile][idx]) {
           adminEvalConfigData[profile][idx][field] = value;
+          markAdminQuestionsUnsaved();
           if (field === 'type' || field === 'page') {
               renderAdminFormBuilder();
           }
@@ -3329,6 +3344,7 @@
           options: "PI, PA, CA, PS, PE, N/A",
           page: adminCurrentPage
       });
+      markAdminQuestionsUnsaved();
       renderAdminFormBuilder();
   }
 
@@ -3338,6 +3354,7 @@
       
       if (confirm(`Voulez-vous supprimer la question n° ${idx + 1} ?`)) {
         adminEvalConfigData[profile].splice(idx, 1);
+        markAdminQuestionsUnsaved();
         renderAdminFormBuilder();
       }
   }
@@ -3452,6 +3469,7 @@
       }
       adminEvalConfigData = newConfig;
       closeRenameProfileModal();
+      markAdminQuestionsUnsaved();
       updateAdminProfileSelect(newKey);
   }
 
@@ -3462,38 +3480,66 @@
       
       if (confirm(`Voulez-vous vraiment supprimer définitivement le profil "${val}" et toutes ses questions spécifiques ?`)) {
           delete adminEvalConfigData[val];
+          markAdminQuestionsUnsaved();
           updateAdminProfileSelect('fondamentales');
       }
   }
 
   function saveAdminQuestionsConfig() {
-      const btn = document.getElementById('btn-save-questions');
+      const btnTop = document.getElementById('btn-save-questions');
+      const btnBottom = document.getElementById('btn-save-questions-bottom');
       const status = document.getElementById('questions-status-msg');
-      if (btn) btn.disabled = true;
+      const unsavedBadge = document.getElementById('admin-unsaved-badge');
+
+      if (btnTop) {
+        btnTop.disabled = true;
+        btnTop.innerText = "Enregistrement sur la feuille...";
+      }
+      if (btnBottom) {
+        btnBottom.disabled = true;
+        btnBottom.innerText = "Enregistrement sur la feuille...";
+      }
       if (status) {
-        status.innerText = "Enregistrement de la configuration des profils et questions...";
+        status.innerText = "⏳ Enregistrement de la configuration et des pages sur la feuille EvaluationQuestions...";
         status.style.color = "var(--primary-color)";
       }
       
       google.script.run
-        .withSuccessHandler(function() {
-            if (btn) btn.disabled = false;
-            if (status) {
-              status.innerText = "✅ Configuration des profils et questions enregistrée avec succès !";
-              status.style.color = "green";
-              setTimeout(() => { if (status) status.innerText = ""; }, 4000);
+        .withSuccessHandler(function(res) {
+            if (btnTop) {
+              btnTop.disabled = false;
+              btnTop.innerText = "Enregistrer la Configuration";
             }
+            if (btnBottom) {
+              btnBottom.disabled = false;
+              btnBottom.innerText = "Enregistrer la Configuration";
+            }
+            if (unsavedBadge) unsavedBadge.style.display = 'none';
+            if (status) {
+              status.innerText = "✅ Configuration et pages enregistrées avec succès sur la feuille EvaluationQuestions !";
+              status.style.color = "green";
+              setTimeout(() => { if (status) status.innerText = ""; }, 5000);
+            }
+            alert("La configuration des questions et de leurs pages a été enregistrée avec succès sur la feuille EvaluationQuestions !");
             google.script.run.withSuccessHandler(function(c) {
                 evalQuestions = c;
                 loadEvaluationData(); // Rafraîchit les options du sélecteur de profils du formulaire
             }).getEvaluationConfig(window.kanagaToken);
         })
         .withFailureHandler(function(err) {
-            if (btn) btn.disabled = false;
+            if (btnTop) {
+              btnTop.disabled = false;
+              btnTop.innerText = "Enregistrer la Configuration";
+            }
+            if (btnBottom) {
+              btnBottom.disabled = false;
+              btnBottom.innerText = "Enregistrer la Configuration";
+            }
             if (status) {
-              status.innerText = "❌ Erreur : " + err.message;
+              status.innerText = "❌ Erreur lors de l'enregistrement : " + err.message;
               status.style.color = "var(--danger-color)";
             }
+            alert("Erreur lors de l'enregistrement sur la feuille : " + err.message);
         })
         .saveEvaluationConfig(window.kanagaToken, adminEvalConfigData);
   }

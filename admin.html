@@ -97,9 +97,12 @@
 
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px; flex-wrap:wrap; gap:10px;">
        <div>
-         <h3 style="margin:0; color: var(--primary-color);">Personnalisation des Profils et Questions</h3>
+         <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+           <h3 style="margin:0; color: var(--primary-color);">Personnalisation des Profils et Questions</h3>
+           <span id="admin-unsaved-badge" style="display:none; background:#FEF3C7; color:#92400E; border:1px solid #FCD34D; padding:4px 10px; border-radius:12px; font-size:12px; font-weight:700;">⚠️ Modifications non enregistrées</span>
+         </div>
          <p class="text-muted" style="margin: 4px 0 0 0; font-size: 13px;">
-           Les questions sont synchronisées avec la feuille Google Sheets <strong>EvaluationQuestions</strong>.
+           Les questions et leurs pages sont synchronisées avec la feuille Google Sheets <strong>EvaluationQuestions</strong>.
          </p>
        </div>
        <div style="display: flex; gap: 8px;">
@@ -174,6 +177,17 @@
     <button class="btn btn-outline" style="margin-top:15px; width:100%; border:2px dashed #BF9959; color:var(--primary-color); font-weight:600; padding:10px;" onclick="addAdminFormQuestion()">
       Ajouter une question à cette section
     </button>
+
+    <!-- Barre d'action inférieure de sauvegarde -->
+    <div style="margin-top: 22px; display: flex; justify-content: space-between; align-items: center; background: #fff; padding: 16px 20px; border-radius: 8px; border: 1px solid #E2D9C8; box-shadow: var(--shadow-sm); flex-wrap: wrap; gap: 12px;">
+      <div>
+        <strong style="color: var(--primary-color); font-size: 14px; display: block;">Sauvegarder sur la feuille EvaluationQuestions</strong>
+        <p style="margin: 2px 0 0 0; font-size: 12px; color: #718096;">Tous les profils, questions, types, ordres et <strong>numéros de page</strong> seront écrits sur la feuille Google Sheets.</p>
+      </div>
+      <button type="button" class="btn btn-primary" onclick="saveAdminQuestionsConfig()" id="btn-save-questions-bottom" style="font-weight: 700; padding: 10px 24px; font-size: 14px; box-shadow: 0 2px 6px rgba(124, 76, 38, 0.25);">
+        Enregistrer la Configuration
+      </button>
+    </div>
   </div>
 
   <!-- PANEL : GROUPES D'ADMINISTRATION PAR PAYS (RÉPONSES FORMULAIRE) -->

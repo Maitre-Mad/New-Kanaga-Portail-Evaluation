@@ -1157,12 +1157,38 @@ function getEvaluationConfig(token) {
     const headerRow = data[0].map(h => String(h || '').trim().toLowerCase());
 
     const colProfil = headerRow.indexOf('profil');
-    const colPage = headerRow.indexOf('page');
+    let colPage = headerRow.indexOf('page');
     const colOrdre = headerRow.indexOf('ordre');
     const colQuestion = headerRow.indexOf('question');
     const colDesc = headerRow.indexOf('description');
     const colType = headerRow.indexOf('type');
     const colOptions = headerRow.indexOf('options');
+
+    // Si la colonne 'Page' n'existe pas encore dans la feuille Google Sheets, l'ajouter immédiatement
+    if (colPage === -1) {
+      try {
+        sheet.insertColumnAfter(2); // Insère la colonne en 3ème position (entre 'Base Associée' et 'Ordre')
+        sheet.getRange(1, 3).setValue('Page').setFontWeight('bold').setBackground('#f3f3f3');
+        if (data.length > 1) {
+          const pageValues = [];
+          for (let r = 1; r < data.length; r++) {
+            const prof = String(data[r][colProfil !== -1 ? colProfil : 0] || '').trim().toLowerCase();
+            const ord = parseInt(data[r][colOrdre !== -1 ? colOrdre : 2], 10) || 1;
+            let pNum = 1;
+            if (prof.includes('junior') || prof.includes('assistant') || prof.includes('consultant') || prof.includes('comptable') || prof.includes('chef') || prof.includes('audit')) {
+              pNum = (ord > 3) ? 2 : 1;
+            } else if (prof === 'conclusion') {
+              pNum = (ord > 4) ? 2 : 1;
+            }
+            pageValues.push([pNum]);
+          }
+          sheet.getRange(2, 3, pageValues.length, 1).setValues(pageValues);
+        }
+        colPage = 2; // Index de la nouvelle colonne
+      } catch(migErr) {
+        Logger.log("Erreur migration colonne Page: " + migErr.message);
+      }
+    }
 
     const config = {};
 
@@ -1211,7 +1237,8 @@ function getEvaluationConfig(token) {
 
 function saveEvaluationConfig(token, config) {
   const sessionUser = verifySession(token);
-  if (!sessionUser || (sessionUser.role !== 'Admin' && sessionUser.role !== 'Manager')) {
+  const userRole = ((sessionUser && sessionUser.role) || '').toLowerCase().trim();
+  if (userRole !== 'admin' && userRole !== 'manager' && userRole !== 'directeur') {
     throw new Error("Action non autorisée. Seuls les administrateurs et managers peuvent modifier les profils et questions.");
   }
 
@@ -1237,7 +1264,7 @@ function saveEvaluationConfig(token, config) {
         rowsToAdd.push([
           profile,
           baseAssociee,
-          q.page || 1,
+          parseInt(q.page, 10) || 1,
           idx + 1,
           q.text || '',
           q.description || '',
@@ -1252,7 +1279,7 @@ function saveEvaluationConfig(token, config) {
     sheet.getRange(2, 1, rowsToAdd.length, headers.length).setValues(rowsToAdd);
   }
 
-  return { success: true };
+  return { success: true, count: rowsToAdd.length };
 }
 
 function initiateEvaluationsBatch(token, formData) {
