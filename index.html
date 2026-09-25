@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="fr">
 <head>
   <base target="_top">
@@ -10,6 +10,12 @@
   <?!= include('stylesheet'); ?>
 </head>
 <body>
+
+  <!-- Global Loader Overlay (affiché par défaut lors du test de session) -->
+  <div id="global-loader" class="loader-overlay" style="display: flex;">
+    <div class="spinner"></div>
+    <div class="loader-text">Chargement de votre espace...</div>
+  </div>
 
   <!-- Login View -->
   <div id="view-login" style="display: none;">
@@ -64,12 +70,6 @@
       </button>
     </div>
   </nav>
-
-  <!-- Global Loader -->
-  <div id="global-loader" class="loader-overlay">
-    <div class="spinner"></div>
-    <div class="loader-text">Chargement de votre espace...</div>
-  </div>
 
   <main class="main-content">
     <!-- Hub View -->

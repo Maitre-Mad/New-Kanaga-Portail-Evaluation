@@ -3,7 +3,7 @@
   <p>Gérez vos objectifs, auto-évaluations et évaluations d'équipe.</p>
   <div id="eval-header-actions" style="display: none; position: absolute; right: 0; top: 0;">
     <button class="btn btn-outline" style="margin-right: 8px;" onclick="toggleEvalScaleModal(true)">Barème & Légende</button>
-    <button class="btn btn-outline" onclick="showEvalSelectionScreen()">Retour à l'accueil</button>
+    <button class="btn btn-outline" id="eval-header-back-btn" onclick="goBackEvaluationScreen()">← Retour</button>
   </div>
 </div>
 
@@ -33,6 +33,39 @@
 <!-- WIZARD SCREEN (Creation) -->
 <div id="eval-wizard-screen" style="display: none;">
   <div class="panel" style="max-width: 800px; margin: 0 auto;">
+    <!-- Bannière contextuelle de retour aux évaluateurs secondaires pour le manager -->
+    <div id="eval-manager-secondary-return-banner" style="display: none; margin-bottom: 18px; padding: 12px 16px; background: #FFF8E1; border: 1px solid #FFE082; border-left: 5px solid #FF9800; border-radius: 6px; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+      <div style="font-size: 13px; color: #795548; line-height: 1.5; flex: 1; min-width: 250px;">
+        <strong style="color: #E65100;">↩️ Option Évaluateurs Secondaires :</strong> Ce dossier comporte des évaluateurs secondaires. Si vous êtes passé à l'évaluation principale par erreur, vous pouvez le leur renvoyer. Vos réponses déjà saisies seront automatiquement <strong>conservées en brouillon</strong>.
+      </div>
+      <button type="button" class="btn btn-outline" style="border-color: #FF9800; color: #E65100; font-weight: 600; font-size: 12px; padding: 6px 12px; white-space: nowrap;" onclick="returnFromWizardToSecondary()">← Retourner aux Secondaires</button>
+    </div>
+
+    <!-- Bannière contextuelle de retour au collaborateur pour le manager -->
+    <div id="eval-manager-employee-return-banner" style="display: none; margin-bottom: 18px; padding: 12px 16px; background: #FFEBEE; border: 1px solid #FFCDD2; border-left: 5px solid #D32F2F; border-radius: 6px; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+      <div style="font-size: 13px; color: #5D4037; line-height: 1.5; flex: 1; min-width: 250px;">
+        <strong style="color: #D32F2F;">↩️ Option Retour Collaborateur :</strong> Si l'auto-évaluation du collaborateur est incomplète, vide ou doit être reprise, vous pouvez lui renvoyer le dossier afin qu'il la refasse.
+      </div>
+      <button type="button" class="btn btn-outline" style="border-color: #D32F2F; color: #D32F2F; font-weight: 600; font-size: 12px; padding: 6px 12px; white-space: nowrap;" onclick="returnFromWizardToEmployee()">↩ Renvoyer au Collaborateur</button>
+    </div>
+
+    <!-- Barre d'état de sauvegarde du brouillon & Sauvegarde Manuelle -->
+    <div id="eval-draft-toolbar" style="display: none; justify-content: space-between; align-items: center; background: #FAF8F5; border: 1px solid #E8DFD8; border-radius: 8px; padding: 10px 16px; margin-bottom: 16px; flex-wrap: wrap; gap: 10px; position: sticky; top: 60px; z-index: 20; box-shadow: 0 2px 6px rgba(0,0,0,0.04);">
+      <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+        <span id="eval-draft-status-pill" style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; padding: 4px 10px; border-radius: 12px; background: #EFEBE9; color: #5D4037;">
+          <span id="eval-draft-status-icon">💾</span>
+          <span id="eval-draft-status-text">Sauvegarde auto active</span>
+        </span>
+        <span id="eval-draft-last-saved-time" style="font-size: 12px; color: #795548;"></span>
+      </div>
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <button type="button" class="btn btn-outline" id="btn-manual-save-draft-top" onclick="manualSaveEvaluationDraft()" style="border-color: #7C4C26; color: #7C4C26; font-weight: 600; font-size: 13px; padding: 6px 14px; display: inline-flex; align-items: center; gap: 6px;" title="Sauvegarder immédiatement votre avancement pour pouvoir y revenir plus tard">
+          <span>💾</span>
+          <span>Enregistrer le brouillon</span>
+        </button>
+      </div>
+    </div>
+
     <div id="eval-wizard-progress" class="wizard-progress">
       <div class="wizard-step active" id="step-nav-1">1. Entonnoir (Infos)</div>
       <div class="wizard-step" id="step-nav-2">2. Tronc Commun</div>
@@ -98,44 +131,44 @@
           </div>
           <div class="eval-scale-items">
             <div class="eval-scale-item">
-              <span class="eval-badge eval-badge-pe">5 - PE</span>
+              <span class="eval-badge eval-badge-pe">5 - EXCEPTI</span>
               <div>
                 <strong>Performance Exceptionnelle</strong>
                 <div class="text-muted">Dépasse constamment les attentes et constitue une référence.</div>
               </div>
             </div>
             <div class="eval-scale-item">
-              <span class="eval-badge eval-badge-ps">4 - PS</span>
+              <span class="eval-badge eval-badge-ps">4 - SUPERIE</span>
               <div>
                 <strong>Performance Supérieure</strong>
                 <div class="text-muted">Dépasse régulièrement les attentes dans les domaines clés.</div>
               </div>
             </div>
             <div class="eval-scale-item">
-              <span class="eval-badge eval-badge-ca">3 - CA</span>
+              <span class="eval-badge eval-badge-ca">3 - CONFORM</span>
               <div>
                 <strong>Performance Conforme aux Attentes</strong>
                 <div class="text-muted">Atteint les objectifs et les standards de performance attendus pour le poste.</div>
               </div>
             </div>
             <div class="eval-scale-item">
-              <span class="eval-badge eval-badge-pa">2 - PA</span>
+              <span class="eval-badge eval-badge-pa">2 - AMELIOR</span>
               <div>
                 <strong>Performance à Améliorer</strong>
                 <div class="text-muted">N'atteint pas toujours les objectifs et nécessite une amélioration dans certains domaines.</div>
               </div>
             </div>
             <div class="eval-scale-item">
-              <span class="eval-badge eval-badge-pi">1 - PI</span>
+              <span class="eval-badge eval-badge-pi">1 - INSATIS</span>
               <div>
                 <strong>Performance Insatisfaisante</strong>
                 <div class="text-muted">N'atteint pas les objectifs de manière significative et nécessite une amélioration immédiate.</div>
               </div>
             </div>
             <div class="eval-scale-item">
-              <span class="eval-badge eval-badge-na">N/A</span>
+              <span class="eval-badge eval-badge-na">NONAPPL</span>
               <div>
-                <strong>Non Applicable</strong>
+                <strong>N/A Non Applicable</strong>
                 <div class="text-muted">Non applicable au poste ou non évaluable sur la période.</div>
               </div>
             </div>
@@ -147,6 +180,7 @@
         <div class="wizard-actions">
           <button type="button" class="btn btn-outline" onclick="prevEvalStep(2, 1)">Précédent</button>
           <button type="button" class="btn btn-primary" onclick="nextEvalStep(2, 3)">Suivant</button>
+          <button type="button" class="btn btn-outline btn-save-draft-action" onclick="manualSaveEvaluationDraft()" style="border-color: #8C6D3B; color: #8C6D3B; font-weight: 600;">💾 Enregistrer le Brouillon</button>
         </div>
       </div>
 
@@ -174,44 +208,44 @@
           </div>
           <div class="eval-scale-items">
             <div class="eval-scale-item">
-              <span class="eval-badge eval-badge-pe">5 - PE</span>
+              <span class="eval-badge eval-badge-pe">5 - EXCEPTI</span>
               <div>
                 <strong>Performance Exceptionnelle</strong>
                 <div class="text-muted">Dépasse constamment les attentes et constitue une référence.</div>
               </div>
             </div>
             <div class="eval-scale-item">
-              <span class="eval-badge eval-badge-ps">4 - PS</span>
+              <span class="eval-badge eval-badge-ps">4 - SUPERIE</span>
               <div>
                 <strong>Performance Supérieure</strong>
                 <div class="text-muted">Dépasse régulièrement les attentes dans les domaines clés.</div>
               </div>
             </div>
             <div class="eval-scale-item">
-              <span class="eval-badge eval-badge-ca">3 - CA</span>
+              <span class="eval-badge eval-badge-ca">3 - CONFORM</span>
               <div>
                 <strong>Performance Conforme aux Attentes</strong>
                 <div class="text-muted">Atteint les objectifs et les standards de performance attendus pour le poste.</div>
               </div>
             </div>
             <div class="eval-scale-item">
-              <span class="eval-badge eval-badge-pa">2 - PA</span>
+              <span class="eval-badge eval-badge-pa">2 - AMELIOR</span>
               <div>
                 <strong>Performance à Améliorer</strong>
                 <div class="text-muted">N'atteint pas toujours les objectifs et nécessite une amélioration dans certains domaines.</div>
               </div>
             </div>
             <div class="eval-scale-item">
-              <span class="eval-badge eval-badge-pi">1 - PI</span>
+              <span class="eval-badge eval-badge-pi">1 - INSATIS</span>
               <div>
                 <strong>Performance Insatisfaisante</strong>
                 <div class="text-muted">N'atteint pas les objectifs de manière significative et nécessite une amélioration immédiate.</div>
               </div>
             </div>
             <div class="eval-scale-item">
-              <span class="eval-badge eval-badge-na">N/A</span>
+              <span class="eval-badge eval-badge-na">NONAPPL</span>
               <div>
-                <strong>Non Applicable</strong>
+                <strong>N/A Non Applicable</strong>
                 <div class="text-muted">Non applicable au poste ou non évaluable sur la période.</div>
               </div>
             </div>
@@ -223,6 +257,7 @@
         <div class="wizard-actions">
           <button type="button" class="btn btn-outline" id="btn-eval-spec-prev" onclick="evalSpecPrev()">Précédent</button>
           <button type="button" class="btn btn-primary" id="btn-eval-spec-next" onclick="evalSpecNext()">Suivant</button>
+          <button type="button" class="btn btn-outline btn-save-draft-action" onclick="manualSaveEvaluationDraft()" style="border-color: #8C6D3B; color: #8C6D3B; font-weight: 600;">💾 Enregistrer le Brouillon</button>
         </div>
       </div>
 
@@ -260,6 +295,10 @@
         <div class="wizard-actions">
           <button type="button" class="btn btn-outline" id="btn-eval-conclusion-prev" onclick="evalConclusionPrev()">Précédent</button>
           <button type="button" class="btn btn-primary" id="btn-eval-conclusion-next" onclick="evalConclusionNext()">Suivant</button>
+          <button type="button" class="btn btn-outline btn-save-draft-action" id="btn-save-eval-draft" style="border-color: #8C6D3B; color: #8C6D3B; font-weight: 600;" onclick="manualSaveEvaluationDraft()">💾 Enregistrer le Brouillon</button>
+          <button type="button" class="btn btn-outline" id="btn-save-secondary-draft" style="display:none; border-color:#FF9800; color:#E65100;" onclick="manualSaveEvaluationDraft()">Enregistrer le Brouillon</button>
+          <button type="button" class="btn btn-outline" id="btn-wizard-return-secondary" style="display:none; border-color:#FF9800; color:#E65100;" onclick="returnFromWizardToSecondary()">← Retourner aux Secondaires (Brouillon)</button>
+          <button type="button" class="btn btn-outline" id="btn-wizard-return-employee" style="display:none; border-color:#D32F2F; color:#D32F2F;" onclick="returnFromWizardToEmployee()">↩ Retourner au Collaborateur</button>
           <button type="button" class="btn btn-primary" id="btn-pre-eval" style="display:none;" onclick="submitPreEvaluation()">Pré-évaluer (pour réunion)</button>
           <button type="button" class="btn btn-success" id="btn-submit-eval" onclick="submitEvaluationForm()">Soumettre l'Évaluation</button>
         </div>
@@ -302,7 +341,7 @@
       <h2 style="margin: 0; color: var(--primary-color);">Fiche d'Évaluation</h2>
       <div>
         <button class="btn btn-outline" style="margin-right: 8px;" onclick="toggleEvalScaleModal(true)">Barème & Légende</button>
-        <button class="btn btn-outline" onclick="showManagerDashboard()">Fermer</button>
+        <button class="btn btn-outline" onclick="goBackEvaluationScreen()">← Retour</button>
       </div>
     </div>
     
@@ -329,49 +368,49 @@
 
     <div style="display: flex; flex-direction: column; gap: 12px;">
       <div class="eval-scale-item" style="padding: 12px;">
-        <span class="eval-badge eval-badge-pe" style="font-size: 13px; padding: 4px 10px;">5 - PE</span>
+        <span class="eval-badge eval-badge-pe" style="font-size: 13px; padding: 4px 10px;">5 - EXCEPTI</span>
         <div>
-          <strong style="font-size: 14px; color: #1e7e34;">Performance Exceptionnelle (PE)</strong>
+          <strong style="font-size: 14px; color: #1e7e34;">Performance Exceptionnelle (EXCEPTI)</strong>
           <div style="color: #444; margin-top: 3px; font-size: 13px;">Dépasse constamment les attentes et constitue une référence.</div>
         </div>
       </div>
 
       <div class="eval-scale-item" style="padding: 12px;">
-        <span class="eval-badge eval-badge-ps" style="font-size: 13px; padding: 4px 10px;">4 - PS</span>
+        <span class="eval-badge eval-badge-ps" style="font-size: 13px; padding: 4px 10px;">4 - SUPERIE</span>
         <div>
-          <strong style="font-size: 14px; color: #0c63e4;">Performance Supérieure (PS)</strong>
+          <strong style="font-size: 14px; color: #0c63e4;">Performance Supérieure (SUPERIE)</strong>
           <div style="color: #444; margin-top: 3px; font-size: 13px;">Dépasse régulièrement les attentes dans les domaines clés.</div>
         </div>
       </div>
 
       <div class="eval-scale-item" style="padding: 12px;">
-        <span class="eval-badge eval-badge-ca" style="font-size: 13px; padding: 4px 10px;">3 - CA</span>
+        <span class="eval-badge eval-badge-ca" style="font-size: 13px; padding: 4px 10px;">3 - CONFORM</span>
         <div>
-          <strong style="font-size: 14px; color: #0f5132;">Performance Conforme aux Attentes (CA)</strong>
+          <strong style="font-size: 14px; color: #0f5132;">Performance Conforme aux Attentes (CONFORM)</strong>
           <div style="color: #444; margin-top: 3px; font-size: 13px;">Atteint les objectifs et les standards de performance attendus pour le poste.</div>
         </div>
       </div>
 
       <div class="eval-scale-item" style="padding: 12px;">
-        <span class="eval-badge eval-badge-pa" style="font-size: 13px; padding: 4px 10px;">2 - PA</span>
+        <span class="eval-badge eval-badge-pa" style="font-size: 13px; padding: 4px 10px;">2 - AMELIOR</span>
         <div>
-          <strong style="font-size: 14px; color: #856404;">Performance à Améliorer (PA)</strong>
+          <strong style="font-size: 14px; color: #856404;">Performance à Améliorer (AMELIOR)</strong>
           <div style="color: #444; margin-top: 3px; font-size: 13px;">N'atteint pas toujours les objectifs et nécessite une amélioration dans certains domaines.</div>
         </div>
       </div>
 
       <div class="eval-scale-item" style="padding: 12px;">
-        <span class="eval-badge eval-badge-pi" style="font-size: 13px; padding: 4px 10px;">1 - PI</span>
+        <span class="eval-badge eval-badge-pi" style="font-size: 13px; padding: 4px 10px;">1 - INSATIS</span>
         <div>
-          <strong style="font-size: 14px; color: #842029;">Performance Insatisfaisante (PI)</strong>
+          <strong style="font-size: 14px; color: #842029;">Performance Insatisfaisante (INSATIS)</strong>
           <div style="color: #444; margin-top: 3px; font-size: 13px;">N'atteint pas les objectifs de manière significative et nécessite une amélioration immédiate.</div>
         </div>
       </div>
 
       <div class="eval-scale-item" style="padding: 12px;">
-        <span class="eval-badge eval-badge-na" style="font-size: 13px; padding: 4px 10px;">N/A</span>
+        <span class="eval-badge eval-badge-na" style="font-size: 13px; padding: 4px 10px;">NONAPPL</span>
         <div>
-          <strong style="font-size: 14px; color: #555;">Non Applicable (N/A)</strong>
+          <strong style="font-size: 14px; color: #555;">N/A Non Applicable (NONAPPL)</strong>
           <div style="color: #444; margin-top: 3px; font-size: 13px;">Non applicable au poste ou non évaluable sur la période.</div>
         </div>
       </div>
@@ -379,6 +418,27 @@
 
     <div style="margin-top: 20px; text-align: right;">
       <button class="btn btn-primary" onclick="toggleEvalScaleModal(false)">Compris</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CONFIRMATION BROUILLON SAUVEGARDE -->
+<div id="eval-draft-saved-modal" class="eval-modal-backdrop" style="display: none;" onclick="if(event.target===this) toggleDraftSavedModal(false)">
+  <div class="eval-modal-content" style="max-width: 500px; text-align: center; padding: 28px;">
+    <div style="width: 56px; height: 56px; border-radius: 50%; background: #E8F5E9; color: #2E7D32; display: flex; align-items: center; justify-content: center; font-size: 28px; margin: 0 auto 16px;">
+      ✓
+    </div>
+    <h3 style="margin-bottom: 8px; color: var(--text-color);">Brouillon enregistré avec succès !</h3>
+    <p id="eval-draft-saved-modal-msg" style="color: #555; font-size: 14px; margin-bottom: 24px; line-height: 1.6;">
+      Votre avancement a été sauvegardé. Vous pouvez continuer votre saisie maintenant ou quitter le dossier pour y revenir plus tard.
+    </p>
+    <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+      <button type="button" class="btn btn-primary" onclick="toggleDraftSavedModal(false)" style="min-width: 160px;">
+        Continuer la saisie
+      </button>
+      <button type="button" class="btn btn-outline" onclick="exitWizardAfterDraftSave()" style="min-width: 160px; border-color: #8C6D3B; color: #5D4037; font-weight: 600;">
+        Quitter et revenir plus tard
+      </button>
     </div>
   </div>
 </div>

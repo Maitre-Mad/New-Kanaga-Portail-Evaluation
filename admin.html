@@ -8,6 +8,7 @@
    <button class="btn admin-tab" id="tab-btn-email" onclick="switchAdminTab('email')" style="border-bottom-left-radius:0; border-bottom-right-radius:0; background:#f0f0f0; color:#333;">Modèle d'E-mail</button>
    <button class="btn admin-tab" id="tab-btn-questions" onclick="switchAdminTab('questions')" style="border-bottom-left-radius:0; border-bottom-right-radius:0; background:#f0f0f0; color:#333;">Formulaires d'Évaluation</button>
    <button class="btn admin-tab" id="tab-btn-country-groups" onclick="switchAdminTab('country-groups')" style="border-bottom-left-radius:0; border-bottom-right-radius:0; background:#f0f0f0; color:#333; display:none;">Groupes Admin Formulaire</button>
+   <button class="btn admin-tab" id="tab-btn-logs" onclick="switchAdminTab('logs')" style="border-bottom-left-radius:0; border-bottom-right-radius:0; background:#f0f0f0; color:#333;">Journaux (Logs)</button>
 </div>
 
 <div style="display: block;">
@@ -77,6 +78,9 @@
         <option value="self_eval_submitted">3. Auto-évaluation soumise : Alerte Évaluateurs (Avis attendu)</option>
         <option value="secondary_completed">4. Retours secondaires complétés : Alerte Manager Principal (Prêt pour Entretien)</option>
         <option value="eval_finalized">5. Évaluation clôturée : Notification finale avec lien PDF (Employé)</option>
+        <option value="reminder_employee">6. Rappel : Auto-évaluation collaborateur en attente</option>
+        <option value="reminder_secondary">7. Rappel : Évaluation secondaire en attente</option>
+        <option value="reminder_principal">8. Rappel : Évaluation principale manager en attente</option>
       </select>
     </div>
 
@@ -106,6 +110,8 @@
           <code style="background:#fff; border:1px solid #CBD5E0; padding:1px 5px; border-radius:3px;">{profil}</code> : Métier &nbsp;|&nbsp;
           <code style="background:#fff; border:1px solid #CBD5E0; padding:1px 5px; border-radius:3px;">{evaluateur_principal}</code> : Nom du manager principal &nbsp;|&nbsp;
           <code style="background:#fff; border:1px solid #CBD5E0; padding:1px 5px; border-radius:3px;">{evaluateurs_secondaires}</code> : Évaluateurs secondaires &nbsp;|&nbsp;
+          <code style="background:#fff; border:1px solid #CBD5E0; padding:1px 5px; border-radius:3px;">{evaluateur_secondaire}</code> : Nom de l'évaluateur secondaire &nbsp;|&nbsp;
+          <code style="background:#fff; border:1px solid #CBD5E0; padding:1px 5px; border-radius:3px;">{jours_inactivite}</code> : Jours d'inactivité &nbsp;|&nbsp;
           <code style="background:#fff; border:1px solid #CBD5E0; padding:1px 5px; border-radius:3px;">{lien_portail}</code> : Lien du portail &nbsp;|&nbsp;
           <code style="background:#fff; border:1px solid #CBD5E0; padding:1px 5px; border-radius:3px;">{bloc_pdf}</code> : Bouton de téléchargement du PDF (Étape 5)
         </div>
@@ -130,6 +136,58 @@
         </button>
       </div>
       <div id="eval-test-email-status" class="status-msg" style="margin-top:8px;"></div>
+    </div>
+
+    <!-- Paramétrage du Moteur de Rappels Automatiques & Relances -->
+    <div style="margin-top:28px; padding:18px 20px; background:#F8FAFC; border:1px solid #CBD5E1; border-radius:8px;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px; margin-bottom:14px;">
+        <div>
+          <h4 style="margin:0; font-size:15px; color:#1E293B; display:flex; align-items:center; gap:8px;">
+            <span>🔔</span> Système de Rappels Automatiques & Déclencheur Quotidien
+          </h4>
+          <p class="text-muted" style="font-size:12px; margin:4px 0 0 0;">
+            Relance automatiquement par e-mail les acteurs en attente (Collaborateur, Évaluateurs secondaires, Manager) après une période d'inactivité.
+          </p>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="font-size:12px; font-weight:600; color:#475569;">Déclencheur automatique :</span>
+          <span id="eval-reminder-trigger-badge" class="badge" style="background:#E2E8F0; color:#475569; font-size:12px; padding:4px 10px;">Vérification...</span>
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:16px; margin-bottom:16px;">
+        <div class="form-group" style="margin:0;">
+          <label for="eval-reminder-inactivity-days" style="font-size:12px; font-weight:700; color:#334155; display:block; margin-bottom:4px;">
+            Délai d'inactivité avant relance (jours) :
+          </label>
+          <input type="number" id="eval-reminder-inactivity-days" class="form-control" min="1" max="60" value="5" style="font-weight:600;">
+          <small class="text-muted" style="font-size:11px;">Nombre de jours sans modification ni soumission avant l'envoi d'un rappel.</small>
+        </div>
+
+        <div class="form-group" style="margin:0;">
+          <label for="eval-reminder-max-count" style="font-size:12px; font-weight:700; color:#334155; display:block; margin-bottom:4px;">
+            Nombre max de relances auto (anti-harcèlement) :
+          </label>
+          <input type="number" id="eval-reminder-max-count" class="form-control" min="1" max="10" value="3" style="font-weight:600;">
+          <small class="text-muted" style="font-size:11px;">Limite de rappels automatiques envoyés pour une même étape sans réaction.</small>
+        </div>
+      </div>
+
+      <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; padding-top:12px; border-top:1px solid #E2E8F0;">
+        <button type="button" class="btn btn-primary" id="btn-save-reminder-config" onclick="saveReminderConfig()" style="font-size:12px; padding:7px 14px;">
+          💾 Enregistrer les critères de rappel
+        </button>
+        <button type="button" class="btn btn-outline" id="btn-setup-reminder-trigger" onclick="toggleReminderTrigger(true)" style="font-size:12px; padding:7px 14px; border-color:#0284C7; color:#0284C7;">
+          ⏰ Activer le déclencheur quotidien (8h00)
+        </button>
+        <button type="button" class="btn btn-outline" id="btn-remove-reminder-trigger" onclick="toggleReminderTrigger(false)" style="font-size:12px; padding:7px 14px; border-color:#DC2626; color:#DC2626;">
+          ⏹️ Désactiver le déclencheur
+        </button>
+        <button type="button" class="btn btn-outline" id="btn-run-manual-reminders" onclick="runManualRemindersCheck()" style="font-size:12px; padding:7px 14px; border-color:#D97706; color:#B45309; margin-left:auto;">
+          🚀 Vérifier et relancer maintenant
+        </button>
+      </div>
+      <div id="eval-reminder-ctrl-status" class="status-msg" style="margin-top:10px; font-size:12px;"></div>
     </div>
   </div>
 
@@ -472,3 +530,39 @@
   </div>
 </div>
 
+<!-- PANEL : LOGS D'ACTIVITÉ -->
+<div class="panel admin-panel" id="admin-panel-logs" style="display:none;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
+    <div>
+      <h3 style="margin:0;">Journaux d'Activités (Logs)</h3>
+      <p class="text-muted" style="font-size:13px; margin:4px 0 0 0;">Visualisez les 500 dernières actions effectuées sur la plateforme.</p>
+    </div>
+    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+      <input type="text" id="admin-logs-search" class="form-control" placeholder="Rechercher (email, action...)" style="width:250px;" oninput="filterAdminLogs()">
+      <select id="admin-logs-type-filter" class="form-control" style="width:130px;" onchange="filterAdminLogs()">
+        <option value="ALL">Tous types</option>
+        <option value="INFO">INFO</option>
+        <option value="WARNING">WARNING</option>
+        <option value="ERROR">ERROR</option>
+      </select>
+      <button class="btn btn-primary" onclick="loadSystemLogs()">Rafraîchir</button>
+    </div>
+  </div>
+  
+  <div id="admin-logs-loader" class="status-msg" style="color:var(--primary-color);">Chargement des logs...</div>
+  
+  <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
+    <table class="modern-table" id="admin-logs-table" style="display: none;">
+      <thead>
+        <tr>
+          <th style="width:150px;">Date / Heure</th>
+          <th style="width:200px;">Utilisateur</th>
+          <th style="width:150px;">Action</th>
+          <th>Détails</th>
+          <th style="width:100px;">Type</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>

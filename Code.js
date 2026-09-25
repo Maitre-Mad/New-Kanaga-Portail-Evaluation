@@ -20,6 +20,69 @@ function include(filename) {
 }
 
 /**
+ * Système de Journalisation (Logging)
+ */
+function logEvent(userEmail, action, details, type) {
+  try {
+    const timestamp = new Date();
+    // 1. Log to Cloud Logging (always)
+    const logMessage = `[${type || 'INFO'}] User: ${userEmail} | Action: ${action} | Details: ${details}`;
+    if (type === 'ERROR') {
+      console.error(logMessage);
+    } else {
+      console.log(logMessage);
+    }
+
+    // 2. Log to Spreadsheet
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    let logSheet = ss.getSheetByName('Logs');
+    if (!logSheet) {
+      logSheet = ss.insertSheet('Logs');
+      logSheet.appendRow(['Timestamp', 'User', 'Action', 'Details', 'Type']);
+      logSheet.getRange('A1:E1').setFontWeight('bold');
+      logSheet.setFrozenRows(1);
+    }
+    
+    logSheet.appendRow([timestamp, userEmail, action, details, type || 'INFO']);
+  } catch (e) {
+    console.error("Erreur lors de l'écriture du log : " + e.message);
+  }
+}
+
+function getSystemLogs(token) {
+  const sessionUser = verifySession(token);
+  const userRole = ((sessionUser && sessionUser.role) || '').toLowerCase().trim();
+  if (userRole !== 'admin' && userRole !== 'superadmin') {
+    throw new Error("Accès refusé. Seuls les administrateurs peuvent consulter les journaux.");
+  }
+
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const logSheet = ss.getSheetByName('Logs');
+    if (!logSheet) return [];
+    
+    const data = logSheet.getDataRange().getValues();
+    if (data.length <= 1) return []; // Only headers
+    
+    // Slice off headers and take the last 500 logs to prevent memory issues
+    const logsData = data.slice(1);
+    const recentLogs = logsData.slice(-500).reverse(); // Newest first
+    
+    // Map to objects: [Timestamp, User, Action, Details, Type]
+    return recentLogs.map(row => ({
+      timestamp: row[0] instanceof Date ? row[0].toISOString() : row[0],
+      user: row[1] || '',
+      action: row[2] || '',
+      details: row[3] || '',
+      type: row[4] || 'INFO'
+    }));
+  } catch(e) {
+    console.error("Erreur lecture Logs: " + e.message);
+    throw new Error("Impossible de lire les journaux d'activité.");
+  }
+}
+
+/**
  * Gestion de Session
  */
 function generateSessionToken() {
@@ -62,17 +125,61 @@ function verifySession(token) {
   }
 }
 
-function logout(token) {
+/**
+ * Valide un jeton de session côté serveur sans lancer d'exception.
+ */
+function validateSession(token) {
+  try {
+    const user = verifySession(token);
+    return { valid: true, user: user };
+  } catch(e) {
+    return { valid: false, message: e.message };
+  }
+}
+
+function logout(token, clientInfo) {
   if (token) {
+    let clientDetails = '';
+    if (clientInfo) {
+      if (typeof clientInfo === 'object') {
+        const parts = [];
+        if (clientInfo.ip) parts.push(`IP: ${clientInfo.ip}` + (clientInfo.location ? ` (${clientInfo.location})` : ''));
+        if (clientInfo.device) parts.push(`Appareil: ${clientInfo.device}`);
+        clientDetails = parts.join(' | ');
+      } else {
+        clientDetails = String(clientInfo);
+      }
+    }
+    const extraInfo = clientDetails ? ` | ${clientDetails}` : '';
+    try {
+      const sessionUser = verifySession(token);
+      logEvent(sessionUser.username, "Déconnexion", `Déconnexion réussie${extraInfo}`, "INFO");
+    } catch(e) {}
     PropertiesService.getScriptProperties().deleteProperty('SESSION_' + token);
   }
   return { success: true };
 }
 
 /**
- * Authentifie un utilisateur avec son nom d'utilisateur et mot de passe.
+ * Authentifie un utilisateur avec son nom d'utilisateur, mot de passe et informations de client/device.
  */
-function authenticateUser(username, password) {
+function authenticateUser(username, password, clientInfo) {
+  let clientDetails = '';
+  if (clientInfo) {
+    if (typeof clientInfo === 'object') {
+      const parts = [];
+      if (clientInfo.ip) parts.push(`IP: ${clientInfo.ip}` + (clientInfo.location ? ` (${clientInfo.location})` : ''));
+      if (clientInfo.device) parts.push(`Appareil: ${clientInfo.device}`);
+      if (clientInfo.browser) parts.push(`Navigateur: ${clientInfo.browser}`);
+      if (clientInfo.screen) parts.push(`Écran: ${clientInfo.screen}`);
+      if (clientInfo.timezone) parts.push(`Fuseau: ${clientInfo.timezone}`);
+      clientDetails = parts.join(' | ');
+    } else {
+      clientDetails = String(clientInfo);
+    }
+  }
+  const extraInfo = clientDetails ? ` | ${clientDetails}` : '';
+
   try {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const sheet = ss.getSheetByName('Utilisateurs');
@@ -114,6 +221,8 @@ function authenticateUser(username, password) {
             user: userObj,
             expiry: expiry
           }));
+          
+          logEvent(userObj.username, "Login", `Connexion réussie (${role})${extraInfo}`, "INFO");
 
           return {
             success: true,
@@ -125,7 +234,9 @@ function authenticateUser(username, password) {
     }
   } catch (e) {
     console.error("Erreur d'authentification : " + e);
+    logEvent(username || 'Inconnu', "Login Error", `${e.toString()}${extraInfo}`, "ERROR");
   }
+  logEvent(username || 'Inconnu', "Login Failed", `Identifiants incorrects${extraInfo}`, "WARNING");
   return { success: false, message: "Identifiants incorrects" };
 }
 
@@ -272,6 +383,7 @@ function submitTimesheet(token, formData) {
     }
     sheet.appendRow(rowData);
     
+    logEvent(userObj.username, "Soumission Temps", `Projet: ${formData.project}, Heures: ${formData.duration}`, "INFO");
     return true;
   } catch (e) {
     throw new Error("Erreur serveur : " + e.message);
@@ -404,6 +516,7 @@ function deleteTimesheetEntry(token, rowId) {
     if (sheet) {
       sheet.deleteRow(rowId);
     }
+    logEvent(username, "Suppression Temps", `Ligne supprimée: ${rowId}`, "INFO");
     return true;
   } catch (e) {
     throw new Error("Impossible de supprimer la ligne : " + e.message);
@@ -432,6 +545,7 @@ function updateTimesheetEntry(token, updatedData) {
       sheet.getRange(row, 7).setValue(updatedData.description);
       sheet.getRange(row, 8).setValue(parseFloat(updatedData.duration));
     }
+    logEvent(userObj.username, "Modification Temps", `Projet: ${updatedData.project}, Heures: ${updatedData.duration}`, "INFO");
     return true;
   } catch (e) {
     throw new Error("Impossible de mettre à jour la ligne : " + e.message);
@@ -968,7 +1082,24 @@ const DEFAULT_EVAL_NOTIFICATION_SETTINGS = {
 
   // 5. Évaluation clôturée & PDF : Notifier Employé
   eval_finalized_subject: '[Portail Kanaga] Votre évaluation de performance est finalisée - Période {periode}',
-  eval_finalized_message: 'Bonjour <strong>{nom_employe}</strong>,<br><br>Votre entretien et votre évaluation de performance pour la période <strong>{periode}</strong> ont été finalisés et validés par votre évaluateur principal (<strong>{evaluateur_principal}</strong>).<br><br>Votre compte-rendu officiel d\'évaluation est accessible sur le portail :<br><br><div style="text-align:center;"><a href="{lien_portail}" class="btn-email">Consulter mon Évaluation sur le Portail</a></div><br><br>{bloc_pdf}Nous vous remercions pour votre engagement et votre contribution continue aux succès de Kanaga Consulting.<br><br>Cordialement,<br><strong>Direction des Ressources Humaines - Kanaga Consulting</strong>'
+  eval_finalized_message: 'Bonjour <strong>{nom_employe}</strong>,<br><br>Votre entretien et votre évaluation de performance pour la période <strong>{periode}</strong> ont été finalisés et validés par votre évaluateur principal (<strong>{evaluateur_principal}</strong>).<br><br>Votre compte-rendu officiel d\'évaluation est accessible sur le portail :<br><br><div style="text-align:center;"><a href="{lien_portail}" class="btn-email">Consulter mon Évaluation sur le Portail</a></div><br><br>{bloc_pdf}Nous vous remercions pour votre engagement et votre contribution continue aux succès de Kanaga Consulting.<br><br>Cordialement,<br><strong>Direction des Ressources Humaines - Kanaga Consulting</strong>',
+
+  // --- PARAMÈTRES DU SYSTÈME DE RAPPELS & RELANCES ---
+  reminder_inactivity_days: 5,
+  reminder_max_count: 3,
+  reminder_auto_trigger: 'OUI',
+
+  // 6. Rappel : Auto-évaluation collaborateur en attente
+  reminder_employee_subject: '[Rappel] Votre auto-évaluation de performance est en attente - Période {periode}',
+  reminder_employee_message: 'Bonjour <strong>{nom_employe}</strong>,<br><br>Nous vous rappelons que votre auto-évaluation de la performance pour la période <strong>{periode}</strong> est toujours en attente de complétion (dossier initié par <strong>{evaluateur_principal}</strong> il y a plus de {jours_inactivite} jours).<br><br>Votre participation active est une étape clé pour préparer au mieux votre entretien d\'évaluation. Vos réponses sont sauvegardées automatiquement au cours de votre saisie.<br><br><div style="text-align:center;"><a href="{lien_portail}" class="btn-email">Compléter mon Auto-Évaluation</a></div><br><br>Cordialement,<br><strong>Direction des Ressources Humaines - Kanaga Consulting</strong>',
+
+  // 7. Rappel : Évaluation secondaire en attente
+  reminder_secondary_subject: '[Rappel] Évaluation secondaire en attente pour {nom_employe} - Période {periode}',
+  reminder_secondary_message: 'Bonjour <strong>{evaluateur_secondaire}</strong>,<br><br>Nous vous rappelons que l\'évaluation secondaire de <strong>{nom_employe}</strong> (Période : <strong>{periode}</strong>) est en attente de votre retour.<br><br>Merci de bien vouloir renseigner vos appréciations sur le portail afin de permettre à l\'évaluateur principal (<strong>{evaluateur_principal}</strong>) de finaliser l\'évaluation.<br><br><div style="text-align:center;"><a href="{lien_portail}" class="btn-email">Renseigner mon Évaluation Secondaire</a></div><br><br>Cordialement,<br><strong>L\'équipe Kanaga Consulting</strong>',
+
+  // 8. Rappel : Évaluation principale manager en attente
+  reminder_principal_subject: '[Rappel] Entretien & Évaluation finale en attente pour {nom_employe} - Période {periode}',
+  reminder_principal_message: 'Bonjour <strong>{evaluateur_principal}</strong>,<br><br>Le dossier d\'évaluation de <strong>{nom_employe}</strong> pour la période <strong>{periode}</strong> est actuellement en attente de votre synthèse et de la conduite de l\'entretien d\'évaluation.<br><br>L\'auto-évaluation du collaborateur a été validée. Merci de bien vouloir finaliser l\'évaluation sur le portail :<br><br><div style="text-align:center;"><a href="{lien_portail}" class="btn-email">Finaliser l\'Évaluation sur le Portail</a></div><br><br>Cordialement,<br><strong>Direction des Ressources Humaines - Kanaga Consulting</strong>'
 };
 
 function getEvaluationNotificationSettings(token) {
@@ -1128,6 +1259,8 @@ function sendEvaluationNotification(eventType, context) {
         .replace(/{profil}/g, profile)
         .replace(/{evaluateur_principal}/g, princName)
         .replace(/{evaluateurs_secondaires}/g, secNames)
+        .replace(/{evaluateur_secondaire}/g, context.targetSecondaryName || secNames)
+        .replace(/{jours_inactivite}/g, String(context.inactivityDays || settings.reminder_inactivity_days || 5))
         .replace(/{lien_portail}/g, portailUrl);
       
       if (pdfUrl) {
@@ -1233,6 +1366,26 @@ function sendEvaluationNotification(eventType, context) {
         const pBody = `Bonjour <strong>${princName}</strong>,<br><br>L'évaluation de <strong>${empName}</strong> est désormais passée en attente de l'évaluateur principal.<br><br>Vous pouvez mener l'entretien et finaliser l'évaluation sur le portail.<br><br><div style="text-align:center;"><a href="${portailUrl}" class="btn-email">Accéder à l'Évaluation</a></div>`;
         safeSend(princEmail, pSubject, pBody, "Attente Évaluateur Principal");
       }
+    } else if (eventType === 'return_to_secondary') {
+      if (secEmails.length > 0) {
+        secEmails.forEach(sEmail => {
+          const sSubject = `[Portail Kanaga] Réouverture de la phase d'évaluation secondaire pour ${empName}`;
+          const sBody = `Bonjour,<br><br>Le dossier d'évaluation de <strong>${empName}</strong> (Période : <strong>${period}</strong>) a été repositionné en <strong>attente d'évaluation secondaire</strong>.<br><br>Si vous n'avez pas encore finalisé votre avis secondaire ou si vous souhaitez le compléter, vous pouvez vous connecter sur le portail.<br><br><div style="text-align:center;"><a href="${portailUrl}" class="btn-email">Accéder au Portail Kanaga</a></div><br><br>Cordialement,<br><strong>L'équipe Kanaga Consulting</strong>`;
+          safeSend(sEmail, sSubject, sBody, "Attente Évaluateur Secondaire");
+        });
+      }
+    } else if (eventType === 'return_to_employee') {
+      if (empEmail) {
+        const reasonHtml = (context && context.reason) ? `<div style="background:#FFF3E0; border-left:4px solid #FF9800; padding:10px 14px; margin:15px 0; border-radius:4px; font-size:13px; color:#5D4037;"><strong>Motif indiqué par votre évaluateur :</strong><br>${String(context.reason).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>` : '';
+        const empSubject = `[Portail Kanaga] Votre auto-évaluation a été réouverte pour modification (${period})`;
+        const empBody = `Bonjour <strong>${empName}</strong>,<br><br>Votre évaluateur (<strong>${princName}</strong>) vous a retourné votre dossier d'évaluation pour la période <strong>${period}</strong> afin que vous puissiez compléter ou corriger votre auto-évaluation.<br>${reasonHtml}<br>Veuillez vous reconnecter sur le portail pour renseigner vos réponses et soumettre à nouveau le formulaire.<br><br><div style="text-align:center;"><a href="${portailUrl}" class="btn-email">Compléter mon Auto-évaluation</a></div><br><br>Cordialement,<br><strong>L'équipe Kanaga Consulting</strong>`;
+        safeSend(empEmail, empSubject, empBody, "Initiée (Auto-évaluation attendue)");
+      }
+      if (princEmail && princEmail !== empEmail) {
+        const pSubject = `[Portail Kanaga] Confirmation de retour du dossier à ${empName}`;
+        const pBody = `Bonjour <strong>${princName}</strong>,<br><br>Le dossier d'évaluation de <strong>${empName}</strong> (Période : <strong>${period}</strong>) a bien été repositionné au statut <strong>Initiée</strong>.<br><br>Le collaborateur a été invité par e-mail à compléter son auto-évaluation.<br><br><div style="text-align:center;"><a href="${portailUrl}" class="btn-email">Consulter le Portail</a></div>`;
+        safeSend(princEmail, pSubject, pBody, "Initiée (Retour collaborateur)");
+      }
     } else if (eventType === 'evaluation_completed') {
       if (empEmail) {
         safeSend(empEmail, settings.eval_finalized_subject, settings.eval_finalized_message, "Complétée & Clôturée");
@@ -1248,6 +1401,19 @@ function sendEvaluationNotification(eventType, context) {
         const pSubject = `[Portail Kanaga] Évaluation de ${empName} clôturée avec succès`;
         const pBody = `Bonjour <strong>${princName}</strong>,<br><br>L'évaluation de <strong>${empName}</strong> (Période : <strong>${period}</strong>) a été enregistrée avec succès et marquée comme complétée.<br><br>Le compte-rendu officiel PDF a été généré et le collaborateur en a été notifié.<br><br><div style="text-align:center;"><a href="${portailUrl}" class="btn-email">Consulter le Portail</a></div>`;
         safeSend(princEmail, pSubject, pBody, "Complétée");
+      }
+    } else if (eventType === 'reminder_employee') {
+      if (empEmail) {
+        safeSend(empEmail, settings.reminder_employee_subject, settings.reminder_employee_message, "Rappel : Auto-évaluation en attente");
+      }
+    } else if (eventType === 'reminder_secondary') {
+      const targetSec = context.targetSecondaryEmail ? [context.targetSecondaryEmail] : secEmails;
+      targetSec.forEach(sEmail => {
+        safeSend(sEmail, settings.reminder_secondary_subject, settings.reminder_secondary_message, "Rappel : Évaluation secondaire en attente");
+      });
+    } else if (eventType === 'reminder_principal') {
+      if (princEmail) {
+        safeSend(princEmail, settings.reminder_principal_subject, settings.reminder_principal_message, "Rappel : Évaluation finale en attente");
       }
     }
   } catch(err) {
@@ -1267,7 +1433,10 @@ function testSendEvaluationNotification(token, eventKey, testEmail, customSubjec
     'initiation_secondary',
     'self_eval_submitted',
     'secondary_completed',
-    'eval_finalized'
+    'eval_finalized',
+    'reminder_employee',
+    'reminder_secondary',
+    'reminder_principal'
   ];
   const targetKey = validKeys.includes(eventKey) ? eventKey : 'initiation_employee';
 
@@ -1308,7 +1477,10 @@ function testSendEvaluationNotification(token, eventKey, testEmail, customSubjec
     'initiation_secondary': "Initiée (Désignation secondaire)",
     'self_eval_submitted': "Attente Avis Évaluateur",
     'secondary_completed': "Attente Évaluateur Principal",
-    'eval_finalized': "Complétée & Clôturée"
+    'eval_finalized': "Complétée & Clôturée",
+    'reminder_employee': "Rappel : Auto-évaluation en retard",
+    'reminder_secondary': "Rappel : Évaluation secondaire en retard",
+    'reminder_principal': "Rappel : Évaluation finale manager en retard"
   };
 
   const finalHtml = buildStyledEmailHtml(testSubject, testBody, {
@@ -1339,6 +1511,314 @@ function testSendEvaluationNotification(token, eventKey, testEmail, customSubjec
     success: true, 
     message: `E-mail de test [${targetKey}] envoyé avec succès à ${cleanEmail} !` 
   };
+}
+
+// ==========================================
+// MOTEUR DE RAPPELS ET RELANCES D'ÉVALUATION
+// ==========================================
+
+function parseSheetDate(dateVal) {
+  if (!dateVal) return null;
+  if (dateVal instanceof Date && !isNaN(dateVal.getTime())) return dateVal;
+  const str = String(dateVal).trim();
+  const frMatch = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (frMatch) {
+    const day = parseInt(frMatch[1], 10);
+    const month = parseInt(frMatch[2], 10) - 1;
+    const year = parseInt(frMatch[3], 10);
+    return new Date(year, month, day);
+  }
+  const iso = new Date(str);
+  if (!isNaN(iso.getTime())) return iso;
+  return null;
+}
+
+function checkAndSendEvaluationReminders(manualToken) {
+  let triggerUser = 'Système (Déclencheur automatique)';
+  if (manualToken) {
+    try {
+      const u = verifySession(manualToken);
+      triggerUser = u.fullName || u.username;
+    } catch(e) {}
+  }
+
+  const settings = getEvaluationNotificationSettings();
+  if (String(settings.activation).toUpperCase() === 'NON') {
+    Logger.log("Rappels ignorés : notifications désactivées.");
+    return { checked: 0, sent: 0, reason: "Notifications désactivées" };
+  }
+
+  const inactivityDaysConfig = parseInt(settings.reminder_inactivity_days, 10) || 5;
+  const maxReminders = parseInt(settings.reminder_max_count, 10) || 3;
+  const now = new Date();
+
+  let checkedCount = 0;
+  let sentCount = 0;
+  const details = [];
+
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const sheet = ss.getSheetByName('Evaluations');
+    if (!sheet) return { checked: 0, sent: 0, error: "Feuille Evaluations introuvable." };
+
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) return { checked: 0, sent: 0 };
+
+    const maxRequiredCol = 39;
+    if (sheet.getMaxColumns() < maxRequiredCol) {
+      sheet.insertColumnsAfter(sheet.getMaxColumns(), maxRequiredCol - sheet.getMaxColumns());
+    }
+
+    const data = sheet.getRange(2, 1, lastRow - 1, maxRequiredCol).getValues();
+
+    for (let i = 0; i < data.length; i++) {
+      const rowNum = i + 2;
+      const row = data[i];
+      if (!row[0]) continue;
+
+      const rawStatus = row[1] ? String(row[1]).trim() : '';
+      if (!rawStatus || rawStatus === 'Complétée' || rawStatus.startsWith('Compl')) {
+        continue; // Dossier déjà finalisé
+      }
+
+      checkedCount++;
+      const initDate = parseSheetDate(row[0]);
+      const lastReminderDate = parseSheetDate(row[37]);
+      const reminderCount = parseInt(row[38] || 0, 10) || 0;
+
+      // Date de référence : dernière relance si existante, sinon date d'initiation
+      const refDate = lastReminderDate || initDate;
+      if (!refDate) continue;
+
+      const diffDays = Math.floor((now.getTime() - refDate.getTime()) / (1000 * 60 * 60 * 24));
+
+      // Si le délai d'inactivité est atteint et que le quota max de rappels n'est pas dépassé
+      if (diffDays >= inactivityDaysConfig && reminderCount < maxReminders) {
+        const empName = row[3] || 'Collaborateur';
+        const empEmail = row[29] || findUserEmailByName(empName);
+        const period = row[2] || '';
+        const profile = row[9] || '';
+        const princName = row[32] || row[20] || row[6] || 'Évaluateur Principal';
+        const princEmail = row[31] || findUserEmailByName(princName);
+
+        let secList = [];
+        try { secList = JSON.parse(row[33] || '[]'); } catch(e){}
+
+        let reminderType = '';
+        let recipientLabel = '';
+
+        if (rawStatus === 'Initiée' || rawStatus === 'Brouillon Employé') {
+          reminderType = 'reminder_employee';
+          recipientLabel = empName + ' (' + empEmail + ')';
+          sendEvaluationNotification('reminder_employee', {
+            employeeName: empName,
+            employeeEmail: empEmail,
+            period: period,
+            profile: profile,
+            principalEvaluatorName: princName,
+            principalEvaluatorEmail: princEmail,
+            inactivityDays: diffDays
+          });
+          sentCount++;
+        } else if (rawStatus === 'Attente Évaluateur Secondaire') {
+          const pendingSec = secList.filter(s => s.status !== 'Complété');
+          if (pendingSec.length > 0) {
+            reminderType = 'reminder_secondary';
+            recipientLabel = pendingSec.map(s => s.name || s.email).join(', ');
+            pendingSec.forEach(sec => {
+              const secEmail = sec.email || findUserEmailByName(sec.name);
+              sendEvaluationNotification('reminder_secondary', {
+                employeeName: empName,
+                employeeEmail: empEmail,
+                period: period,
+                profile: profile,
+                principalEvaluatorName: princName,
+                principalEvaluatorEmail: princEmail,
+                targetSecondaryEmail: secEmail,
+                targetSecondaryName: sec.name || secEmail,
+                secondaryEvaluators: secList,
+                inactivityDays: diffDays
+              });
+              sentCount++;
+            });
+          }
+        } else if (rawStatus === 'Attente Évaluateur Principal' || rawStatus === 'Auto-évaluée' || rawStatus === 'Brouillon Manager' || rawStatus === 'Pré-évaluée') {
+          reminderType = 'reminder_principal';
+          recipientLabel = princName + ' (' + princEmail + ')';
+          sendEvaluationNotification('reminder_principal', {
+            employeeName: empName,
+            employeeEmail: empEmail,
+            period: period,
+            profile: profile,
+            principalEvaluatorName: princName,
+            principalEvaluatorEmail: princEmail,
+            inactivityDays: diffDays
+          });
+          sentCount++;
+        }
+
+        if (reminderType) {
+          const nowStr = now.toLocaleDateString('fr-FR') + ' ' + now.toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'});
+          sheet.getRange(rowNum, 38).setValue(nowStr);
+          sheet.getRange(rowNum, 39).setValue(reminderCount + 1);
+          details.push({
+            row: rowNum,
+            employee: empName,
+            status: rawStatus,
+            type: reminderType,
+            recipient: recipientLabel,
+            days: diffDays,
+            reminderNumber: reminderCount + 1
+          });
+        }
+      }
+    }
+
+    logEvent(triggerUser, "Vérification Rappels Évaluations", `${sentCount} rappel(s) envoyé(s) sur ${checkedCount} dossier(s) audité(s).`, "INFO");
+    return { success: true, checked: checkedCount, sent: sentCount, details: details };
+  } catch(e) {
+    Logger.log("Erreur checkAndSendEvaluationReminders: " + e.message);
+    logEvent(triggerUser, "Erreur Rappels Évaluations", e.message, "ERROR");
+    return { success: false, checked: checkedCount, sent: sentCount, error: e.message };
+  }
+}
+
+function sendManualEvaluationReminder(token, rowId) {
+  const sessionUser = verifySession(token);
+  const row = parseInt(rowId, 10);
+  if (isNaN(row) || row < 2) throw new Error("ID de ligne d'évaluation invalide.");
+
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.getSheetByName('Evaluations');
+  if (!sheet) throw new Error("Feuille Evaluations introuvable.");
+
+  const maxRequiredCol = 39;
+  if (sheet.getMaxColumns() < maxRequiredCol) {
+    sheet.insertColumnsAfter(sheet.getMaxColumns(), maxRequiredCol - sheet.getMaxColumns());
+  }
+
+  const rowData = sheet.getRange(row, 1, 1, maxRequiredCol).getValues()[0];
+  const rawStatus = rowData[1] ? String(rowData[1]).trim() : '';
+  if (!rawStatus || rawStatus === 'Complétée' || rawStatus.startsWith('Compl')) {
+    throw new Error("Ce dossier est déjà finalisé. Aucun rappel n'est nécessaire.");
+  }
+
+  const empName = rowData[3] || 'Collaborateur';
+  const empEmail = rowData[29] || findUserEmailByName(empName);
+  const period = rowData[2] || '';
+  const profile = rowData[9] || '';
+  const princName = rowData[32] || rowData[20] || rowData[6] || 'Évaluateur Principal';
+  const princEmail = rowData[31] || findUserEmailByName(princName);
+
+  let secList = [];
+  try { secList = JSON.parse(rowData[33] || '[]'); } catch(e){}
+
+  const initDate = parseSheetDate(rowData[0]);
+  const lastReminderDate = parseSheetDate(rowData[37]);
+  const refDate = lastReminderDate || initDate || new Date();
+  const diffDays = Math.max(1, Math.floor((new Date().getTime() - refDate.getTime()) / (1000 * 60 * 60 * 24)));
+  const currentCount = parseInt(rowData[38] || 0, 10) || 0;
+
+  let targetRole = '';
+  let recipient = '';
+
+  if (rawStatus === 'Initiée' || rawStatus === 'Brouillon Employé') {
+    targetRole = 'Collaborateur (Auto-évaluation)';
+    recipient = empEmail;
+    sendEvaluationNotification('reminder_employee', {
+      employeeName: empName,
+      employeeEmail: empEmail,
+      period: period,
+      profile: profile,
+      principalEvaluatorName: princName,
+      principalEvaluatorEmail: princEmail,
+      inactivityDays: diffDays
+    });
+  } else if (rawStatus === 'Attente Évaluateur Secondaire') {
+    targetRole = 'Évaluateurs Secondaires';
+    const pendingSec = secList.filter(s => s.status !== 'Complété');
+    recipient = pendingSec.map(s => s.name || s.email).join(', ') || 'Secondaires';
+    pendingSec.forEach(sec => {
+      const sEmail = sec.email || findUserEmailByName(sec.name);
+      sendEvaluationNotification('reminder_secondary', {
+        employeeName: empName,
+        employeeEmail: empEmail,
+        period: period,
+        profile: profile,
+        principalEvaluatorName: princName,
+        principalEvaluatorEmail: princEmail,
+        targetSecondaryEmail: sEmail,
+        targetSecondaryName: sec.name || sEmail,
+        secondaryEvaluators: secList,
+        inactivityDays: diffDays
+      });
+    });
+  } else if (rawStatus === 'Attente Évaluateur Principal' || rawStatus === 'Auto-évaluée' || rawStatus === 'Brouillon Manager' || rawStatus === 'Pré-évaluée') {
+    targetRole = 'Évaluateur Principal (Manager)';
+    recipient = princEmail;
+    sendEvaluationNotification('reminder_principal', {
+      employeeName: empName,
+      employeeEmail: empEmail,
+      period: period,
+      profile: profile,
+      principalEvaluatorName: princName,
+      principalEvaluatorEmail: princEmail,
+      inactivityDays: diffDays
+    });
+  }
+
+  const now = new Date();
+  const nowStr = now.toLocaleDateString('fr-FR') + ' ' + now.toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'});
+  sheet.getRange(row, 38).setValue(nowStr);
+  sheet.getRange(row, 39).setValue(currentCount + 1);
+
+  logEvent(sessionUser.username, "Rappel Manuel Évaluation", `Relance envoyée pour le dossier de ${empName} (${targetRole})`, "INFO");
+
+  return {
+    success: true,
+    recipient: recipient,
+    targetRole: targetRole,
+    reminderCount: currentCount + 1,
+    lastReminderAt: nowStr
+  };
+}
+
+function setupEvaluationReminderTrigger(token) {
+  if (token) verifySession(token);
+  const triggers = ScriptApp.getProjectTriggers();
+  triggers.forEach(t => {
+    if (t.getHandlerFunction() === 'checkAndSendEvaluationReminders') {
+      ScriptApp.deleteTrigger(t);
+    }
+  });
+  ScriptApp.newTrigger('checkAndSendEvaluationReminders')
+    .timeBased()
+    .everyDays(1)
+    .atHour(8)
+    .create();
+  return { success: true, message: "Déclencheur automatique quotidien activé (vérification chaque jour à 8h)." };
+}
+
+function removeEvaluationReminderTrigger(token) {
+  if (token) verifySession(token);
+  const triggers = ScriptApp.getProjectTriggers();
+  let count = 0;
+  triggers.forEach(t => {
+    if (t.getHandlerFunction() === 'checkAndSendEvaluationReminders') {
+      ScriptApp.deleteTrigger(t);
+      count++;
+    }
+  });
+  return { success: true, message: "Déclencheur automatique quotidien désactivé." };
+}
+
+function getEvaluationReminderTriggerStatus(token) {
+  if (token) {
+    try { verifySession(token); } catch(e) {}
+  }
+  const triggers = ScriptApp.getProjectTriggers();
+  const exists = triggers.some(t => t.getHandlerFunction() === 'checkAndSendEvaluationReminders');
+  return { installed: exists };
 }
 function sendGeneralTimesheetReminder() {
   const settings = getGeneralReminderSettings();
@@ -1439,7 +1919,7 @@ function syncOdooEmployees() {
 function getEvaluationConfig(token) {
   const sessionUser = verifySession(token);
 
-  const defaultScale = "PI, PA, CA, PS, PE, N/A";
+  const defaultScale = "INSATIS, AMELIOR, CONFORM, SUPERIE, EXCEPTI, NONAPPL";
   const defaultConfig = {
     fondamentales: [
       { text: "1. Professionnalisme et éthique", description: "Normes, confidentialité, intégrité, ponctualité, présentation et exemplarité.", type: "scale", options: defaultScale, page: 1 },
@@ -1499,7 +1979,7 @@ function getEvaluationConfig(token) {
       { text: "Réalisation des Objectifs de la période écoulée", description: "Détaillez les objectifs fixés, résultats atteints, faits marquants et difficultés rencontrées.", type: "text", options: "", page: 1 },
       { text: "1. Principaux Points Forts de l'Employé(e)", description: "Compétences clés démontrées, succès et contributions notables.", type: "text", options: "", page: 1 },
       { text: "2. Axes d'Amélioration Prioritaires", description: "Domaines nécessitant un perfectionnement ou un accompagnement particulier.", type: "text", options: "", page: 1 },
-      { text: "3. Appréciation de la Performance Globale", description: "Appréciation synthétique de la performance générale sur la période.", type: "scale", options: "PI, PA, CA, PS, PE", page: 1 },
+      { text: "3. Appréciation de la Performance Globale", description: "Appréciation synthétique de la performance générale sur la période.", type: "scale", options: "INSATIS, AMELIOR, CONFORM, SUPERIE, EXCEPTI", page: 1 },
       { text: "VI. 1. Besoins en Formation", description: "Formations techniques, managériales ou linguistiques souhaitées pour la progression.", type: "text", options: "", page: 2 },
       { text: "VI. 2. Objectifs SMART pour la Prochaine Période", description: "Objectifs Spécifiques, Mesurables, Atteignables, Réalistes et Temporellement définis.", type: "text", options: "", page: 2 },
       { text: "VI. 3. Aspirations Professionnelles", description: "Évolution de carrière envisagée, souhaits de mobilité ou nouvelles responsabilités.", type: "text", options: "", page: 2 },
@@ -1635,7 +2115,13 @@ function getEvaluationConfig(token) {
       const text = String(colQuestion !== -1 ? row[colQuestion] : (row[3] || '')).trim();
       const desc = String(colDesc !== -1 ? row[colDesc] : (row[4] || '')).trim();
       const type = String(colType !== -1 ? row[colType] : (row[5] || 'scale')).trim() || 'scale';
-      const options = String(colOptions !== -1 ? row[colOptions] : (row[6] || defaultScale)).trim() || defaultScale;
+      let options = String(colOptions !== -1 ? row[colOptions] : (row[6] || defaultScale)).trim() || defaultScale;
+      options = options.replace(/\bPE\b/g, 'EXCEPTI')
+                       .replace(/\bPS\b/g, 'SUPERIE')
+                       .replace(/\bCA\b/g, 'CONFORM')
+                       .replace(/\bPA\b/g, 'AMELIOR')
+                       .replace(/\bPI\b/g, 'INSATIS')
+                       .replace(/\bN\/A\b/g, 'NONAPPL');
 
       config[prof].push({
         text: text,
@@ -1665,8 +2151,17 @@ function getEvaluationConfig(token) {
     }
 
     // Tri de chaque profil par la colonne Ordre
+    let validProfilesCount = 0;
     for (let p in config) {
+      if (p !== 'conclusion') validProfilesCount++;
       config[p].sort((a, b) => (a.order || 0) - (b.order || 0));
+    }
+
+    // Si la feuille contient des lignes mais aucun profil valide (ex: lignes vides)
+    if (validProfilesCount === 0) {
+      Logger.log("Avertissement: Aucun profil trouvé dans la feuille. Retour aux paramètres par défaut.");
+      defaultConfig._stepTitles = getEvaluationStepTitles();
+      return defaultConfig;
     }
 
     config._stepTitles = getEvaluationStepTitles();
@@ -1837,6 +2332,7 @@ function initiateEvaluationsBatch(token, formData) {
         });
     });
     
+    logEvent(sessionUser.username, "Initiation Évaluation", `Période: ${formData.period}, Évalués: ${employees.map(e => e.name).join(', ')}`, "INFO");
     return { success: true };
   } catch (e) {
     throw new Error("Erreur lors de l'initiation de l'évaluation: " + e.message);
@@ -1850,6 +2346,15 @@ function submitSelfEvaluation(token, rowId, formData) {
       const sessionUser = verifySession(token);
       userEmail = sessionUser.username;
     } catch(e) {}
+  }
+
+  // Protection stricte contre la soumission vide ou en cas de questions non chargées
+  if (!formData || !Array.isArray(formData.fondamentales) || formData.fondamentales.length === 0) {
+    throw new Error("Soumission rejetée : Le questionnaire est vide ou n'a pas été chargé correctement. Veuillez recharger la page et recommencer votre auto-évaluation.");
+  }
+  const hasValidResponse = formData.fondamentales.some(item => item && (item.rating || item.score || (item.comment && item.comment.trim()) || item.answer));
+  if (!hasValidResponse) {
+    throw new Error("Soumission rejetée : Aucune réponse n'a été saisie. Veuillez compléter vos réponses avant de soumettre l'auto-évaluation.");
   }
 
   try {
@@ -1909,9 +2414,129 @@ function submitSelfEvaluation(token, rowId, formData) {
       Logger.log("Erreur notification self_eval: " + notifErr.message);
     }
 
+    logEvent(userEmail, "Soumission Auto-évaluation", `Employé: ${userEmail}`, "INFO");
     return { success: true, nextStatus: nextStatus };
   } catch (e) {
     throw new Error("Erreur lors de l'enregistrement de l'auto-évaluation: " + e.message);
+  }
+}
+
+function saveSecondaryEvaluationDraft(token, rowId, formData) {
+  let evaluatorName = '';
+  let evaluatorEmail = '';
+  if (token && typeof token === 'string' && token.length > 10) {
+    try {
+      const sessionUser = verifySession(token);
+      evaluatorName = sessionUser.fullName || sessionUser.username;
+      evaluatorEmail = sessionUser.username;
+    } catch(e) {}
+  }
+  if (!evaluatorName) evaluatorName = formData.evaluatorName || 'Évaluateur Secondaire';
+
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const sheet = ss.getSheetByName('Evaluations');
+    if (!sheet) throw new Error("Feuille Evaluations introuvable.");
+    
+    const row = parseInt(rowId);
+    const maxRequiredCol = 37;
+    if (sheet.getMaxColumns() < maxRequiredCol) {
+      sheet.insertColumnsAfter(sheet.getMaxColumns(), maxRequiredCol - sheet.getMaxColumns());
+    }
+
+    // 1. Mettre à jour le statut dans la liste des évaluateurs secondaires à 'Brouillon'
+    let secondaryList = [];
+    try {
+      const secStr = sheet.getRange(row, 34).getValue();
+      if (secStr) secondaryList = JSON.parse(secStr);
+    } catch(e) {}
+
+    let matched = false;
+    secondaryList.forEach(s => {
+      if ((evaluatorEmail && s.email && s.email.toLowerCase() === evaluatorEmail.toLowerCase()) ||
+          (evaluatorName && s.name && s.name.toLowerCase() === evaluatorName.toLowerCase())) {
+        // Si l'évaluateur n'avait pas déjà complété définitivement, son statut reste 'Brouillon'
+        if (s.status !== 'Complété') {
+          s.status = 'Brouillon';
+        }
+        s.lastDraftAt = new Date().toLocaleString('fr-FR');
+        matched = true;
+      }
+    });
+    if (!matched && evaluatorEmail) {
+      secondaryList.push({
+        email: evaluatorEmail,
+        name: evaluatorName,
+        status: 'Brouillon',
+        lastDraftAt: new Date().toLocaleString('fr-FR')
+      });
+    }
+
+    // 2. Enregistrer dans secondaryFondamentales
+    let secFonda = [];
+    try {
+      const sfStr = sheet.getRange(row, 35).getValue();
+      if (sfStr) secFonda = JSON.parse(sfStr);
+    } catch(e) {}
+    secFonda = secFonda.filter(entry => entry.evaluatorEmail !== evaluatorEmail);
+    secFonda.push({
+      evaluatorEmail: evaluatorEmail,
+      evaluatorName: evaluatorName,
+      submittedAt: new Date().toLocaleString('fr-FR'),
+      isDraft: true,
+      responses: formData.fondamentales || []
+    });
+
+    // 3. Enregistrer dans secondarySpecifiques
+    let secSpec = [];
+    try {
+      const ssStr = sheet.getRange(row, 36).getValue();
+      if (ssStr) secSpec = JSON.parse(ssStr);
+    } catch(e) {}
+    secSpec = secSpec.filter(entry => entry.evaluatorEmail !== evaluatorEmail);
+    secSpec.push({
+      evaluatorEmail: evaluatorEmail,
+      evaluatorName: evaluatorName,
+      submittedAt: new Date().toLocaleString('fr-FR'),
+      isDraft: true,
+      responses: formData.specifiques || []
+    });
+
+    // 4. Enregistrer dans secondarySynthese
+    let secSynth = [];
+    try {
+      const syStr = sheet.getRange(row, 37).getValue();
+      if (syStr) secSynth = JSON.parse(syStr);
+    } catch(e) {}
+    secSynth = secSynth.filter(entry => entry.evaluatorEmail !== evaluatorEmail);
+    secSynth.push({
+      evaluatorEmail: evaluatorEmail,
+      evaluatorName: evaluatorName,
+      submittedAt: new Date().toLocaleString('fr-FR'),
+      isDraft: true,
+      strengths: formData.strengths || '',
+      improvements: formData.improvements || '',
+      globalRating: formData.globalRating || '',
+      training: formData.training || '',
+      smartGoals: formData.smartGoals || '',
+      comments: formData.empComments || formData.comments || ''
+    });
+
+    // Le statut de la ligne RESTE 'Attente Évaluateur Secondaire' (jamais 'Attente Évaluateur Principal' en brouillon !)
+    const currentStatus = sheet.getRange(row, 2).getValue();
+    if (!currentStatus || currentStatus === 'Attente Évaluateur Secondaire') {
+      sheet.getRange(row, 2).setValue('Attente Évaluateur Secondaire');
+    }
+
+    sheet.getRange(row, 34).setValue(JSON.stringify(secondaryList));
+    sheet.getRange(row, 35).setValue(JSON.stringify(secFonda));
+    sheet.getRange(row, 36).setValue(JSON.stringify(secSpec));
+    sheet.getRange(row, 37).setValue(JSON.stringify(secSynth));
+
+    logEvent(evaluatorEmail, "Brouillon Évaluation Secondaire", `Ligne: ${row}, Évaluateur: ${evaluatorName}`, "INFO");
+    return { success: true, isDraft: true };
+  } catch(e) {
+    throw new Error("Erreur lors de la sauvegarde du brouillon de l'évaluation secondaire: " + e.message);
   }
 }
 
@@ -2076,14 +2701,149 @@ function advanceToPrincipalEvaluation(token, rowId) {
       Logger.log("Erreur notification advance_to_principal: " + notifErr.message);
     }
 
+    logEvent(sessionUser.username, "Clôture Évaluation Secondaire", `Ligne: ${row} passée au principal`, "INFO");
     return { success: true };
   } catch(e) {
     throw new Error("Erreur advanceToPrincipalEvaluation: " + e.message);
   }
 }
 
-function saveSelfEvaluationDraft(token, rowId, formData) {
+function returnToSecondaryEvaluation(token, rowId, formData) {
   const sessionUser = verifySession(token);
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const sheet = ss.getSheetByName('Evaluations');
+    if (!sheet) throw new Error("Feuille Evaluations introuvable.");
+    
+    const row = parseInt(rowId);
+    const maxRequiredCol = 37;
+    if (sheet.getMaxColumns() < maxRequiredCol) {
+      sheet.insertColumnsAfter(sheet.getMaxColumns(), maxRequiredCol - sheet.getMaxColumns());
+    }
+
+    // 1. Si des réponses ont été saisies par le manager (ex: depuis le wizard), les sauvegarder en brouillon
+    if (formData && typeof formData === 'object') {
+      const managerName = sessionUser.fullName || sessionUser.username;
+      const existingMgr = sheet.getRange(row, 21).getValue();
+      let updatedMgrName = managerName || existingMgr || 'Manager';
+      if (existingMgr && managerName && existingMgr !== managerName && !String(existingMgr).includes(managerName)) {
+        updatedMgrName = existingMgr + ", " + managerName;
+      }
+      sheet.getRange(row, 21).setValue(updatedMgrName);
+      if (formData.mgrFondamentales !== undefined) {
+        sheet.getRange(row, 22).setValue(JSON.stringify(formData.mgrFondamentales || []));
+      }
+      if (formData.mgrSpecifiques !== undefined) {
+        sheet.getRange(row, 23).setValue(JSON.stringify(formData.mgrSpecifiques || []));
+      }
+      if (formData.mgrStrengths !== undefined) {
+        sheet.getRange(row, 24).setValue(formData.mgrStrengths || '');
+      }
+      if (formData.mgrImprovements !== undefined) {
+        sheet.getRange(row, 25).setValue(formData.mgrImprovements || '');
+      }
+      if (formData.mgrGlobalRating !== undefined) {
+        sheet.getRange(row, 26).setValue(formData.mgrGlobalRating || '');
+      }
+      if (formData.mgrTraining !== undefined) {
+        sheet.getRange(row, 27).setValue(formData.mgrTraining || '');
+      }
+      if (formData.mgrSmartGoals !== undefined) {
+        sheet.getRange(row, 28).setValue(formData.mgrSmartGoals || '');
+      }
+      if (formData.mgrComments !== undefined) {
+        sheet.getRange(row, 29).setValue(formData.mgrComments || '');
+      }
+    }
+    // Si formData n'est pas passé (ex: clic depuis le dashboard), les colonnes 21 à 29 restent inchangées (le brouillon existant est préservé intact)
+
+    // 2. Repositionner le statut à 'Attente Évaluateur Secondaire'
+    sheet.getRange(row, 2).setValue('Attente Évaluateur Secondaire');
+
+    // 3. Notification & Journalisation
+    try {
+      const empName = sheet.getRange(row, 4).getValue();
+      const period = sheet.getRange(row, 3).getValue();
+      const profile = sheet.getRange(row, 10).getValue();
+      const empEmail = sheet.getRange(row, 30).getValue() || findUserEmailByName(empName);
+      const princEmail = sheet.getRange(row, 32).getValue();
+      const princName = sheet.getRange(row, 33).getValue() || sheet.getRange(row, 7).getValue();
+      const secStr = sheet.getRange(row, 34).getValue();
+      let secondaryList = [];
+      try { if (secStr) secondaryList = JSON.parse(secStr); } catch(e) {}
+
+      sendEvaluationNotification('return_to_secondary', {
+        employeeName: empName,
+        employeeEmail: empEmail,
+        period: period,
+        profile: profile,
+        principalEvaluatorName: princName,
+        principalEvaluatorEmail: princEmail || findUserEmailByName(princName),
+        secondaryEvaluators: secondaryList
+      });
+    } catch(notifErr) {
+      Logger.log("Erreur notification return_to_secondary: " + notifErr.message);
+    }
+
+    logEvent(sessionUser.username, "Retour Évaluation Secondaire", `Ligne: ${row} retournée aux évaluateurs secondaires (brouillon manager sauvegardé/conservé)`, "INFO");
+    return { success: true };
+  } catch(e) {
+    throw new Error("Erreur returnToSecondaryEvaluation: " + e.message);
+  }
+}
+
+function returnToEmployeeSelfEvaluation(token, rowId, reason) {
+  const sessionUser = verifySession(token);
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const sheet = ss.getSheetByName('Evaluations');
+    if (!sheet) throw new Error("Feuille Evaluations introuvable.");
+    
+    const row = parseInt(rowId);
+    if (isNaN(row) || row < 2 || row > sheet.getLastRow()) {
+      throw new Error("Dossier d'évaluation introuvable.");
+    }
+
+    const empName = sheet.getRange(row, 4).getValue();
+    const period = sheet.getRange(row, 3).getValue();
+    const profile = sheet.getRange(row, 10).getValue();
+    const empEmail = sheet.getRange(row, 30).getValue() || findUserEmailByName(empName);
+    const princEmail = sheet.getRange(row, 32).getValue();
+    const princName = sheet.getRange(row, 33).getValue() || sheet.getRange(row, 7).getValue();
+
+    // 1. Repositionner le statut à 'Initiée'
+    sheet.getRange(row, 2).setValue('Initiée');
+
+    // 2. Notification par e-mail au collaborateur
+    try {
+      sendEvaluationNotification('return_to_employee', {
+        employeeName: empName,
+        employeeEmail: empEmail,
+        period: period,
+        profile: profile,
+        principalEvaluatorName: sessionUser.fullName || princName,
+        principalEvaluatorEmail: sessionUser.username || princEmail,
+        reason: reason || ''
+      });
+    } catch(notifErr) {
+      Logger.log("Erreur notification return_to_employee: " + notifErr.message);
+    }
+
+    logEvent(sessionUser.username, "Retour Auto-évaluation", `Ligne: ${row} (${empName} - ${period}) retournée au collaborateur. Motif : ${reason || 'Non spécifié'}`, "INFO");
+    return { success: true };
+  } catch(e) {
+    throw new Error("Erreur returnToEmployeeSelfEvaluation: " + e.message);
+  }
+}
+
+function saveSelfEvaluationDraft(token, rowId, formData) {
+  let userEmail = '';
+  if (token && typeof token === 'string' && token.length > 10) {
+    try {
+      const sessionUser = verifySession(token);
+      userEmail = sessionUser.username;
+    } catch(e) {}
+  }
 
   try {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
@@ -2091,8 +2851,13 @@ function saveSelfEvaluationDraft(token, rowId, formData) {
     if (!sheet) throw new Error("Feuille Evaluations introuvable.");
     
     const row = parseInt(rowId);
+    const maxRequiredCol = 37;
+    if (sheet.getMaxColumns() < maxRequiredCol) {
+      sheet.insertColumnsAfter(sheet.getMaxColumns(), maxRequiredCol - sheet.getMaxColumns());
+    }
+
     const currentStatus = sheet.getRange(row, 2).getValue();
-    if (currentStatus === 'Initiée') {
+    if (!currentStatus || currentStatus === 'Initiée') {
       sheet.getRange(row, 2).setValue('Brouillon Employé');
     }
 
@@ -2107,6 +2872,7 @@ function saveSelfEvaluationDraft(token, rowId, formData) {
     sheet.getRange(row, 19).setValue(formData.aspirations || '');
     sheet.getRange(row, 20).setValue(formData.empComments || '');
 
+    logEvent(userEmail || "Employé", "Brouillon Auto-évaluation", `Ligne: ${row}, Employé: ${userEmail}`, "INFO");
     return { success: true };
   } catch (e) {
     throw new Error("Erreur lors de la sauvegarde du brouillon de l'auto-évaluation: " + e.message);
@@ -2214,12 +2980,12 @@ function generateEvaluationPDF(rowId) {
 
     const legendTable = body.appendTable([
       ["Niveau", "Intitulé", "Définition"],
-      ["5 - PE", "Performance Exceptionnelle", "Dépasse constamment les attentes et constitue une référence."],
-      ["4 - PS", "Performance Supérieure", "Dépasse régulièrement les attentes dans les domaines clés."],
-      ["3 - CA", "Performance Conforme aux Attentes", "Atteint les objectifs et les standards de performance attendus pour le poste."],
-      ["2 - PA", "Performance à Améliorer", "N'atteint pas toujours les objectifs et nécessite une amélioration dans certains domaines."],
-      ["1 - PI", "Performance Insatisfaisante", "N'atteint pas les objectifs de manière significative et nécessite une amélioration immédiate."],
-      ["N/A", "Non Applicable", "Non applicable au poste ou non évaluable sur la période."]
+      ["5 - EXCEPTI", "Performance Exceptionnelle", "Dépasse constamment les attentes et constitue une référence."],
+      ["4 - SUPERIE", "Performance Supérieure", "Dépasse régulièrement les attentes dans les domaines clés."],
+      ["3 - CONFORM", "Performance Conforme aux Attentes", "Atteint les objectifs et les standards de performance attendus pour le poste."],
+      ["2 - AMELIOR", "Performance à Améliorer", "N'atteint pas toujours les objectifs et nécessite une amélioration dans certains domaines."],
+      ["1 - INSATIS", "Performance Insatisfaisante", "N'atteint pas les objectifs de manière significative et nécessite une amélioration immédiate."],
+      ["NONAPPL", "N/A Non Applicable", "Non applicable au poste ou non évaluable sur la période."]
     ]);
     const legHeader = legendTable.getRow(0);
     for (let j = 0; j < legHeader.getNumCells(); j++) {
@@ -2347,10 +3113,12 @@ function generateEvaluationPDF(rowId) {
 
 function saveAttachedManagerEvaluationDraft(token, rowId, formData, managerNameFallback) {
   let managerName = managerNameFallback || '';
+  let managerEmail = '';
   if (token && typeof token === 'string' && token.length > 10) {
     try {
       const sessionUser = verifySession(token);
       managerName = sessionUser.fullName || sessionUser.username;
+      managerEmail = sessionUser.username;
     } catch(e) {}
   }
 
@@ -2371,6 +3139,11 @@ function saveAttachedManagerEvaluationDraft(token, rowId, formData, managerNameF
       updatedMgrName = existingMgr + ", " + managerName;
     }
     
+    const currentStatus = sheet.getRange(row, 2).getValue();
+    if (currentStatus === 'Auto-évaluée' || currentStatus === 'Attente Évaluateur Principal' || currentStatus === 'Auto-\u00E9valu\u00E9e' || currentStatus === 'Attente \u00C9valuateur Principal' || currentStatus === 'Pré-évaluée') {
+      sheet.getRange(row, 2).setValue('Brouillon Manager');
+    }
+    
     sheet.getRange(row, 21).setValue(updatedMgrName);
     sheet.getRange(row, 22).setValue(JSON.stringify(formData.mgrFondamentales || []));
     sheet.getRange(row, 23).setValue(JSON.stringify(formData.mgrSpecifiques || []));
@@ -2381,6 +3154,7 @@ function saveAttachedManagerEvaluationDraft(token, rowId, formData, managerNameF
     sheet.getRange(row, 28).setValue(formData.mgrSmartGoals || '');
     sheet.getRange(row, 29).setValue(formData.mgrComments || '');
 
+    logEvent(managerEmail || managerName, "Brouillon Évaluation Manager", `Ligne: ${row}, Manager: ${updatedMgrName}`, "INFO");
     return { success: true };
   } catch (e) {
     throw new Error("Erreur lors de la sauvegarde du brouillon manager: " + e.message);
@@ -2468,8 +3242,11 @@ function getNativeEvaluations(token) {
     const sheet = ss.getSheetByName('Evaluations');
     if (!sheet) return [];
     
-    const lastCol = Math.max(sheet.getLastColumn() || 1, 37);
+    const lastCol = Math.max(sheet.getLastColumn() || 1, 39);
     const lastRow = sheet.getLastRow() || 1;
+    if (sheet.getMaxColumns() < 39) {
+      sheet.insertColumnsAfter(sheet.getMaxColumns(), 39 - sheet.getMaxColumns());
+    }
     const data = sheet.getRange(1, 1, lastRow, lastCol).getValues();
     const evals = [];
     
@@ -2484,6 +3261,8 @@ function getNativeEvaluations(token) {
       else if (status.startsWith('Auto-')) status = 'Auto-évaluée';
       else if (status.startsWith('Compl')) status = 'Complétée';
       else if (status.startsWith('Pr')) status = 'Pré-évaluée';
+      else if (status.startsWith('Brouillon Employ')) status = 'Brouillon Employé';
+      else if (status.startsWith('Brouillon Manager')) status = 'Brouillon Manager';
 
       evals.push({
         rowId: i + 1,
@@ -2523,7 +3302,9 @@ function getNativeEvaluations(token) {
         secondaryEvaluators: row[33] || '[]',
         secondaryFondamentales: row[34] || '[]',
         secondarySpecifiques: row[35] || '[]',
-        secondarySynthese: row[36] || '[]'
+        secondarySynthese: row[36] || '[]',
+        lastReminderAt: row[37] ? (row[37] instanceof Date ? row[37].toLocaleDateString('fr-FR') + ' ' + row[37].toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'}) : String(row[37])) : '',
+        reminderCount: parseInt(row[38] || 0, 10) || 0
       });
     }
     return JSON.stringify(evals.reverse());
@@ -2694,48 +3475,7 @@ function triggerOdooSync(token) {
   }
 }
 
-function saveAttachedManagerEvaluationDraft(token, rowId, formData) {
-  const sessionUser = verifySession(token);
-  const managerName = sessionUser.fullName || sessionUser.username;
 
-  try {
-    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    const sheet = ss.getSheetByName('Evaluations');
-    if (!sheet) throw new Error('Feuille Evaluations introuvable.');
-    
-    const row = parseInt(rowId);
-    
-    const maxRequiredCol = 31;
-    if (sheet.getMaxColumns() < maxRequiredCol) {
-      sheet.insertColumnsAfter(sheet.getMaxColumns(), maxRequiredCol - sheet.getMaxColumns());
-    }
-    
-    const existingMgr = sheet.getRange(row, 21).getValue();
-    let updatedMgrName = managerName;
-    if (existingMgr && existingMgr !== managerName && !String(existingMgr).includes(managerName)) {
-      updatedMgrName = existingMgr + ', ' + managerName;
-    }
-    
-    const currentStatus = sheet.getRange(row, 2).getValue();
-    if (currentStatus === 'Auto-\u00E9valu\u00E9e') {
-      sheet.getRange(row, 2).setValue('Brouillon Manager');
-    }
-    
-    sheet.getRange(row, 21).setValue(updatedMgrName);
-    sheet.getRange(row, 22).setValue(JSON.stringify(formData.mgrFondamentales || []));
-    sheet.getRange(row, 23).setValue(JSON.stringify(formData.mgrSpecifiques || []));
-    sheet.getRange(row, 24).setValue(formData.mgrStrengths || '');
-    sheet.getRange(row, 25).setValue(formData.mgrImprovements || '');
-    sheet.getRange(row, 26).setValue(formData.mgrGlobalRating || '');
-    sheet.getRange(row, 27).setValue(formData.mgrTraining || '');
-    sheet.getRange(row, 28).setValue(formData.mgrSmartGoals || '');
-    sheet.getRange(row, 29).setValue(formData.mgrComments || '');
-
-    return { success: true };
-  } catch (e) {
-    throw new Error('Erreur lors de la sauvegarde du brouillon manager: ' + e.message);
-  }
-}
 
 
 function savePreEvaluation(token, rowId, formData) {
@@ -2771,6 +3511,8 @@ function savePreEvaluation(token, rowId, formData) {
     sheet.getRange(row, 27).setValue(formData.mgrTraining || '');
     sheet.getRange(row, 28).setValue(formData.mgrSmartGoals || '');
     sheet.getRange(row, 29).setValue(formData.mgrComments || '');
+
+    logEvent(managerName, "Pré-évaluation Manager", `Ligne: ${row}`, "INFO");
 
     return { success: true };
   } catch (e) {
@@ -2814,6 +3556,8 @@ function submitTicket(token, ticketData) {
       ''
     ]);
     
+    logEvent(sessionUser.username, "Création Ticket", `Priorité: ${ticketData.priority}, Sujet: ${ticketData.subject}`, "INFO");
+
     return { success: true };
   } catch(e) {
     throw new Error("Erreur lors de la soumission du ticket: " + e.message);

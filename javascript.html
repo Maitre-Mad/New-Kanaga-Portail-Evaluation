@@ -4,6 +4,66 @@
   let choicesInstances = { project: null, task: null, editProject: null, editTask: null };
   let evaluationData = {};
 
+  // --- Auto Logout System ---
+  let inactivityTimeout;
+  const INACTIVITY_LIMIT = 30 * 60 * 1000; // 30 minutes
+
+  function resetInactivityTimer() {
+    if (!currentUser) return; // Seulement si connecté
+    clearTimeout(inactivityTimeout);
+    inactivityTimeout = setTimeout(function() {
+      alert("Vous avez été déconnecté suite à une période d'inactivité.");
+      if (typeof handleLogout === 'function') {
+        handleLogout();
+      } else {
+        handleSessionExpired("Vous avez été déconnecté suite à une période d'inactivité.");
+      }
+    }, INACTIVITY_LIMIT);
+  }
+
+  function handleSessionExpired(message) {
+    if (inactivityTimeout) clearTimeout(inactivityTimeout);
+    if (window.kanagaToken) {
+      try {
+        google.script.run.logout(window.kanagaToken);
+      } catch(e) {}
+    }
+    localStorage.removeItem('kanagaUser');
+    localStorage.removeItem('kanagaToken');
+    window.kanagaToken = null;
+    currentUser = null;
+
+    const globalLoader = document.getElementById('global-loader');
+    if (globalLoader) globalLoader.style.display = 'none';
+
+    const authContent = document.getElementById('auth-content');
+    if (authContent) authContent.style.display = 'none';
+
+    const topNavbar = document.getElementById('top-navbar');
+    if (topNavbar) topNavbar.style.display = 'none';
+
+    const loginView = document.getElementById('view-login');
+    if (loginView) loginView.style.display = 'block';
+
+    const errorMsg = document.getElementById('login-error');
+    if (errorMsg) {
+      errorMsg.textContent = message || "Votre session a expiré. Veuillez vous reconnecter.";
+      errorMsg.style.display = 'block';
+    }
+  }
+
+  function handleApiError(err, contextLabel) {
+    const errMsg = (err && err.message) ? err.message : String(err || '');
+    if (errMsg.includes('Session invalide') || errMsg.includes('Session expirée') || errMsg.includes('Session corrompue') || errMsg.includes('Aucun jeton de session')) {
+      alert("Votre session a expiré. Veuillez vous reconnecter.");
+      handleSessionExpired("Votre session a expiré. Veuillez vous reconnecter.");
+      return true;
+    }
+    if (contextLabel) {
+      console.error(contextLabel + " : " + errMsg);
+    }
+    return false;
+  }
   function isUserAdmin(user) {
     let u = user || currentUser;
     if (!u) {
@@ -43,17 +103,54 @@
   window.addEventListener('load', function() {
     setDateValidation();
     
-    // Load User Data First (Check Local Storage)
+    // Vérification du token auprès du serveur avant d'autoriser l'accès
     const storedUser = localStorage.getItem('kanagaUser');
-    if (storedUser) {
-      currentUser = JSON.parse(storedUser);
-        window.kanagaToken = localStorage.getItem('kanagaToken');
-      initAuthenticatedApp(currentUser);
+    const storedToken = localStorage.getItem('kanagaToken');
+
+    if (storedUser && storedToken) {
+      const globalLoader = document.getElementById('global-loader');
+      if (globalLoader) {
+        globalLoader.style.display = 'flex';
+        const txt = globalLoader.querySelector('.loader-text');
+        if (txt) txt.textContent = "Vérification de la session...";
+      }
+
+      // Appel serveur pour valider la session
+      google.script.run
+        .withSuccessHandler(function(serverUser) {
+          try {
+            currentUser = serverUser || JSON.parse(storedUser);
+          } catch(e) {
+            currentUser = serverUser;
+          }
+          window.kanagaToken = storedToken;
+          initAuthenticatedApp(currentUser);
+        })
+        .withFailureHandler(function(err) {
+          console.warn("Session expirée ou invalide lors du démarrage :", err);
+          handleSessionExpired("Votre session a expiré. Veuillez vous reconnecter.");
+        })
+        .verifySession(storedToken);
     } else {
-      // Show login screen
-      document.getElementById('global-loader').style.display = 'none';
+      // Pas de session sauvegardée : masquer le loader et afficher la connexion
+      const globalLoader = document.getElementById('global-loader');
+      if (globalLoader) globalLoader.style.display = 'none';
       document.getElementById('view-login').style.display = 'block';
     }
+    
+    // Auto-logout Event Listeners
+    document.addEventListener('mousemove', resetInactivityTimer);
+    document.addEventListener('keydown', resetInactivityTimer);
+    document.addEventListener('scroll', resetInactivityTimer);
+    document.addEventListener('click', resetInactivityTimer);
+    
+    // Auto-resize pour les commentaires (textareas)
+    document.addEventListener('input', function(e) {
+      if (e.target.tagName.toLowerCase() === 'textarea') {
+        e.target.style.height = 'auto';
+        e.target.style.height = (e.target.scrollHeight) + 'px';
+      }
+    });
     
     // Event Listeners
     document.getElementById('login-form').addEventListener('submit', handleLoginSubmit);
@@ -88,8 +185,101 @@
     });
   }
 
+  // --- Device & Geolocation Detection for Security Logs ---
+  window.cachedClientInfo = null;
+
+  function getClientDeviceAndLocationInfo() {
+    return new Promise(function(resolve) {
+      if (window.cachedClientInfo) {
+        return resolve(window.cachedClientInfo);
+      }
+
+      // 1. Détection de l'appareil (Device)
+      const ua = navigator.userAgent || '';
+      let deviceType = "Desktop";
+      if (/tablet|ipad|playbook|silk/i.test(ua)) {
+        deviceType = "Tablette";
+      } else if (/mobile|iphone|ipod|android|blackberry|mini|windows\sce|palm/i.test(ua)) {
+        deviceType = "Mobile";
+      }
+
+      // Détection du Système d'Exploitation (OS)
+      let os = "Inconnu";
+      if (/windows nt 10/i.test(ua)) os = "Windows 10/11";
+      else if (/windows nt 6\.3/i.test(ua)) os = "Windows 8.1";
+      else if (/windows nt 6\.1/i.test(ua)) os = "Windows 7";
+      else if (/windows/i.test(ua)) os = "Windows";
+      else if (/macintosh|mac os x/i.test(ua)) os = "macOS";
+      else if (/iphone|ipad|ipod/i.test(ua)) os = "iOS";
+      else if (/android/i.test(ua)) os = "Android";
+      else if (/linux/i.test(ua)) os = "Linux";
+
+      // Détection du Navigateur
+      let browser = "Inconnu";
+      if (/edg/i.test(ua)) browser = "Edge";
+      else if (/opr|opera/i.test(ua)) browser = "Opera";
+      else if (/chrome|crios/i.test(ua)) browser = "Chrome";
+      else if (/firefox|fxios/i.test(ua)) browser = "Firefox";
+      else if (/safari/i.test(ua) && !/chrome/i.test(ua)) browser = "Safari";
+      else if (/trident|msie/i.test(ua)) browser = "Internet Explorer";
+
+      let timezone = "";
+      try {
+        timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+      } catch (e) {}
+
+      const screenInfo = (window.screen && window.screen.width) ? `${window.screen.width}x${window.screen.height}` : "";
+
+      const clientData = {
+        device: `${deviceType} (${os})`,
+        browser: browser,
+        screen: screenInfo,
+        timezone: timezone,
+        ip: "",
+        location: ""
+      };
+
+      // 2. Récupération rapide de l'IP publique et géolocalisation
+      const timeoutMs = 1200; // 1.2s max pour ne jamais ralentir l'utilisateur
+      const timeoutPromise = new Promise(function(_, reject) {
+        setTimeout(function() { reject(new Error('Timeout')); }, timeoutMs);
+      });
+
+      Promise.race([
+        fetch('https://freeipapi.com/api/json').then(function(r) { return r.json(); }),
+        timeoutPromise
+      ]).then(function(ipRes) {
+        if (ipRes && (ipRes.ipAddress || ipRes.ip)) {
+          clientData.ip = ipRes.ipAddress || ipRes.ip;
+          const locParts = [ipRes.cityName || ipRes.city, ipRes.countryName || ipRes.country].filter(Boolean);
+          if (locParts.length > 0) clientData.location = locParts.join(', ');
+        }
+        window.cachedClientInfo = clientData;
+        resolve(clientData);
+      }).catch(function() {
+        // En cas de timeout ou blocage réseau (adblocker/firewall), fallback rapide sur ipify
+        Promise.race([
+          fetch('https://api.ipify.org?format=json').then(function(r) { return r.json(); }),
+          new Promise(function(_, reject) { setTimeout(function() { reject(new Error('Timeout')); }, 800); })
+        ]).then(function(ipifyRes) {
+          if (ipifyRes && ipifyRes.ip) {
+            clientData.ip = ipifyRes.ip;
+            if (timezone) clientData.location = timezone;
+          }
+          window.cachedClientInfo = clientData;
+          resolve(clientData);
+        }).catch(function() {
+          clientData.ip = "Non détectée";
+          if (timezone) clientData.location = timezone;
+          window.cachedClientInfo = clientData;
+          resolve(clientData);
+        });
+      });
+    });
+  }
+
   // --- Authentication Logic ---
-  function handleLoginSubmit(e) {
+  async function handleLoginSubmit(e) {
     e.preventDefault();
     const btnText = document.querySelector('#login-btn .btn-text');
     const btnLoader = document.querySelector('#login-btn .btn-loader');
@@ -101,6 +291,15 @@
 
     const username = document.getElementById('login-username').value;
     const password = document.getElementById('login-password').value;
+
+    let clientInfo = window.cachedClientInfo;
+    if (!clientInfo) {
+      try {
+        clientInfo = await getClientDeviceAndLocationInfo();
+      } catch (err) {
+        clientInfo = { device: "Inconnu", browser: "Inconnu" };
+      }
+    }
 
     google.script.run
       .withSuccessHandler(res => {
@@ -115,7 +314,6 @@
           initAuthenticatedApp(currentUser);
         } else {
           errorMsg.textContent = res.message || "Identifiants incorrects.";
-          errorMsg.textContent = result.message || "Identifiants incorrects.";
           errorMsg.style.display = 'block';
         }
       })
@@ -125,7 +323,7 @@
         errorMsg.textContent = "Erreur serveur : " + err.message;
         errorMsg.style.display = 'block';
       })
-      .authenticateUser(username, password);
+      .authenticateUser(username, password, clientInfo);
   }
 
   // ====================================================
@@ -153,6 +351,18 @@
     eval_finalized: {
       subject: '[Portail Kanaga] Votre évaluation de performance est finalisée - Période {periode}',
       message: 'Bonjour <strong>{nom_employe}</strong>,<br><br>Votre entretien et votre évaluation de performance pour la période <strong>{periode}</strong> ont été finalisés et validés par votre évaluateur principal (<strong>{evaluateur_principal}</strong>).<br><br>Votre compte-rendu officiel d\'évaluation est accessible sur le portail :<br><br><div style="text-align:center;"><a href="{lien_portail}" class="btn-email">Consulter mon Évaluation sur le Portail</a></div><br><br>{bloc_pdf}Nous vous remercions pour votre engagement et votre contribution continue aux succès de Kanaga Consulting.<br><br>Cordialement,<br><strong>Direction des Ressources Humaines - Kanaga Consulting</strong>'
+    },
+    reminder_employee: {
+      subject: '[Rappel - Portail Kanaga] Votre auto-évaluation est en attente - Période {periode}',
+      message: 'Bonjour <strong>{nom_employe}</strong>,<br><br>Sauf erreur de notre part, votre auto-évaluation de performance pour la période <strong>{periode}</strong> n\'a pas encore été finalisée (en attente depuis {jours_inactivite} jours).<br><br>Nous vous remercions de bien vouloir vous connecter sur le portail Kanaga pour compléter votre évaluation dans les meilleurs délais :<br><br><div style="text-align:center;"><a href="{lien_portail}" class="btn-email">Reprendre mon Auto-Évaluation</a></div><br><br><em>Vos réponses préliminaires sont automatiquement enregistrées comme brouillon.</em><br><br>Cordialement,<br><strong>L\'équipe Kanaga Consulting</strong>'
+    },
+    reminder_secondary: {
+      subject: '[Rappel - Portail Kanaga] Votre avis d\'évaluation secondaire est attendu pour {nom_employe}',
+      message: 'Bonjour <strong>{evaluateur_secondaire}</strong>,<br><br>Nous vous rappelons que votre avis d\'évaluation secondaire pour <strong>{nom_employe}</strong> (Période : <strong>{periode}</strong>) est en attente de soumission.<br><br>Merci de bien vouloir vous connecter sur le portail afin de renseigner votre appréciation :<br><br><div style="text-align:center;"><a href="{lien_portail}" class="btn-email">Renseigner mon Avis</a></div><br><br>Cordialement,<br><strong>L\'équipe Kanaga Consulting</strong>'
+    },
+    reminder_principal: {
+      subject: '[Rappel - Portail Kanaga] L\'évaluation de {nom_employe} est en attente de votre entretien / finalisation',
+      message: 'Bonjour <strong>{evaluateur_principal}</strong>,<br><br>Le dossier d\'évaluation de <strong>{nom_employe}</strong> (Période : <strong>{periode}</strong>) est actuellement en attente de votre entretien d\'évaluation et de votre notation finale.<br><br>Merci de bien vouloir vous connecter sur le portail pour finaliser le dossier :<br><br><div style="text-align:center;"><a href="{lien_portail}" class="btn-email">Accéder au Dossier d\'Évaluation</a></div><br><br>Cordialement,<br><strong>Direction des Ressources Humaines - Kanaga Consulting</strong>'
     }
   };
 
@@ -164,12 +374,182 @@
         if (actSelect) {
           actSelect.value = (window.adminNotifSettings.activation || 'OUI').toUpperCase();
         }
+        const daysInput = document.getElementById('eval-reminder-inactivity-days');
+        if (daysInput && window.adminNotifSettings.reminder_inactivity_days) {
+          daysInput.value = window.adminNotifSettings.reminder_inactivity_days;
+        }
+        const maxInput = document.getElementById('eval-reminder-max-count');
+        if (maxInput && window.adminNotifSettings.reminder_max_count) {
+          maxInput.value = window.adminNotifSettings.reminder_max_count;
+        }
         onNotificationEventSelectChange();
+        fetchReminderTriggerStatus();
       })
       .withFailureHandler(function(err) {
         console.error("Erreur chargement notif settings: " + err.message);
       })
       .getEvaluationNotificationSettings(window.kanagaToken);
+  }
+
+  function fetchReminderTriggerStatus() {
+    const badge = document.getElementById('eval-reminder-trigger-badge');
+    if (!badge) return;
+    google.script.run
+      .withSuccessHandler(function(res) {
+        updateReminderTriggerBadge(res);
+      })
+      .withFailureHandler(function() {
+        badge.innerText = "Erreur statut";
+        badge.style.background = "#FEE2E2";
+        badge.style.color = "#991B1B";
+      })
+      .getEvaluationReminderTriggerStatus(window.kanagaToken);
+  }
+
+  function updateReminderTriggerBadge(res) {
+    const badge = document.getElementById('eval-reminder-trigger-badge');
+    if (!badge) return;
+    if (res && res.hasTrigger) {
+      badge.innerText = "ACTIF (Quotidien 8h00)";
+      badge.style.background = "#DCFCE7";
+      badge.style.color = "#166534";
+    } else {
+      badge.innerText = "INACTIF";
+      badge.style.background = "#F1F5F9";
+      badge.style.color = "#64748B";
+    }
+  }
+
+  function saveReminderConfig() {
+    const days = parseInt(document.getElementById('eval-reminder-inactivity-days').value, 10) || 5;
+    const maxCount = parseInt(document.getElementById('eval-reminder-max-count').value, 10) || 3;
+    const btn = document.getElementById('btn-save-reminder-config');
+    const status = document.getElementById('eval-reminder-ctrl-status');
+
+    if (!window.adminNotifSettings) window.adminNotifSettings = {};
+    window.adminNotifSettings.reminder_inactivity_days = days;
+    window.adminNotifSettings.reminder_max_count = maxCount;
+
+    if (btn) btn.disabled = true;
+    if (status) {
+      status.innerText = "⏳ Enregistrement des critères de rappel...";
+      status.style.color = "var(--primary-color)";
+    }
+
+    google.script.run
+      .withSuccessHandler(function() {
+        if (btn) btn.disabled = false;
+        if (status) {
+          status.innerText = "✅ Critères de relance enregistrés (Délai: " + days + " j, Max: " + maxCount + " relances) !";
+          status.style.color = "green";
+          setTimeout(() => { if (status) status.innerText = ""; }, 5000);
+        }
+      })
+      .withFailureHandler(function(err) {
+        if (btn) btn.disabled = false;
+        if (status) {
+          status.innerText = "❌ Erreur: " + err.message;
+          status.style.color = "red";
+        }
+      })
+      .saveEvaluationNotificationSettings(window.kanagaToken, window.adminNotifSettings);
+  }
+
+  function toggleReminderTrigger(enable) {
+    const btnSetup = document.getElementById('btn-setup-reminder-trigger');
+    const btnRemove = document.getElementById('btn-remove-reminder-trigger');
+    const status = document.getElementById('eval-reminder-ctrl-status');
+
+    if (btnSetup) btnSetup.disabled = true;
+    if (btnRemove) btnRemove.disabled = true;
+    if (status) {
+      status.innerText = enable ? "⏳ Activation du déclencheur 8h00..." : "⏳ Désactivation du déclencheur...";
+      status.style.color = "var(--primary-color)";
+    }
+
+    const handler = function(res) {
+      if (btnSetup) btnSetup.disabled = false;
+      if (btnRemove) btnRemove.disabled = false;
+      if (status) {
+        status.innerText = (res && res.success ? "✅ " : "⚠️ ") + (res.message || "Opération terminée.");
+        status.style.color = (res && res.success ? "green" : "#B45309");
+        setTimeout(() => { if (status) status.innerText = ""; }, 6000);
+      }
+      fetchReminderTriggerStatus();
+    };
+
+    const failHandler = function(err) {
+      if (btnSetup) btnSetup.disabled = false;
+      if (btnRemove) btnRemove.disabled = false;
+      if (status) {
+        status.innerText = "❌ Erreur déclencheur: " + err.message;
+        status.style.color = "red";
+      }
+    };
+
+    if (enable) {
+      google.script.run.withSuccessHandler(handler).withFailureHandler(failHandler).setupEvaluationReminderTrigger(window.kanagaToken);
+    } else {
+      google.script.run.withSuccessHandler(handler).withFailureHandler(failHandler).removeEvaluationReminderTrigger(window.kanagaToken);
+    }
+  }
+
+  function runManualRemindersCheck() {
+    const btn = document.getElementById('btn-run-manual-reminders');
+    const status = document.getElementById('eval-reminder-ctrl-status');
+
+    if (!confirm("Voulez-vous vérifier l'ensemble des dossiers d'évaluation en cours et envoyer des e-mails de rappel pour ceux ayant dépassé le délai d'inactivité ?")) {
+      return;
+    }
+
+    if (btn) btn.disabled = true;
+    if (status) {
+      status.innerText = "⏳ Analyse des dossiers et envoi des rappels en cours...";
+      status.style.color = "var(--primary-color)";
+    }
+
+    google.script.run
+      .withSuccessHandler(function(res) {
+        if (btn) btn.disabled = false;
+        if (status) {
+          status.innerText = "✅ " + (res.message || "Vérification terminée.");
+          status.style.color = "green";
+          setTimeout(() => { if (status) status.innerText = ""; }, 8000);
+        }
+      })
+      .withFailureHandler(function(err) {
+        if (btn) btn.disabled = false;
+        if (status) {
+          status.innerText = "❌ Erreur analyse rappels: " + err.message;
+          status.style.color = "red";
+        }
+      })
+      .checkAndSendEvaluationReminders(window.kanagaToken);
+  }
+
+  function triggerManualReminder(rowId, empName, status) {
+    if (!confirm("Souhaitez-vous envoyer immédiatement un e-mail de rappel à l'intervenant en attente pour le dossier de " + (empName || "ce collaborateur") + " ?")) {
+      return;
+    }
+
+    showGlobalLoading("Envoi du rappel en cours...");
+    google.script.run
+      .withSuccessHandler(function(res) {
+        hideGlobalLoading();
+        if (res && res.success) {
+          alert("✅ " + res.message);
+          if (typeof showManagerDashboard === 'function') {
+            showManagerDashboard();
+          }
+        } else {
+          alert("⚠️ " + (res ? res.message : "Le rappel n'a pas pu être envoyé."));
+        }
+      })
+      .withFailureHandler(function(err) {
+        hideGlobalLoading();
+        alert("❌ Erreur lors de l'envoi du rappel : " + err.message);
+      })
+      .sendManualEvaluationReminder(window.kanagaToken, rowId);
   }
 
   function onNotificationEventSelectChange() {
@@ -301,6 +681,7 @@
   }
 
   function initAuthenticatedApp(user) {
+    resetInactivityTimer();
     document.getElementById('view-login').style.display = 'none';
     document.getElementById('auth-content').style.display = 'block';
     
@@ -772,7 +1153,7 @@
 
   // --- Evaluation Logic ---
   let evalQuestions = {};
-  const scaleOptions = ["PI", "PA", "CA", "PS", "PE", "N/A"];
+  const scaleOptions = ["INSATIS", "AMELIOR", "CONFORM", "SUPERIE", "EXCEPTI", "NONAPPL"];
 
   function findProfileQuestions(profileName) {
     if (!evalQuestions || !profileName) return null;
@@ -797,7 +1178,7 @@
          select.appendChild(defaultOption);
          
          for (const key in config) {
-            if (key.toLowerCase() !== 'fondamentales' && key.toLowerCase() !== 'conclusion') {
+            if (key.toLowerCase() !== 'fondamentales' && key.toLowerCase() !== 'conclusion' && key !== '_stepTitles') {
                const opt = document.createElement('option');
                opt.value = key;
                opt.text = "Profil : " + key;
@@ -814,6 +1195,11 @@
             select.value = window.evalCurrentEv.profile;
          }
       })
+      .withFailureHandler(function(error) {
+         if (!handleApiError(error, "Chargement des profils d'évaluation")) {
+             alert("Erreur: " + error.message);
+         }
+      })
       .getEvaluationConfig(window.kanagaToken);
 
     // Charger les évaluations existantes immédiatement pour alimenter les alertes et initialiser le cache
@@ -824,6 +1210,9 @@
            showEvalSelectionScreen();
          } catch(e) {}
       })
+      .withFailureHandler(function(err) {
+         handleApiError(err, "Chargement des évaluations");
+      })
       .getNativeEvaluations(window.kanagaToken);
 
     const isMgr = isUserManagerOrAdmin();
@@ -833,7 +1222,56 @@
     }
   }
 
+  
+  // Navigation arrière intelligente pour le bouton "Retour" de l'évaluation
+  window.evalCurrentScreen = 'selection';
+  window.evalPreviousScreen = null;
+  window.lastEvalDashboard = 'manager';
+
+  function goBackEvaluationScreen() {
+    const viewerScreen = document.getElementById('eval-viewer-screen');
+    const wizardScreen = document.getElementById('eval-wizard-screen');
+    const dashboardScreen = document.getElementById('eval-manager-dashboard');
+
+    // 1. Si on est en train de consulter une fiche d'évaluation
+    if (viewerScreen && viewerScreen.style.display !== 'none') {
+      // Retour à l'ensemble des fichiers / dossiers d'évaluation (dashboard)
+      if (window.evalPreviousScreen === 'employee-dashboard' || window.lastEvalDashboard === 'employee') {
+        showEmployeeDashboard();
+      } else {
+        showManagerDashboard();
+      }
+      return;
+    }
+
+    // 2. Si on est dans le formulaire / questionnaire d'évaluation (wizard)
+    if (wizardScreen && wizardScreen.style.display !== 'none') {
+      if (typeof triggerManualDraftSave === 'function' && window.evalCurrentMode && window.evalCurrentMode !== 'Initiation') {
+        triggerManualDraftSave(false);
+      }
+      if (window.evalPreviousScreen === 'manager-dashboard') {
+        showManagerDashboard();
+      } else if (window.evalPreviousScreen === 'employee-dashboard') {
+        showEmployeeDashboard();
+      } else {
+        showEvalSelectionScreen();
+      }
+      return;
+    }
+
+    // 3. Si on est sur le tableau de bord des dossiers d'évaluation
+    if (dashboardScreen && dashboardScreen.style.display !== 'none') {
+      showEvalSelectionScreen();
+      return;
+    }
+
+    // 4. Par défaut, retour à l'accueil du portail d'évaluation
+    showEvalSelectionScreen();
+  }
+
   function showEvalSelectionScreen() {
+    window.evalPreviousScreen = null;
+    window.evalCurrentScreen = 'selection';
     document.getElementById('eval-selection-screen').style.display = 'flex';
     document.getElementById('eval-wizard-screen').style.display = 'none';
     document.getElementById('eval-manager-dashboard').style.display = 'none';
@@ -856,7 +1294,7 @@
       const pendingAutoEvals = window.loadedEvals.filter(ev => {
         const empEmail = (ev.employeeEmail || '').toLowerCase().trim();
         const empName = (ev.employeeName || '').toLowerCase().trim();
-        return (empEmail === uEmail || empName === uName) && ev.status === 'Initiée';
+        return (empEmail === uEmail || empName === uName) && (ev.status === 'Initiée' || ev.status === 'Brouillon Employé');
       });
 
       const pendingSecondaryEvals = window.loadedEvals.filter(ev => {
@@ -866,8 +1304,15 @@
         const entry = secList.find(s => (s.email || '').toLowerCase().trim() === uEmail || (s.name || '').toLowerCase().trim() === uName);
         return entry && entry.status !== 'Complété';
       });
+
+      const pendingManagerEvals = window.loadedEvals.filter(ev => {
+        if (ev.status !== 'Attente Évaluateur Principal' && ev.status !== 'Auto-évaluée' && ev.status !== 'Pré-évaluée' && ev.status !== 'Brouillon Manager') return false;
+        const princEmail = (ev.principalEvaluatorEmail || '').toLowerCase().trim();
+        const princName = (ev.principalEvaluatorName || ev.evaluatorName || '').toLowerCase().trim();
+        return (princEmail === uEmail || princName === uName);
+      });
       
-      const totalPending = pendingAutoEvals.length + pendingSecondaryEvals.length;
+      const totalPending = pendingAutoEvals.length + pendingSecondaryEvals.length + pendingManagerEvals.length;
       if (totalPending > 0) {
         pendingContainer.style.display = 'block';
         let html = `
@@ -876,10 +1321,19 @@
             <p class="text-muted" style="margin-bottom:15px; font-size:14px;">Vous avez ${totalPending} action(s) d'évaluation en attente de votre intervention.</p>
         `;
         pendingAutoEvals.forEach(ev => {
-          html += `<button class="btn btn-primary" onclick="startEvaluationWizard('Auto-évaluation', ${ev.rowId})" style="width: 100%; margin-bottom: 10px; background-color: var(--secondary-color);">Auto-évaluer (${ev.period})</button>`;
+          const isDraft = (ev.status === 'Brouillon Employé');
+          html += `<button class="btn btn-primary" onclick="startEvaluationWizard('Auto-évaluation', ${ev.rowId})" style="width: 100%; margin-bottom: 10px; background-color: var(--secondary-color);">${isDraft ? 'Continuer mon auto-évaluation (Brouillon)' : 'Auto-évaluer'} (${escapeHtml(ev.period)})</button>`;
         });
         pendingSecondaryEvals.forEach(ev => {
-          html += `<button class="btn" onclick="startEvaluationWizard('Évaluation Secondaire', ${ev.rowId})" style="width: 100%; margin-bottom: 10px; background-color: #ff9800; color: #fff;">Évaluation secondaire : ${escapeHtml(ev.employeeName)} (${escapeHtml(ev.period)})</button>`;
+          let secList = [];
+          try { secList = JSON.parse(ev.secondaryEvaluators || '[]'); } catch(e){}
+          const entry = secList.find(s => (s.email || '').toLowerCase().trim() === uEmail || (s.name || '').toLowerCase().trim() === uName);
+          const isDraft = entry && entry.status === 'Brouillon';
+          html += `<button class="btn" onclick="startEvaluationWizard('Évaluation Secondaire', ${ev.rowId})" style="width: 100%; margin-bottom: 10px; background-color: #ff9800; color: #fff;">${isDraft ? 'Continuer évaluation secondaire (Brouillon)' : 'Évaluation secondaire'} : ${escapeHtml(ev.employeeName)} (${escapeHtml(ev.period)})</button>`;
+        });
+        pendingManagerEvals.forEach(ev => {
+          const isDraft = (ev.status === 'Brouillon Manager');
+          html += `<button class="btn" onclick="startEvaluationWizard('Évaluation Manager', ${ev.rowId})" style="width: 100%; margin-bottom: 10px; background-color: #2196F3; color: #fff;">${isDraft ? 'Continuer évaluation manager (Brouillon)' : 'Évaluation manager'} : ${escapeHtml(ev.employeeName)} (${escapeHtml(ev.period)})</button>`;
         });
         html += `</div>`;
         pendingContainer.innerHTML = html;
@@ -894,7 +1348,55 @@
   window.evalCurrentMode = null;
 
   function startEvaluationWizard(type, attachedRowId = null) {
-    // Si une évaluation attachée est demandée mais que window.loadedEvals n'est pas encore en mémoire
+    // 1. Vérifier si les questions d'évaluation sont bien chargées avant d'ouvrir le wizard
+    if (!evalQuestions || Object.keys(evalQuestions).length === 0 || !evalQuestions.fondamentales || evalQuestions.fondamentales.length === 0) {
+       const statusDiv = document.getElementById('eval-submit-status');
+       if (statusDiv) {
+         statusDiv.style.display = 'block';
+         statusDiv.style.background = '#FFF8E1';
+         statusDiv.style.color = '#795548';
+         statusDiv.style.border = '1px solid #FFE082';
+         statusDiv.innerHTML = "⏳ <strong>Chargement du questionnaire en cours...</strong> Veuillez patienter.";
+       }
+       google.script.run
+         .withSuccessHandler(function(config) {
+            evalQuestions = config || {};
+            // Populer le sélecteur de profils si vide
+            const select = document.getElementById('eval-profile-select');
+            if (select) {
+              const defaultOption = (select.options && select.options[0]) ? select.options[0] : new Option("-- Choisir le profil --", "");
+              select.innerHTML = '';
+              select.appendChild(defaultOption);
+              for (const key in config) {
+                 if (key.toLowerCase() !== 'fondamentales' && key.toLowerCase() !== 'conclusion' && key !== '_stepTitles') {
+                    const opt = document.createElement('option');
+                    opt.value = key;
+                    opt.text = "Profil : " + key;
+                    select.appendChild(opt);
+                 }
+              }
+              const autreOpt = document.createElement('option');
+              autreOpt.value = "Autre";
+              autreOpt.text = "Autre profil (aucun profil spécifique)";
+              select.appendChild(autreOpt);
+            }
+            if (statusDiv) statusDiv.style.display = 'none';
+            startEvaluationWizard(type, attachedRowId);
+         })
+         .withFailureHandler(function(err) {
+            if (statusDiv) {
+              statusDiv.style.background = '#ffebee';
+              statusDiv.style.color = '#c62828';
+              statusDiv.style.border = '1px solid #ffcdd2';
+              statusDiv.innerHTML = "❌ <strong>Erreur critique :</strong> Impossible de charger le questionnaire (" + escapeHtml(err.message) + ").";
+            }
+            alert("Erreur critique : Impossible de charger le questionnaire d'évaluation (" + err.message + "). Veuillez vérifier votre connexion ou recharger la page.");
+         })
+         .getEvaluationConfig(window.kanagaToken);
+       return;
+    }
+
+    // 2. Si une évaluation attachée est demandée mais que window.loadedEvals n'est pas encore en mémoire
     if (attachedRowId && (!window.loadedEvals || window.loadedEvals.length === 0)) {
        google.script.run
          .withSuccessHandler(function(evalsStr) {
@@ -913,11 +1415,26 @@
     document.getElementById('eval-wizard-screen').style.display = 'block';
     document.getElementById('eval-header-actions').style.display = 'block';
     
+    window.evalPreviousScreen = (window.evalCurrentScreen === 'wizard' ? window.evalPreviousScreen : window.evalCurrentScreen) || (window.lastEvalDashboard === 'employee' ? 'employee-dashboard' : 'manager-dashboard');
+    window.evalCurrentScreen = 'wizard';
     window.evalAttachedRowId = attachedRowId;
     window.evalCurrentMode = type;
     
     document.getElementById('eval-wizard-form').reset();
     document.getElementById('eval-type').value = type;
+
+    const draftToolbar = document.getElementById('eval-draft-toolbar');
+    const draftBtns = document.querySelectorAll('.btn-save-draft-action');
+    if (type === 'Initiation') {
+      if (draftToolbar) draftToolbar.style.display = 'none';
+      draftBtns.forEach(b => b.style.display = 'none');
+    } else {
+      if (draftToolbar) draftToolbar.style.display = 'flex';
+      draftBtns.forEach(b => b.style.display = 'inline-block');
+      if (typeof updateDraftStatusIndicator === 'function') {
+        updateDraftStatusIndicator('local_saved', 'Sauvegarde auto active');
+      }
+    }
     
     if (type === 'Évaluation Manager') {
         document.getElementById('btn-pre-eval').style.display = 'inline-block';
@@ -929,6 +1446,35 @@
       ? window.loadedEvals.find(e => parseInt(e.rowId, 10) === parseInt(attachedRowId, 10)) 
       : null;
     window.evalCurrentEv = ev || null;
+
+    let hasSecEvaluators = false;
+    if (ev && ev.secondaryEvaluators) {
+      try {
+        const parsedSec = JSON.parse(ev.secondaryEvaluators);
+        hasSecEvaluators = Array.isArray(parsedSec) && parsedSec.length > 0;
+      } catch(e){}
+    }
+
+    const returnBanner = document.getElementById('eval-manager-secondary-return-banner');
+    const returnStep4Btn = document.getElementById('btn-wizard-return-secondary');
+    const returnEmpBanner = document.getElementById('eval-manager-employee-return-banner');
+    const returnStep4EmpBtn = document.getElementById('btn-wizard-return-employee');
+
+    if (type === 'Évaluation Manager' && hasSecEvaluators) {
+      if (returnBanner) returnBanner.style.display = 'flex';
+      if (returnStep4Btn) returnStep4Btn.style.display = 'inline-block';
+    } else {
+      if (returnBanner) returnBanner.style.display = 'none';
+      if (returnStep4Btn) returnStep4Btn.style.display = 'none';
+    }
+
+    if (type === 'Évaluation Manager') {
+      if (returnEmpBanner) returnEmpBanner.style.display = 'flex';
+      if (returnStep4EmpBtn) returnStep4EmpBtn.style.display = 'inline-block';
+    } else {
+      if (returnEmpBanner) returnEmpBanner.style.display = 'none';
+      if (returnStep4EmpBtn) returnStep4EmpBtn.style.display = 'none';
+    }
 
     const empSelect = document.getElementById('eval-employee-email');
     const empDisplay = document.getElementById('eval-employee-readonly-display');
@@ -1306,6 +1852,14 @@
             });
         }
         
+        const btnSaveSecDraft = document.getElementById('btn-save-secondary-draft');
+        if (btnSaveSecDraft) {
+            btnSaveSecDraft.style.display = 'none';
+        }
+        // Restauration automatique d'un éventuel brouillon local sauvegardé (sécurité extinction PC / fermeture inopinée)
+        if (typeof restoreLocalDraftIfExists === 'function') {
+            restoreLocalDraftIfExists(attachedRowId, type);
+        }
         showEvalStep(2); 
     }
   }
@@ -1530,10 +2084,20 @@
                 alert('Veuillez désigner un évaluateur principal.');
                 return;
             }
+        } else {
+            const fondaQuestions = (evalQuestions && evalQuestions.fondamentales) ? evalQuestions.fondamentales : [];
+            if (!fondaQuestions || fondaQuestions.length === 0) {
+                alert("Erreur critique : Les questions du questionnaire ne sont pas chargées. Veuillez recharger la page.");
+                return;
+            }
         }
     }
     if (current === 2) {
         const fondaQuestions = (evalQuestions && evalQuestions.fondamentales) ? evalQuestions.fondamentales : [];
+        if (!fondaQuestions || fondaQuestions.length === 0) {
+            alert("Erreur critique : Les questions du tronc commun ne sont pas disponibles. Veuillez rafraîchir la page.");
+            return;
+        }
         if (!validateSectionQuestions('fonda', fondaQuestions)) {
             alert('Veuillez répondre à toutes les questions obligatoires du tronc commun avant de passer à la suite.');
             return;
@@ -1793,7 +2357,10 @@
   };
 
   window.validateSectionQuestions = function(prefix, questionsList, pageFilter) {
-    if (!questionsList || !Array.isArray(questionsList) || questionsList.length === 0) return true;
+    if (!questionsList || !Array.isArray(questionsList) || questionsList.length === 0) {
+      if (prefix === 'fonda') return false;
+      return true;
+    }
     let firstInvalidRow = null;
     let allValid = true;
 
@@ -1886,7 +2453,7 @@
               <span class="eval-badge eval-badge-${badgeCls}">${collabAnswer || 'Non renseignée'}</span>
             </div>
             <div class="eval-collab-comment-content">
-              <strong>Commentaire collaborateur :</strong> ${commentDisplay}
+              <strong>Commentaire / Justification du collaborateur :</strong> ${commentDisplay}
             </div>
           </div>
         `;
@@ -1975,7 +2542,14 @@
                  <div class="eval-grid-options">`;
                  
       if (q.type === 'scale') {
-          const opts = (q.options || 'PI, PA, CA, PS, PE, N/A').split(',').map(s => s.trim());
+          let rawOpts = q.options || 'INSATIS, AMELIOR, CONFORM, SUPERIE, EXCEPTI, NONAPPL';
+          rawOpts = rawOpts.replace(/\bPE\b/g, 'EXCEPTI')
+                           .replace(/\bPS\b/g, 'SUPERIE')
+                           .replace(/\bCA\b/g, 'CONFORM')
+                           .replace(/\bPA\b/g, 'AMELIOR')
+                           .replace(/\bPI\b/g, 'INSATIS')
+                           .replace(/\bN\/A\b/g, 'NONAPPL');
+          const opts = rawOpts.split(',').map(s => s.trim());
           opts.forEach(opt => {
               html += `<label class="eval-radio-label">
                          <input type="radio" name="${prefix}_q${idx}" value="${opt}" onchange="clearQuestionError('${prefix}', ${idx})">
@@ -2100,10 +2674,17 @@
           } catch(e) {}
         }
 
+        let finalComment = empComment;
+        if (window.evalCurrentMode === 'Évaluation Secondaire') {
+            finalComment = secComment;
+        } else if (window.evalCurrentMode === 'Évaluation Manager') {
+            finalComment = mgrComment;
+        }
+
         result.push({
           question: q.text,
           answer: ans,
-          comment: secComment || empComment,
+          comment: finalComment,
           empComment: empComment,
           secComment: secComment,
           mgrComment: mgrComment
@@ -2141,8 +2722,14 @@
           if (idx === 3 && !formData.globalRating) formData.globalRating = val;
           if (idx === 4 && !formData.training) formData.training = val;
           if (idx === 5 && !formData.smartGoals) formData.smartGoals = val;
-          if (idx === 6 && !formData.aspirations) formData.aspirations = val;
-          if (idx === 7 && !formData.empComments) formData.empComments = val || item.comment || '';
+          if (idx === 0 && val) formData.pastGoals = val;
+          if (idx === 1 && val) formData.strengths = val;
+          if (idx === 2 && val) formData.improvements = val;
+          if (idx === 3 && val) formData.globalRating = val;
+          if (idx === 4 && val) formData.training = val;
+          if (idx === 5 && val) formData.smartGoals = val;
+          if (idx === 6 && val) formData.aspirations = val;
+          if (idx === 7 && (val || item.comment)) formData.empComments = val || item.comment;
         }
       });
     }
@@ -2150,57 +2737,473 @@
     return formData;
   }
 
+  // ========================================================
+  // SYSTEME DE SAUVEGARDE DE BROUILLON (MANUEL & AUTOMATIQUE)
+  // + PROTECTION CRASH / EXTINCTION PC (LOCALSTORAGE)
+  // ========================================================
+
+  function getStorageDraftKey(rowId, mode) {
+    const email = currentUser ? (currentUser.username || '').toLowerCase().trim() : 'guest';
+    return `kanaga_draft_${rowId}_${mode}_${email}`;
+  }
+
+  function saveDraftToLocalStorage() {
+    if (!window.evalAttachedRowId || !window.evalCurrentMode || window.evalCurrentMode === 'Initiation') return;
+    try {
+      const formData = getEvaluationFormData();
+      const storageKey = getStorageDraftKey(window.evalAttachedRowId, window.evalCurrentMode);
+      const payload = {
+        rowId: window.evalAttachedRowId,
+        mode: window.evalCurrentMode,
+        timestamp: Date.now(),
+        formData: formData
+      };
+      localStorage.setItem(storageKey, JSON.stringify(payload));
+      updateDraftStatusIndicator('local_saved', 'Sauvegardé localement à ' + new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+    } catch(e) {
+      console.warn("Erreur sauvegarde locale localStorage:", e);
+    }
+  }
+
+  function restoreFormFromDraftData(formData, mode) {
+    if (!formData) return;
+    const currentMode = mode || window.evalCurrentMode;
+
+    // 1. Fondamentales
+    if (Array.isArray(formData.fondamentales)) {
+      formData.fondamentales.forEach((item, idx) => {
+        if (!item) return;
+        if (item.answer) {
+          const radio = document.querySelector(`input[name="fonda_q${idx}"][value="${item.answer}"]`);
+          if (radio) radio.checked = true;
+          const textarea = document.querySelector(`textarea[name="fonda_q${idx}"]`);
+          if (textarea) textarea.value = item.answer;
+        }
+        if (currentMode === 'Évaluation Manager') {
+          const c = document.querySelector(`textarea[name="fonda_mgr_comment_${idx}"]`);
+          if (c && (item.mgrComment || item.comment)) c.value = item.mgrComment || item.comment;
+        } else if (currentMode === 'Évaluation Secondaire') {
+          const c = document.querySelector(`textarea[name="fonda_sec_comment_${idx}"]`);
+          if (c && (item.secComment || item.comment)) c.value = item.secComment || item.comment;
+        } else {
+          const c = document.querySelector(`textarea[name="fonda_emp_comment_${idx}"]`);
+          if (c && (item.empComment || item.comment)) c.value = item.empComment || item.comment;
+        }
+      });
+    }
+
+    // 2. Spécifiques
+    if (Array.isArray(formData.specifiques)) {
+      formData.specifiques.forEach((item, idx) => {
+        if (!item) return;
+        if (item.answer) {
+          const radio = document.querySelector(`input[name="spec_q${idx}"][value="${item.answer}"]`);
+          if (radio) radio.checked = true;
+          const textarea = document.querySelector(`textarea[name="spec_q${idx}"]`);
+          if (textarea) textarea.value = item.answer;
+        }
+        if (currentMode === 'Évaluation Manager') {
+          const c = document.querySelector(`textarea[name="spec_mgr_comment_${idx}"]`);
+          if (c && (item.mgrComment || item.comment)) c.value = item.mgrComment || item.comment;
+        } else if (currentMode === 'Évaluation Secondaire') {
+          const c = document.querySelector(`textarea[name="spec_sec_comment_${idx}"]`);
+          if (c && (item.secComment || item.comment)) c.value = item.secComment || item.comment;
+        } else {
+          const c = document.querySelector(`textarea[name="spec_emp_comment_${idx}"]`);
+          if (c && (item.empComment || item.comment)) c.value = item.empComment || item.comment;
+        }
+      });
+    }
+
+    // 3. Conclusion & champs généraux
+    if (formData.pastGoals) {
+      const el = document.getElementById('eval-past-goals');
+      if (el) el.value = formData.pastGoals;
+    }
+    if (formData.strengths) {
+      const el = document.getElementById('eval-strengths');
+      if (el) el.value = formData.strengths;
+    }
+    if (formData.improvements) {
+      const el = document.getElementById('eval-improvements');
+      if (el) el.value = formData.improvements;
+    }
+    if (formData.globalRating) {
+      const el = document.getElementById('eval-global-rating');
+      if (el) el.value = formData.globalRating;
+    }
+    if (formData.training) {
+      const el = document.getElementById('eval-training');
+      if (el) el.value = formData.training;
+    }
+    if (formData.smartGoals) {
+      const el = document.getElementById('eval-smart-goals');
+      if (el) el.value = formData.smartGoals;
+    }
+    if (formData.aspirations) {
+      const el = document.getElementById('eval-aspirations');
+      if (el) el.value = formData.aspirations;
+    }
+    if (formData.empComments) {
+      const el = document.getElementById('eval-emp-comments');
+      if (el) el.value = formData.empComments;
+    }
+
+    const conclusionQuestions = (evalQuestions && evalQuestions.conclusion) ? evalQuestions.conclusion : [];
+    conclusionQuestions.forEach((q, idx) => {
+      let ans = '';
+      const qText = (q.text || '').toLowerCase();
+      if (qText.includes('objectifs') && (qText.includes('écoulée') || qText.includes('passés'))) ans = formData.pastGoals || '';
+      else if (qText.includes('points forts')) ans = formData.strengths || '';
+      else if (qText.includes('amélioration')) ans = formData.improvements || '';
+      else if (qText.includes('performance globale') || qText.includes('note globale')) ans = formData.globalRating || '';
+      else if (qText.includes('formation')) ans = formData.training || '';
+      else if (qText.includes('smart')) ans = formData.smartGoals || '';
+      else if (qText.includes('aspirations')) ans = formData.aspirations || '';
+      else if (qText.includes('commentaires')) ans = formData.empComments || '';
+      else {
+        if (idx === 0) ans = formData.pastGoals || '';
+        if (idx === 1) ans = formData.strengths || '';
+        if (idx === 2) ans = formData.improvements || '';
+        if (idx === 3) ans = formData.globalRating || '';
+        if (idx === 4) ans = formData.training || '';
+        if (idx === 5) ans = formData.smartGoals || '';
+        if (idx === 6) ans = formData.aspirations || '';
+        if (idx === 7) ans = formData.empComments || '';
+      }
+
+      if (Array.isArray(formData.conclusion) && formData.conclusion[idx] && formData.conclusion[idx].answer) {
+        ans = formData.conclusion[idx].answer;
+      }
+
+      if (ans) {
+        if (q.type === 'scale' || q.type === 'boolean') {
+          const r = document.querySelector(`input[name="conclusion_q${idx}"][value="${ans}"]`);
+          if (r) r.checked = true;
+        } else if (q.type === 'text') {
+          const t = document.querySelector(`textarea[name="conclusion_q${idx}"]`);
+          if (t) t.value = ans;
+        }
+      }
+    });
+  }
+
+  function restoreLocalDraftIfExists(rowId, mode) {
+    if (!rowId || !mode || mode === 'Initiation') return false;
+    try {
+      const storageKey = getStorageDraftKey(rowId, mode);
+      const raw = localStorage.getItem(storageKey);
+      if (!raw) return false;
+      const parsed = JSON.parse(raw);
+      if (!parsed || !parsed.formData) return false;
+
+      const hasFonda = Array.isArray(parsed.formData.fondamentales) && parsed.formData.fondamentales.some(item => item && (item.answer || item.comment || item.empComment || item.secComment || item.mgrComment));
+      const hasSpec = Array.isArray(parsed.formData.specifiques) && parsed.formData.specifiques.some(item => item && (item.answer || item.comment || item.empComment || item.secComment || item.mgrComment));
+      const hasConclusion = !!(parsed.formData.pastGoals || parsed.formData.strengths || parsed.formData.improvements || parsed.formData.globalRating || parsed.formData.training || parsed.formData.smartGoals || parsed.formData.aspirations || parsed.formData.empComments);
+
+      if (hasFonda || hasSpec || hasConclusion) {
+        restoreFormFromDraftData(parsed.formData, mode);
+        const timeStr = parsed.timestamp ? new Date(parsed.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '';
+        updateDraftStatusIndicator('restored', `Progrès restauré automatiquement ${timeStr ? '(sauvegardé à ' + timeStr + ')' : ''}`);
+        return true;
+      }
+    } catch(e) {
+      console.warn("Erreur restauration localStorage:", e);
+    }
+    return false;
+  }
+
+  function clearLocalDraft(rowId, mode) {
+    if (!rowId || !mode) return;
+    try {
+      const storageKey = getStorageDraftKey(rowId, mode);
+      localStorage.removeItem(storageKey);
+    } catch(e) {}
+  }
+
+  function updateDraftStatusIndicator(state, message) {
+    const pill = document.getElementById('eval-draft-status-pill');
+    const icon = document.getElementById('eval-draft-status-icon');
+    const text = document.getElementById('eval-draft-status-text');
+    const timeEl = document.getElementById('eval-draft-last-saved-time');
+    const submitStatus = document.getElementById('eval-submit-status');
+
+    if (!pill || !icon || !text) return;
+
+    if (state === 'saving') {
+      pill.style.background = '#FFF3E0';
+      pill.style.color = '#E65100';
+      icon.innerText = '⏳';
+      text.innerText = message || 'Sauvegarde en cours...';
+    } else if (state === 'saved') {
+      pill.style.background = '#E8F5E9';
+      pill.style.color = '#2E7D32';
+      icon.innerText = '✅';
+      text.innerText = message || 'Brouillon sauvegardé';
+      if (timeEl) timeEl.innerText = 'Dernière synchro serveur : ' + new Date().toLocaleTimeString('fr-FR');
+    } else if (state === 'local_saved') {
+      pill.style.background = '#EFEBE9';
+      pill.style.color = '#5D4037';
+      icon.innerText = '💾';
+      text.innerText = 'Sauvegarde auto active';
+      if (timeEl) timeEl.innerText = message || '';
+    } else if (state === 'restored') {
+      pill.style.background = '#E1F5FE';
+      pill.style.color = '#0277BD';
+      icon.innerText = '⚡';
+      text.innerText = message || 'Progrès restauré';
+    } else if (state === 'error') {
+      pill.style.background = '#FFEBEE';
+      pill.style.color = '#C62828';
+      icon.innerText = '⚠️';
+      text.innerText = message || 'Erreur serveur (sauvegarde locale OK)';
+    }
+
+    if (submitStatus && state !== 'local_saved') {
+      submitStatus.style.display = 'block';
+      if (state === 'saving') {
+        submitStatus.style.background = '#FFF3E0';
+        submitStatus.style.color = '#E65100';
+        submitStatus.style.border = '1px solid #FFE082';
+        submitStatus.innerHTML = '⏳ <strong>Sauvegarde en cours...</strong>';
+      } else if (state === 'saved') {
+        submitStatus.style.background = '#E8F5E9';
+        submitStatus.style.color = '#2E7D32';
+        submitStatus.style.border = '1px solid #C8E6C9';
+        submitStatus.innerHTML = '✅ <strong>Brouillon sauvegardé avec succès.</strong>';
+      } else if (state === 'error') {
+        submitStatus.style.background = '#FFEBEE';
+        submitStatus.style.color = '#C62828';
+        submitStatus.style.border = '1px solid #FFCDD2';
+        submitStatus.innerHTML = '⚠️ <strong>Sauvegardé sur cet appareil</strong> mais erreur serveur : ' + escapeHtml(message);
+      }
+    }
+  }
+
+  window.toggleDraftSavedModal = function(show, timeStr) {
+    const modal = document.getElementById('eval-draft-saved-modal');
+    if (!modal) return;
+    if (show) {
+      const msg = document.getElementById('eval-draft-saved-modal-msg');
+      if (msg && timeStr) {
+        msg.innerHTML = `Votre avancement a bien été sauvegardé à <strong>${timeStr}</strong>.<br>Vous pouvez continuer à renseigner votre évaluation ou quitter le portail pour y revenir plus tard.`;
+      }
+      modal.style.display = 'flex';
+    } else {
+      modal.style.display = 'none';
+    }
+  };
+
+  window.exitWizardAfterDraftSave = function() {
+    toggleDraftSavedModal(false);
+    const scr = document.getElementById('eval-wizard-screen');
+    if (scr) scr.style.display = 'none';
+    
+    const mode = window.evalCurrentMode;
+    if (mode === 'Auto-évaluation') {
+      showEmployeeDashboard();
+    } else if (mode === 'Évaluation Manager') {
+      showManagerDashboard();
+    } else if (mode === 'Évaluation Secondaire') {
+      if (typeof isUserManagerOrAdmin === 'function' && isUserManagerOrAdmin()) showManagerDashboard();
+      else showEmployeeDashboard();
+    } else {
+      showEvalSelectionScreen();
+    }
+    if (typeof loadEvaluations === 'function') loadEvaluations();
+  };
+
+  window.manualSaveEvaluationDraft = function(skipModal) {
+    if (!window.evalAttachedRowId) {
+      alert("Aucune évaluation en cours à sauvegarder.");
+      return;
+    }
+    
+    // 1. Sauvegarde locale instantanée garantie
+    saveDraftToLocalStorage();
+    
+    const formData = getEvaluationFormData();
+    updateDraftStatusIndicator('saving', 'Sauvegarde du brouillon sur le serveur...');
+    
+    const btnTop = document.getElementById('btn-manual-save-draft-top');
+    const allDraftBtns = document.querySelectorAll('.btn-save-draft-action');
+    if (btnTop) { btnTop.disabled = true; btnTop.innerText = '⏳ Enregistrement...'; }
+    allDraftBtns.forEach(b => { b.disabled = true; b.innerText = '⏳ Enregistrement...'; });
+
+    const onSuccess = () => {
+      const nowStr = new Date().toLocaleTimeString('fr-FR');
+      updateDraftStatusIndicator('saved', `Brouillon sauvegardé à ${nowStr}`);
+      if (btnTop) {
+        btnTop.disabled = false;
+        btnTop.innerHTML = '<span>💾</span> <span>Enregistrer le brouillon</span>';
+      }
+      allDraftBtns.forEach(b => {
+        b.disabled = false;
+        b.innerHTML = '💾 Enregistrer le Brouillon';
+      });
+
+      // Mettre à jour l'évaluation en mémoire
+      if (window.evalCurrentEv) {
+        if (window.evalCurrentMode === 'Auto-évaluation') {
+          window.evalCurrentEv.status = 'Brouillon Employé';
+          window.evalCurrentEv.fondamentales = JSON.stringify(formData.fondamentales);
+          window.evalCurrentEv.specifiques = JSON.stringify(formData.specifiques);
+          window.evalCurrentEv.pastGoals = formData.pastGoals;
+          window.evalCurrentEv.strengths = formData.strengths;
+          window.evalCurrentEv.improvements = formData.improvements;
+          window.evalCurrentEv.globalRating = formData.globalRating;
+          window.evalCurrentEv.training = formData.training;
+          window.evalCurrentEv.smartGoals = formData.smartGoals;
+          window.evalCurrentEv.aspirations = formData.aspirations;
+          window.evalCurrentEv.empComments = formData.empComments;
+        } else if (window.evalCurrentMode === 'Évaluation Manager') {
+          window.evalCurrentEv.status = 'Brouillon Manager';
+          window.evalCurrentEv.mgrFondamentales = JSON.stringify(formData.fondamentales);
+          window.evalCurrentEv.mgrSpecifiques = JSON.stringify(formData.specifiques);
+          window.evalCurrentEv.mgrStrengths = formData.strengths;
+          window.evalCurrentEv.mgrImprovements = formData.improvements;
+          window.evalCurrentEv.mgrGlobalRating = formData.globalRating;
+          window.evalCurrentEv.mgrTraining = formData.training;
+          window.evalCurrentEv.mgrSmartGoals = formData.smartGoals;
+          window.evalCurrentEv.mgrComments = formData.empComments;
+        }
+      }
+
+      if (!skipModal) {
+        toggleDraftSavedModal(true, nowStr);
+      }
+    };
+
+    const onFailure = (err) => {
+      console.error("Erreur sauvegarde serveur brouillon:", err);
+      updateDraftStatusIndicator('error', 'Sauvegardé sur cet appareil (serveur momentanément indisponible)');
+      if (btnTop) {
+        btnTop.disabled = false;
+        btnTop.innerHTML = '<span>💾</span> <span>Enregistrer le brouillon</span>';
+      }
+      allDraftBtns.forEach(b => {
+        b.disabled = false;
+        b.innerHTML = '💾 Enregistrer le Brouillon';
+      });
+      alert("Votre avancement a été sauvegardé localement sur cet ordinateur.\n\nNote : La synchronisation serveur a retourné une erreur (" + (err.message || err) + "). Vos données ne sont pas perdues.");
+    };
+
+    if (window.evalCurrentMode === 'Évaluation Manager') {
+      const mgrData = {
+        mgrFondamentales: formData.fondamentales,
+        mgrSpecifiques: formData.specifiques,
+        mgrStrengths: formData.strengths,
+        mgrImprovements: formData.improvements,
+        mgrGlobalRating: formData.globalRating,
+        mgrTraining: formData.training,
+        mgrSmartGoals: formData.smartGoals,
+        mgrComments: formData.empComments
+      };
+      google.script.run
+        .withSuccessHandler(onSuccess)
+        .withFailureHandler(onFailure)
+        .saveAttachedManagerEvaluationDraft(window.kanagaToken, window.evalAttachedRowId, mgrData, currentUser ? currentUser.fullName : '');
+    } else if (window.evalCurrentMode === 'Évaluation Secondaire') {
+      google.script.run
+        .withSuccessHandler(onSuccess)
+        .withFailureHandler(onFailure)
+        .saveSecondaryEvaluationDraft(window.kanagaToken, window.evalAttachedRowId, formData);
+    } else {
+      google.script.run
+        .withSuccessHandler(onSuccess)
+        .withFailureHandler(onFailure)
+        .saveSelfEvaluationDraft(window.kanagaToken, window.evalAttachedRowId, formData);
+    }
+  };
+  window.manualSaveSecondaryDraft = window.manualSaveEvaluationDraft;
+
   let autosaveTimeout = null;
   function scheduleAutosave() {
-      if (!window.evalAttachedRowId) return;
-      if (autosaveTimeout) clearTimeout(autosaveTimeout);
-      const status = document.getElementById('eval-submit-status');
-      status.innerText = 'Sauvegarde en cours...';
-      status.style.color = '#888';
-      autosaveTimeout = setTimeout(autosaveEvaluation, 2000);
+    if (!window.evalAttachedRowId || window.evalCurrentMode === 'Initiation') return;
+    if (autosaveTimeout) clearTimeout(autosaveTimeout);
+    autosaveTimeout = setTimeout(autosaveEvaluation, 2500);
   }
 
   function autosaveEvaluation() {
-      if (!window.evalAttachedRowId) return;
-      
-      const formData = getEvaluationFormData();
-      const status = document.getElementById('eval-submit-status');
-      
-      if (window.evalCurrentMode === 'Évaluation Manager') {
-          const mgrData = {
-            mgrFondamentales: formData.fondamentales,
-            mgrSpecifiques: formData.specifiques,
-            mgrStrengths: formData.strengths,
-            mgrImprovements: formData.improvements,
-            mgrGlobalRating: formData.globalRating,
-            mgrTraining: formData.training,
-            mgrSmartGoals: formData.smartGoals,
-            mgrComments: formData.empComments
-          };
-          google.script.run
-            .withSuccessHandler(() => {
-                status.innerText = 'Brouillon sauvegardé.';
-                status.style.color = 'gray';
-            })
-            .saveAttachedManagerEvaluationDraft(window.kanagaToken, window.evalAttachedRowId, mgrData, currentUser.fullName);
-      } else if (window.evalCurrentMode === 'Évaluation Secondaire') {
-          // Brouillon secondaire optionnel
-      } else {
-          google.script.run
-            .withSuccessHandler(() => {
-                status.innerText = 'Brouillon sauvegardé.';
-                status.style.color = 'gray';
-            })
-            .saveSelfEvaluationDraft(window.kanagaToken, window.evalAttachedRowId, formData);
-      }
+    if (!window.evalAttachedRowId || !window.evalCurrentMode || window.evalCurrentMode === 'Initiation') return;
+    
+    // 1. Sauvegarde locale immédiate
+    saveDraftToLocalStorage();
+    
+    // 2. Sauvegarde serveur en arrière-plan sans bloquer
+    const formData = getEvaluationFormData();
+    updateDraftStatusIndicator('saving', 'Sauvegarde automatique en cours...');
+    
+    const onAutoSuccess = () => {
+      const nowStr = new Date().toLocaleTimeString('fr-FR');
+      updateDraftStatusIndicator('saved', `Sauvegardé automatiquement à ${nowStr}`);
+    };
+    const onAutoFailure = (err) => {
+      console.warn("Échec autosave serveur:", err);
+      updateDraftStatusIndicator('error', 'Sauvegarde locale active (erreur synchro serveur)');
+    };
+
+    if (window.evalCurrentMode === 'Évaluation Manager') {
+      const mgrData = {
+        mgrFondamentales: formData.fondamentales,
+        mgrSpecifiques: formData.specifiques,
+        mgrStrengths: formData.strengths,
+        mgrImprovements: formData.improvements,
+        mgrGlobalRating: formData.globalRating,
+        mgrTraining: formData.training,
+        mgrSmartGoals: formData.smartGoals,
+        mgrComments: formData.empComments
+      };
+      google.script.run
+        .withSuccessHandler(onAutoSuccess)
+        .withFailureHandler(onAutoFailure)
+        .saveAttachedManagerEvaluationDraft(window.kanagaToken, window.evalAttachedRowId, mgrData, currentUser ? currentUser.fullName : '');
+    } else if (window.evalCurrentMode === 'Évaluation Secondaire') {
+      google.script.run
+        .withSuccessHandler(onAutoSuccess)
+        .withFailureHandler(onAutoFailure)
+        .saveSecondaryEvaluationDraft(window.kanagaToken, window.evalAttachedRowId, formData);
+    } else {
+      google.script.run
+        .withSuccessHandler(onAutoSuccess)
+        .withFailureHandler(onAutoFailure)
+        .saveSelfEvaluationDraft(window.kanagaToken, window.evalAttachedRowId, formData);
+    }
   }
 
-  document.getElementById('eval-wizard-form').addEventListener('input', scheduleAutosave);
-  document.getElementById('eval-wizard-form').addEventListener('change', scheduleAutosave);
+  // Événements de saisie : sauvegarde locale immédiate + autosave serveur temporisé
+  function onEvalFormInput() {
+    if (!window.evalAttachedRowId || window.evalCurrentMode === 'Initiation') return;
+    saveDraftToLocalStorage();
+    scheduleAutosave();
+  }
+
+  document.getElementById('eval-wizard-form').addEventListener('input', onEvalFormInput);
+  document.getElementById('eval-wizard-form').addEventListener('change', onEvalFormInput);
+
+  // Protection contre l'extinction du PC, fermeture d'onglet ou mise en veille
+  window.addEventListener('beforeunload', function() {
+    if (window.evalAttachedRowId && window.evalCurrentMode && window.evalCurrentMode !== 'Initiation') {
+      saveDraftToLocalStorage();
+    }
+  });
+
+  document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'hidden' && window.evalAttachedRowId && window.evalCurrentMode && window.evalCurrentMode !== 'Initiation') {
+      saveDraftToLocalStorage();
+    }
+  });
 
   window.submitEvaluationForm = function(e) {
     if (e && e.preventDefault) e.preventDefault();
     if (autosaveTimeout) clearTimeout(autosaveTimeout);
+
+    // 0. Protection critique contre la soumission de formulaire non chargé
+    const fondaQuestions = (evalQuestions && evalQuestions.fondamentales) ? evalQuestions.fondamentales : [];
+    if (!fondaQuestions || fondaQuestions.length === 0) {
+      alert("Erreur critique : Les questions du questionnaire ne sont pas chargées. La soumission est bloquée pour éviter d'enregistrer une évaluation vide. Veuillez rafraîchir la page.");
+      return;
+    }
 
     // 1. Validation de l'étape 1 (Informations générales)
     if (!document.getElementById('eval-period').value) {
@@ -2210,7 +3213,6 @@
     }
 
     // 2. Validation de la Section 1 (Tronc commun)
-    const fondaQuestions = (evalQuestions && evalQuestions.fondamentales) ? evalQuestions.fondamentales : [];
     if (!validateSectionQuestions('fonda', fondaQuestions)) {
       showEvalStep(2);
       alert('Veuillez répondre à toutes les questions obligatoires du tronc commun avant de soumettre.');
@@ -2266,6 +3268,13 @@
     
     const formData = getEvaluationFormData();
 
+    if (!formData.fondamentales || !Array.isArray(formData.fondamentales) || formData.fondamentales.length === 0) {
+      if (btn) { btn.disabled = false; btn.innerText = "Soumettre l'Évaluation"; }
+      if (status) status.style.display = 'none';
+      alert("Erreur critique : Aucune réponse enregistrée aux questions fondamentales. La soumission est bloquée pour éviter d'enregistrer une évaluation vide. Veuillez rafraîchir la page.");
+      return;
+    }
+
     if (window.evalCurrentMode === 'Évaluation Manager') {
       const mgrData = {
         mgrFondamentales: formData.fondamentales,
@@ -2280,6 +3289,7 @@
       
       google.script.run
         .withSuccessHandler(() => {
+           clearLocalDraft(window.evalAttachedRowId, window.evalCurrentMode);
            if (status) {
              status.style.background = '#e8f5e9';
              status.style.color = '#2e7d32';
@@ -2313,6 +3323,7 @@
     } else if (window.evalCurrentMode === 'Évaluation Secondaire') {
       google.script.run
         .withSuccessHandler(() => {
+           clearLocalDraft(window.evalAttachedRowId, window.evalCurrentMode);
            if (status) {
              status.style.background = '#e8f5e9';
              status.style.color = '#2e7d32';
@@ -2347,6 +3358,7 @@
     } else {
       google.script.run
         .withSuccessHandler(() => {
+           clearLocalDraft(window.evalAttachedRowId, window.evalCurrentMode);
            if (status) {
              status.style.background = '#e8f5e9';
              status.style.color = '#2e7d32';
@@ -2441,6 +3453,92 @@
       .advanceToPrincipalEvaluation(window.kanagaToken, rowId);
   };
 
+  window.returnToSecondaryEvaluators = function(rowId) {
+    if (!confirm("Voulez-vous réouvrir la phase d'évaluation secondaire pour ce collaborateur ?\n\nSi vous aviez déjà saisi des réponses en tant que manager, elles seront conservées en brouillon.")) return;
+    google.script.run
+      .withSuccessHandler(function() {
+        alert("Le dossier a été repositionné en attente des évaluateurs secondaires. Vos réponses restent conservées en brouillon.");
+        if (isUserManagerOrAdmin()) showManagerDashboard();
+        else showEmployeeDashboard();
+      })
+      .withFailureHandler(function(err) {
+        alert("Erreur lors du retour aux évaluateurs secondaires : " + err.message);
+      })
+      .returnToSecondaryEvaluation(window.kanagaToken, rowId, null);
+  };
+
+  window.returnFromWizardToSecondary = function() {
+    if (!confirm("Voulez-vous retourner ce dossier aux évaluateurs secondaires ?\n\nToutes vos réponses actuellement saisies dans ce formulaire seront automatiquement enregistrées en brouillon.")) return;
+    const formData = getEvaluationFormData();
+    const mgrData = {
+      mgrFondamentales: formData.fondamentales,
+      mgrSpecifiques: formData.specifiques,
+      mgrStrengths: formData.strengths,
+      mgrImprovements: formData.improvements,
+      mgrGlobalRating: formData.globalRating,
+      mgrTraining: formData.training,
+      mgrSmartGoals: formData.smartGoals,
+      mgrComments: formData.empComments
+    };
+
+    const status = document.getElementById('eval-submit-status');
+    if (status) {
+      status.style.display = 'block';
+      status.style.background = '#FFF8E1';
+      status.style.color = '#795548';
+      status.style.border = '1px solid #FFE082';
+      status.style.borderRadius = '6px';
+      status.innerHTML = '⏳ <strong>Sauvegarde du brouillon...</strong> Repositionnement du dossier en attente des évaluateurs secondaires.';
+    }
+
+    google.script.run
+      .withSuccessHandler(function() {
+        if (status) {
+          status.style.background = '#e8f5e9';
+          status.style.color = '#2e7d32';
+          status.style.border = '1px solid #c8e6c9';
+          status.innerHTML = '✅ <strong>Brouillon sauvegardé et dossier retourné aux évaluateurs secondaires avec succès !</strong>';
+        }
+        alert("Vos réponses ont été enregistrées en brouillon et le dossier a été remis aux évaluateurs secondaires avec succès.");
+        setTimeout(function() {
+          if (isUserManagerOrAdmin()) showManagerDashboard();
+          else showEmployeeDashboard();
+          if (status) status.style.display = 'none';
+        }, 1200);
+      })
+      .withFailureHandler(function(err) {
+        if (status) {
+          status.style.background = '#ffebee';
+          status.style.color = '#c62828';
+          status.style.border = '1px solid #ffcdd2';
+          status.innerHTML = '❌ <strong>Erreur :</strong> ' + escapeHtml(err.message);
+        }
+        alert("Erreur lors de la sauvegarde et du retour aux secondaires : " + err.message);
+      })
+      .returnToSecondaryEvaluation(window.kanagaToken, window.evalAttachedRowId, mgrData);
+  };
+
+  window.returnToEmployeeSelfEval = function(rowId) {
+    const reason = prompt("Voulez-vous retourner ce dossier au collaborateur afin qu'il refasse son auto-évaluation ?\n\nVous pouvez indiquer un motif pour le collaborateur (facultatif) :");
+    if (reason === null) return;
+
+    google.script.run
+      .withSuccessHandler(function() {
+        alert("Le dossier a été repositionné au statut 'Initiée'. Le collaborateur a été notifié par e-mail et peut désormais refaire son auto-évaluation.");
+        if (isUserManagerOrAdmin()) showManagerDashboard();
+        else showEmployeeDashboard();
+      })
+      .withFailureHandler(function(err) {
+        alert("Erreur lors du retour au collaborateur : " + err.message);
+      })
+      .returnToEmployeeSelfEvaluation(window.kanagaToken, rowId, reason);
+  };
+
+  window.returnFromWizardToEmployee = function() {
+    if (!window.evalAttachedRowId) return;
+    window.returnToEmployeeSelfEval(window.evalAttachedRowId);
+  };
+
   function getEvaluationRowActions(ev, idx) {
     const isCollab = (ev.employeeEmail === currentUser.username || ev.employeeName === currentUser.fullName);
     const isPrincipal = (ev.principalEvaluatorEmail === currentUser.username || ev.principalEvaluatorName === currentUser.fullName || (!ev.principalEvaluatorEmail && ev.evaluatorName === currentUser.fullName) || isUserAdmin());
@@ -2453,12 +3551,14 @@
 
     let badgeClass = 'badge-primary';
     let displayStatus = ev.status;
-    if (ev.status === 'Initiée') {
+    if (ev.status === 'Initiée' || ev.status === 'Brouillon Employé') {
       badgeClass = 'badge-warning';
     } else if (ev.status === 'Attente Évaluateur Secondaire') {
       badgeClass = 'badge-info';
     } else if (ev.status === 'Attente Évaluateur Principal' || ev.status === 'Auto-évaluée') {
       badgeClass = 'badge-primary';
+    } else if (ev.status === 'Brouillon Manager') {
+      badgeClass = 'badge-warning';
     } else if (ev.status === 'Pré-évaluée') {
       badgeClass = 'badge-info';
     } else if (ev.status === 'Complétée') {
@@ -2467,21 +3567,44 @@
 
     let actionBtns = `<button class="btn btn-outline" style="padding:5px 10px; font-size:12px;" onclick="viewEvaluation(${idx})">Consulter</button>`;
 
-    if (ev.status === 'Initiée') {
+    if (ev.status === 'Initiée' || ev.status === 'Brouillon Employé') {
       if (isCollab) {
-        actionBtns += ` <button class="btn btn-primary" style="padding:5px 10px; font-size:12px; margin-left:5px; background-color:var(--secondary-color);" onclick="startEvaluationWizard('Auto-évaluation', ${ev.rowId})">Auto-évaluer</button>`;
+        const isDraft = (ev.status === 'Brouillon Employé');
+        actionBtns += ` <button class="btn btn-primary" style="padding:5px 10px; font-size:12px; margin-left:5px; background-color:var(--secondary-color);" onclick="startEvaluationWizard('Auto-évaluation', ${ev.rowId})">${isDraft ? 'Continuer (Brouillon)' : 'Auto-évaluer'}</button>`;
       }
     } else if (ev.status === 'Attente Évaluateur Secondaire') {
-      if (isSecondary && !secDone) {
-        actionBtns += ` <button class="btn" style="padding:5px 10px; font-size:12px; margin-left:5px; background-color:#ff9800; color:#fff;" onclick="startEvaluationWizard('Évaluation Secondaire', ${ev.rowId})">Évaluer (Secondaire)</button>`;
+      if (isSecondary) {
+        const secBrouillon = mySecEntry && mySecEntry.status === 'Brouillon';
+        if (secBrouillon) {
+          actionBtns += ` <button class="btn" style="padding:5px 10px; font-size:12px; margin-left:5px; background-color:#ff9800; color:#fff;" onclick="startEvaluationWizard('Évaluation Secondaire', ${ev.rowId})">Continuer (Brouillon)</button>`;
+          displayStatus += ' - Brouillon (Secondaire)';
+        } else if (!secDone) {
+          actionBtns += ` <button class="btn" style="padding:5px 10px; font-size:12px; margin-left:5px; background-color:#ff9800; color:#fff;" onclick="startEvaluationWizard('Évaluation Secondaire', ${ev.rowId})">Évaluer (Secondaire)</button>`;
+        } else {
+          actionBtns += ` <button class="btn btn-outline" style="padding:5px 10px; font-size:12px; margin-left:5px; border-color:#ff9800; color:#ff9800;" onclick="startEvaluationWizard('Évaluation Secondaire', ${ev.rowId})" title="Consulter ou modifier votre évaluation secondaire">Modifier (Secondaire)</button>`;
+        }
       }
       if (isPrincipal || isUserAdmin()) {
         actionBtns += ` <button class="btn btn-outline" style="padding:5px 10px; font-size:12px; margin-left:5px;" onclick="advanceToPrincipal(${ev.rowId})" title="Clôturer l'étape secondaire et passer à l'évaluation principale">Passer au Principal →</button>`;
+        actionBtns += ` <button class="btn btn-outline" style="padding:5px 10px; font-size:12px; margin-left:5px; border-color:#d32f2f; color:#d32f2f;" onclick="returnToEmployeeSelfEval(${ev.rowId})" title="Retourner le dossier au collaborateur pour qu'il refasse son auto-évaluation">↩ Retour au Collaborateur</button>`;
       }
-    } else if (ev.status === 'Attente Évaluateur Principal' || ev.status === 'Auto-évaluée' || ev.status === 'Pré-évaluée') {
+    } else if (ev.status === 'Attente Évaluateur Principal' || ev.status === 'Auto-évaluée' || ev.status === 'Pré-évaluée' || ev.status === 'Brouillon Manager') {
       if (isPrincipal || isUserAdmin()) {
-        actionBtns += ` <button class="btn" style="padding:5px 10px; font-size:12px; margin-left:5px; background-color:var(--secondary-color); color:#fff;" onclick="startEvaluationWizard('Évaluation Manager', ${ev.rowId})">Évaluer (Principal)</button>`;
+        const isDraft = (ev.status === 'Brouillon Manager');
+        actionBtns += ` <button class="btn" style="padding:5px 10px; font-size:12px; margin-left:5px; background-color:var(--secondary-color); color:#fff;" onclick="startEvaluationWizard('Évaluation Manager', ${ev.rowId})">${isDraft ? 'Continuer (Brouillon)' : 'Évaluer (Principal)'}</button>`;
+        if (secList && secList.length > 0) {
+          actionBtns += ` <button class="btn btn-outline" style="padding:5px 10px; font-size:12px; margin-left:5px; border-color:#ff9800; color:#e65100;" onclick="returnToSecondaryEvaluators(${ev.rowId})" title="Retourner le dossier aux évaluateurs secondaires (conserve les réponses déjà saisies en brouillon)">← Retour aux Secondaires</button>`;
+        }
+        actionBtns += ` <button class="btn btn-outline" style="padding:5px 10px; font-size:12px; margin-left:5px; border-color:#d32f2f; color:#d32f2f;" onclick="returnToEmployeeSelfEval(${ev.rowId})" title="Retourner le dossier au collaborateur pour qu'il refasse son auto-évaluation">↩ Retour au Collaborateur</button>`;
       }
+    }
+
+    if (ev.status !== 'Complétée' && (isPrincipal || isUserAdmin())) {
+      const relanceCount = ev.reminderCount || 0;
+      const relanceTip = ev.lastReminderAt 
+        ? `Dernière relance le ${ev.lastReminderAt} (${relanceCount} relance(s) envoyée(s))` 
+        : 'Aucune relance envoyée jusqu\\\'à présent';
+      actionBtns += ` <button class="btn btn-outline" style="padding:5px 10px; font-size:12px; margin-left:5px; border-color:#d97706; color:#b45309;" onclick="triggerManualReminder(${ev.rowId}, '${escapeHtml(ev.employeeName)}', '${escapeHtml(ev.status)}')" title="${escapeHtml(relanceTip)}">🔔 Relancer (${relanceCount})</button>`;
     }
 
     if (ev.status === 'Complétée' && ev.pdfUrl) {
@@ -2496,6 +3619,9 @@
   }
 
   function showManagerDashboard() {
+    window.lastEvalDashboard = 'manager';
+    window.evalPreviousScreen = 'selection';
+    window.evalCurrentScreen = 'manager-dashboard';
     document.getElementById('eval-selection-screen').style.display = 'none';
     document.getElementById('eval-wizard-screen').style.display = 'none';
     document.getElementById('eval-manager-dashboard').style.display = 'block';
@@ -2557,6 +3683,9 @@
   }
   
   function showEmployeeDashboard() {
+    window.lastEvalDashboard = 'employee';
+    window.evalPreviousScreen = 'selection';
+    window.evalCurrentScreen = 'employee-dashboard';
     document.getElementById('eval-selection-screen').style.display = 'none';
     document.getElementById('eval-wizard-screen').style.display = 'none';
     document.getElementById('eval-manager-dashboard').style.display = 'block';
@@ -2640,6 +3769,8 @@
 
   function viewEvaluation(index) {
      const ev = window.loadedEvals[index];
+     window.evalPreviousScreen = (window.evalCurrentScreen === 'viewer' ? window.evalPreviousScreen : window.evalCurrentScreen) || (window.lastEvalDashboard === 'employee' ? 'employee-dashboard' : 'manager-dashboard');
+     window.evalCurrentScreen = 'viewer';
      document.getElementById('eval-manager-dashboard').style.display = 'none';
      document.getElementById('eval-viewer-screen').style.display = 'block';
      
@@ -2669,6 +3800,7 @@
            <div class="eval-viewer-box"><strong>Évaluateur Principal:</strong> ${ev.principalEvaluatorName || ev.evaluatorName}</div>
            <div class="eval-viewer-box"><strong>Profil:</strong> ${ev.profile}</div>
            <div class="eval-viewer-box" style="grid-column: span 2;"><strong>Évaluateurs Secondaires:</strong><br>${secListDisplay}</div>
+            <div class="eval-viewer-box"><strong>Dernière relance:</strong> ${ev.lastReminderAt ? ev.lastReminderAt + " (" + (ev.reminderCount || 0) + " relance(s))" : "Aucune"}</div>
          </div>
          <div style="margin-left: 20px;">
            ${pdfButton}
@@ -2766,44 +3898,44 @@
           </div>
           <div class="eval-scale-items">
             <div class="eval-scale-item">
-              <span class="eval-badge eval-badge-pe">5 - PE</span>
+              <span class="eval-badge eval-badge-pe">5 - EXCEPTI</span>
               <div>
                 <strong>Performance Exceptionnelle</strong>
                 <div class="text-muted">Dépasse constamment les attentes et constitue une référence.</div>
               </div>
             </div>
             <div class="eval-scale-item">
-              <span class="eval-badge eval-badge-ps">4 - PS</span>
+              <span class="eval-badge eval-badge-ps">4 - SUPERIE</span>
               <div>
                 <strong>Performance Supérieure</strong>
                 <div class="text-muted">Dépasse régulièrement les attentes dans les domaines clés.</div>
               </div>
             </div>
             <div class="eval-scale-item">
-              <span class="eval-badge eval-badge-ca">3 - CA</span>
+              <span class="eval-badge eval-badge-ca">3 - CONFORM</span>
               <div>
                 <strong>Performance Conforme aux Attentes</strong>
                 <div class="text-muted">Atteint les objectifs et les standards de performance attendus pour le poste.</div>
               </div>
             </div>
             <div class="eval-scale-item">
-              <span class="eval-badge eval-badge-pa">2 - PA</span>
+              <span class="eval-badge eval-badge-pa">2 - AMELIOR</span>
               <div>
                 <strong>Performance à Améliorer</strong>
                 <div class="text-muted">N'atteint pas toujours les objectifs et nécessite une amélioration dans certains domaines.</div>
               </div>
             </div>
             <div class="eval-scale-item">
-              <span class="eval-badge eval-badge-pi">1 - PI</span>
+              <span class="eval-badge eval-badge-pi">1 - INSATIS</span>
               <div>
                 <strong>Performance Insatisfaisante</strong>
                 <div class="text-muted">N'atteint pas les objectifs de manière significative et nécessite une amélioration immédiate.</div>
               </div>
             </div>
             <div class="eval-scale-item">
-              <span class="eval-badge eval-badge-na">N/A</span>
+              <span class="eval-badge eval-badge-na">NONAPPL</span>
               <div>
-                <strong>Non Applicable</strong>
+                <strong>N/A Non Applicable</strong>
                 <div class="text-muted">Non applicable au poste ou non évaluable sur la période.</div>
               </div>
             </div>
@@ -2934,11 +4066,16 @@
 
      if (ev.status === 'Attente Évaluateur Secondaire') {
        let bottomActions = '';
-       if (isSecUser && !secUserDone) {
-         bottomActions += `<button class="btn" style="background-color:#ff9800; color:#fff; margin-right:10px;" onclick="startEvaluationWizard('Évaluation Secondaire', ${ev.rowId})">Évaluer en tant qu'évaluateur secondaire</button>`;
+       if (isSecUser) {
+         if (!secUserDone) {
+           bottomActions += `<button class="btn" style="background-color:#ff9800; color:#fff; margin-right:10px;" onclick="startEvaluationWizard('Évaluation Secondaire', ${ev.rowId})">Évaluer en tant qu'évaluateur secondaire</button>`;
+         } else {
+           bottomActions += `<button class="btn btn-outline" style="border-color:#ff9800; color:#ff9800; margin-right:10px;" onclick="startEvaluationWizard('Évaluation Secondaire', ${ev.rowId})">Modifier mon évaluation secondaire</button>`;
+         }
        }
        if (isPrincipalUser) {
          bottomActions += `<button class="btn btn-outline" onclick="advanceToPrincipal(${ev.rowId})">Passer immédiatement à l'évaluation principale →</button>`;
+         bottomActions += ` <button class="btn btn-outline" style="border-color:#d32f2f; color:#d32f2f; margin-left:10px;" onclick="returnToEmployeeSelfEval(${ev.rowId})" title="Retourner au collaborateur pour refaire l'auto-évaluation">↩ Retourner au Collaborateur</button>`;
        }
        if (bottomActions) {
          html += `
@@ -2948,12 +4085,18 @@
            </div>
          `;
        }
-     } else if (ev.status === 'Attente Évaluateur Principal' || ev.status === 'Auto-évaluée') {
+     } else if (ev.status === 'Attente Évaluateur Principal' || ev.status === 'Auto-évaluée' || ev.status === 'Brouillon Manager' || ev.status === 'Pré-évaluée') {
        if (isPrincipalUser) {
+         let secReturnBtn = '';
+         if (secList && secList.length > 0) {
+           secReturnBtn = `<button class="btn btn-outline" style="margin-left:10px; border-color:#ff9800; color:#e65100;" onclick="returnToSecondaryEvaluators(${ev.rowId})" title="Retourner aux évaluateurs secondaires (conserve les réponses en brouillon)">← Retourner aux évaluateurs secondaires</button>`;
+         }
          html += `
            <div style="margin-top:30px; padding:20px; background:#f0f5fc; text-align:center; border:1px dashed var(--primary-color); border-radius:6px;">
              <p style="margin-bottom:15px; color:#555;">Ce dossier est prêt pour votre évaluation finale.</p>
              <button class="btn btn-success" onclick="startEvaluationWizard('Évaluation Manager', ${ev.rowId})">Évaluer en tant qu'évaluateur principal</button>
+             ${secReturnBtn}
+             <button class="btn btn-outline" style="margin-left:10px; border-color:#d32f2f; color:#d32f2f;" onclick="returnToEmployeeSelfEval(${ev.rowId})" title="Retourner au collaborateur pour refaire l'auto-évaluation">↩ Retourner au Collaborateur</button>
            </div>
          `;
        }
@@ -2972,7 +4115,7 @@
   // --- Administration Logic ---
   
   function switchAdminTab(tabId) {
-      if (!isUserAdmin() && (tabId === 'country-groups' || tabId === 'users' || tabId === 'email')) {
+      if (!isUserAdmin() && (tabId === 'country-groups' || tabId === 'users' || tabId === 'email' || tabId === 'logs')) {
           tabId = 'questions';
       }
 
@@ -2995,8 +4138,115 @@
         if (isUserAdmin()) loadAdminCountryGroups();
       } else if (tabId === 'email') {
         loadEvaluationNotificationSettings();
+      } else if (tabId === 'logs') {
+        if (isUserAdmin()) loadSystemLogs();
       }
   }
+
+  window.systemLogsData = [];
+
+  function loadSystemLogs() {
+      const loader = document.getElementById('admin-logs-loader');
+      const table = document.getElementById('admin-logs-table');
+      const tbody = table.querySelector('tbody');
+      
+      loader.style.display = 'block';
+      table.style.display = 'none';
+      tbody.innerHTML = '';
+      
+      google.script.run
+        .withSuccessHandler(function(logs) {
+            window.systemLogsData = logs || [];
+            loader.style.display = 'none';
+            table.style.display = 'table';
+            filterAdminLogs();
+        })
+        .withFailureHandler(function(error) {
+            console.error("Erreur de chargement des logs:", error);
+            loader.innerText = "Erreur de chargement: " + error.message;
+            if (error.message.includes("Session") || error.message.includes("Accès refusé")) {
+                logout();
+            }
+        })
+        .getSystemLogs(window.kanagaToken);
+  }
+
+  function filterAdminLogs() {
+      const searchInput = document.getElementById('admin-logs-search');
+      const typeFilter = document.getElementById('admin-logs-type-filter');
+      if (!searchInput || !typeFilter) return;
+
+      const term = searchInput.value.toLowerCase().trim();
+      const type = typeFilter.value;
+      const tbody = document.querySelector('#admin-logs-table tbody');
+      tbody.innerHTML = '';
+      
+      if (!window.systemLogsData || window.systemLogsData.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Aucun log trouvé.</td></tr>';
+          return;
+      }
+      
+      let filtered = window.systemLogsData.filter(log => {
+          let matchesType = (type === 'ALL' || log.type === type);
+          let matchesTerm = true;
+          if (term) {
+              const str = (log.user + ' ' + log.action + ' ' + log.details).toLowerCase();
+              matchesTerm = str.includes(term);
+          }
+          return matchesType && matchesTerm;
+      });
+      
+      if (filtered.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Aucun résultat pour cette recherche.</td></tr>';
+          return;
+      }
+      
+      let html = '';
+      filtered.forEach(log => {
+          let dateStr = '';
+          if (log.timestamp) {
+             const d = new Date(log.timestamp);
+             if (!isNaN(d.getTime())) {
+                dateStr = d.toLocaleString('fr-FR');
+             } else {
+                dateStr = log.timestamp;
+             }
+          }
+          
+          let color = '';
+          if (log.type === 'ERROR') color = 'color: #E53E3E; font-weight: bold;';
+          else if (log.type === 'WARNING') color = 'color: #DD6B20; font-weight: bold;';
+          
+          const rawDetails = log.details || '';
+          let detailsContent = '';
+          if (rawDetails.includes(' | ')) {
+            const parts = rawDetails.split(' | ');
+            const mainMsg = escapeHtml(parts[0]);
+            const tags = parts.slice(1).map(p => {
+              let icon = '📌';
+              if (p.startsWith('IP:')) icon = '🌐';
+              else if (p.startsWith('Appareil:')) icon = (p.includes('Mobile') ? '📱' : (p.includes('Tablette') ? '📟' : '💻'));
+              else if (p.startsWith('Navigateur:')) icon = '🧭';
+              else if (p.startsWith('Fuseau:')) icon = '🕒';
+              else if (p.startsWith('Écran:')) icon = '🖥️';
+              return `<span style="display:inline-block; font-size:10px; background:#edf2f7; color:#4a5568; padding:1px 5px; border-radius:3px; border:1px solid #e2e8f0; margin-right:4px; margin-top:2px;">${icon} ${escapeHtml(p)}</span>`;
+            }).join('');
+            detailsContent = `<div style="font-weight:500;">${mainMsg}</div><div style="margin-top:2px; display:flex; flex-wrap:wrap;">${tags}</div>`;
+          } else {
+            detailsContent = escapeHtml(rawDetails);
+          }
+
+          html += `<tr>
+             <td style="font-size: 12px; color: #718096; white-space: nowrap;">${dateStr}</td>
+             <td style="font-weight: 500; font-size: 13px;">${escapeHtml(log.user)}</td>
+             <td><span style="background: #E2E8F0; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 600;">${escapeHtml(log.action)}</span></td>
+             <td style="font-size: 12px; max-width: 450px; line-height: 1.4;" title="${escapeHtml(log.details)}">${detailsContent}</td>
+             <td style="${color}">${escapeHtml(log.type)}</td>
+          </tr>`;
+      });
+      tbody.innerHTML = html;
+  }
+
 
   // --- Country Admin Groups Logic ---
   window.adminCountryGroupsState = {};
@@ -3578,7 +4828,7 @@
               optionsHtml = `
               <div style="margin-top:10px; background:#FAF6EE; padding:10px; border-radius:6px; border:1px solid #E0CC99;">
                   <label style="font-size:12px; font-weight:600; color:#5D4037; display:block; margin-bottom:4px;">Options du barème de notation (séparées par des virgules) :</label>
-                  <input type="text" class="form-control" value="${escapeHtml(q.options || 'PI, PA, CA, PS, PE, N/A')}" onchange="updateAdminQuestion(${globalIdx}, 'options', this.value)" placeholder="ex: PI, PA, CA, PS, PE, N/A">
+                  <input type="text" class="form-control" value="${escapeHtml(q.options || 'INSATIS, AMELIOR, CONFORM, SUPERIE, EXCEPTI, NONAPPL')}" onchange="updateAdminQuestion(${globalIdx}, 'options', this.value)" placeholder="ex: INSATIS, AMELIOR, CONFORM, SUPERIE, EXCEPTI, NONAPPL">
               </div>`;
           }
           
@@ -3913,7 +5163,7 @@
           text: q.text,
           description: q.description || '',
           type: q.type || 'scale',
-          options: q.options || 'PI, PA, CA, PS, PE, N/A',
+          options: q.options || 'INSATIS, AMELIOR, CONFORM, SUPERIE, EXCEPTI, NONAPPL',
           page: destPageNum,
           pageTitle: customTitle || (q.pageTitle || '')
       }));
@@ -4289,8 +5539,11 @@
   }
 
   function handleLogout() {
+    if (inactivityTimeout) clearTimeout(inactivityTimeout);
     if (window.kanagaToken) {
+      try {
         google.script.run.logout(window.kanagaToken);
+      } catch(e) {}
     }
     localStorage.removeItem('kanagaUser');
     localStorage.removeItem('kanagaToken');
@@ -4299,11 +5552,17 @@
     
     document.getElementById('view-login').style.display = 'block';
     document.getElementById('auth-content').style.display = 'none';
+    const topNavbar = document.getElementById('top-navbar');
+    if (topNavbar) topNavbar.style.display = 'none';
     
     // Clear forms
     document.getElementById('login-username').value = '';
     document.getElementById('login-password').value = '';
-    document.getElementById('login-status').innerText = '';
+    const loginError = document.getElementById('login-error');
+    if (loginError) {
+      loginError.style.display = 'none';
+      loginError.textContent = '';
+    }
   }
 
   // --- Profile Menu & Notifications ---
