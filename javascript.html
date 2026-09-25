@@ -1658,7 +1658,7 @@
                 if (ev.fondamentales) {
                     const parsed = JSON.parse(ev.fondamentales);
                     parsed.forEach((item, idx) => {
-                        const r = document.querySelector(`input[name="fonda_q${idx}"][value="${item.answer}"]`);
+                        const r = document.querySelector(`input[name="fonda_q${idx}"][value="${item.answer}"]`) || document.querySelector(`input[name="fonda_q${idx}"][value="${normalizeRatingValue(item.answer)}"]`);
                         if(r) r.checked = true;
                         const c = document.querySelector(`textarea[name="fonda_emp_comment_${idx}"]`);
                         if(c) c.value = item.empComment || item.comment || '';
@@ -1667,7 +1667,7 @@
                 if (ev.specifiques) {
                     const parsed = JSON.parse(ev.specifiques);
                     parsed.forEach((item, idx) => {
-                        const r = document.querySelector(`input[name="spec_q${idx}"][value="${item.answer}"]`);
+                        const r = document.querySelector(`input[name="spec_q${idx}"][value="${item.answer}"]`) || document.querySelector(`input[name="spec_q${idx}"][value="${normalizeRatingValue(item.answer)}"]`);
                         if(r) r.checked = true;
                         const c = document.querySelector(`textarea[name="spec_emp_comment_${idx}"]`);
                         if(c) c.value = item.empComment || item.comment || '';
@@ -1695,7 +1695,7 @@
                         if (idx === 7) ans = ev.empComments || '';
                     }
                     if (q.type === 'scale' || q.type === 'boolean') {
-                        const r = document.querySelector(`input[name="conclusion_q${idx}"][value="${ans}"]`);
+                        const r = document.querySelector(`input[name="conclusion_q${idx}"][value="${ans}"]`) || document.querySelector(`input[name="conclusion_q${idx}"][value="${normalizeRatingValue(ans)}"]`);
                         if(r) r.checked = true;
                     } else if (q.type === 'text') {
                         const t = document.querySelector(`textarea[name="conclusion_q${idx}"]`);
@@ -2307,6 +2307,26 @@
     if (modal) modal.style.display = show ? 'flex' : 'none';
   };
 
+  function normalizeRatingValue(val) {
+    if (!val) return '';
+    const s = String(val).trim().toUpperCase();
+    if (s === 'PE' || s === '5 - PE' || s === '5') return 'EXCEPTI';
+    if (s === 'PS' || s === '4 - PS' || s === '4') return 'SUPERIE';
+    if (s === 'CA' || s === '3 - CA' || s === '3') return 'CONFORM';
+    if (s === 'PA' || s === '2 - PA' || s === '2') return 'AMELIOR';
+    if (s === 'PI' || s === '1 - PI' || s === '1') return 'INSATIS';
+    if (s === 'N/A' || s === 'NA' || s === 'NON APPLICABLE') return 'NONAPPL';
+    return val;
+  }
+
+  function setRadioAnswer(namePrefix, idx, ans) {
+    if (!ans) return;
+    const norm = normalizeRatingValue(ans);
+    const r = document.querySelector(`input[name="${namePrefix}_q${idx}"][value="${ans}"]`) ||
+              document.querySelector(`input[name="${namePrefix}_q${idx}"][value="${norm}"]`);
+    if (r) r.checked = true;
+  }
+
   function getEvalBadgeClass(rating) {
     if (!rating) return 'na';
     const r = rating.toString().toUpperCase().trim();
@@ -2774,7 +2794,7 @@
       formData.fondamentales.forEach((item, idx) => {
         if (!item) return;
         if (item.answer) {
-          const radio = document.querySelector(`input[name="fonda_q${idx}"][value="${item.answer}"]`);
+          const radio = document.querySelector(`input[name="fonda_q${idx}"][value="${item.answer}"]`) || document.querySelector(`input[name="fonda_q${idx}"][value="${normalizeRatingValue(item.answer)}"]`);
           if (radio) radio.checked = true;
           const textarea = document.querySelector(`textarea[name="fonda_q${idx}"]`);
           if (textarea) textarea.value = item.answer;
@@ -2797,7 +2817,7 @@
       formData.specifiques.forEach((item, idx) => {
         if (!item) return;
         if (item.answer) {
-          const radio = document.querySelector(`input[name="spec_q${idx}"][value="${item.answer}"]`);
+          const radio = document.querySelector(`input[name="spec_q${idx}"][value="${item.answer}"]`) || document.querySelector(`input[name="spec_q${idx}"][value="${normalizeRatingValue(item.answer)}"]`);
           if (radio) radio.checked = true;
           const textarea = document.querySelector(`textarea[name="spec_q${idx}"]`);
           if (textarea) textarea.value = item.answer;
