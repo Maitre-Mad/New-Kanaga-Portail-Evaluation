@@ -2935,6 +2935,8 @@ function generateEvaluationPDF(rowId) {
     // Parse secondary synth
     let secSynthList = [];
     try { secSynthList = JSON.parse(data[36] || '[]'); } catch(e) {}
+    let secPastGoals = secSynthList.map(s => (s.evaluatorName ? s.evaluatorName + " : " : "") + (s.pastGoals || '-')).filter(Boolean).join("\n");
+    let secAspirations = secSynthList.map(s => (s.evaluatorName ? s.evaluatorName + " : " : "") + (s.aspirations || '-')).filter(Boolean).join("\n");
     let secStrengths = secSynthList.map(s => (s.evaluatorName ? s.evaluatorName + " : " : "") + (s.strengths || '-')).join("\n");
     let secImprovements = secSynthList.map(s => (s.evaluatorName ? s.evaluatorName + " : " : "") + (s.improvements || '-')).join("\n");
     let secGlobal = secSynthList.map(s => (s.evaluatorName ? s.evaluatorName + " : " : "") + (s.globalRating || '-')).join(", ");
@@ -2947,11 +2949,13 @@ function generateEvaluationPDF(rowId) {
     
     const synthTable = body.appendTable([
       ["Rubrique", "Auto-évaluation (Employé)", "Évaluation(s) Secondaire(s)", "Évaluation Principale"],
+      ["Travaux & Missions (Période écoulée)", data[12] || '-', secPastGoals || '-', '-'],
       ["Note Globale", data[15] || '-', secGlobal || '-', data[25] || '-'],
       ["Points Forts", data[13] || '-', secStrengths || '-', data[23] || '-'],
       ["Axes d'Amélioration", data[14] || '-', secImprovements || '-', data[24] || '-'],
       ["Besoins en Formation", data[16] || '-', '-', data[26] || '-'],
       ["Objectifs de la Période Suivante (SMART)", data[17] || '-', '-', data[27] || '-'],
+      ["Aspirations Professionnelles", data[18] || '-', secAspirations || '-', '-'],
       ["Commentaires", data[19] || '-', secComments || '-', data[28] || '-']
     ]);
     
