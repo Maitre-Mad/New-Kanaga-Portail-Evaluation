@@ -325,9 +325,70 @@ def create_report():
     add_h2("5. Traçabilité, Sécurité & Logs")
     add_body("Toutes les actions stratégiques (initiation, soumission, brouillons, clôture) sont tracées en temps réel par la fonction logEvent(). Chaque action est horodatée avec l'identifiant de l'utilisateur, l'action réalisée et son statut, puis enregistrée dans Google Cloud Logging et dans l'onglet 'Logs' du tableur.")
 
+    # 7. FEUILLE DE ROUTE & AXES D'AMÉLIORATION
+    add_h1("7. Feuille de Route & Axes d'Amélioration Technique")
+    add_body("Pour garantir la pérennité, la rapidité et la robustesse de l'outil lors des futures montées en charge, six chantiers majeurs sont identifiés :")
+
+    t_roadmap = doc.add_table(rows=7, cols=3)
+    t_roadmap.alignment = WD_TABLE_ALIGNMENT.CENTER
+    headers_roadmap = ["Chantier", "Objectif & Action Recommandée", "Priorité"]
+    col_widths_roadmap = [Inches(1.8), Inches(3.9), Inches(1.3)]
+
+    for j, h in enumerate(headers_roadmap):
+        cell = t_roadmap.cell(0, j)
+        cell.width = col_widths_roadmap[j]
+        set_cell_background(cell, "7C4C26")
+        set_cell_margins(cell, 120, 120, 160, 160)
+        p = cell.paragraphs[0]
+        r = p.add_run(h)
+        r.font.name = "Arial"
+        r.font.bold = True
+        r.font.size = Pt(10)
+        r.font.color.rgb = RGBColor(255, 255, 255)
+
+    roadmap_data = [
+        ("1. Modularisation du Code", "Scinder Code.js (3 900+ lignes) et javascript.html (7 000+ lignes) en services spécialisés (AuthService, EvaluationService, ReminderService, QuestionsService).", "Haute", "B71C1C"),
+        ("2. Cache & Performance", "Implémenter CacheService pour stocker l'arborescence des questions et profils métiers pendant 30 min. Réduire de 80% les accès répétitifs à Google Sheets.", "Haute", "B71C1C"),
+        ("3. Concurrence & Verrous", "Encapsuler les sauvegardes et clôtures critiques dans LockService.getScriptLock() afin d'éliminer les risques de collision d'écriture simultanée.", "Haute", "B71C1C"),
+        ("4. Sécurité & Contrôle d'Accès", "Systématiser la vérification des permissions par évaluation (prévention IDOR) et basculer les identifiants sensibles vers PropertiesService.", "Moyenne", "E65100"),
+        ("5. Résilience Offline (UX)", "Intégrer une double persistance des réponses sur localStorage / IndexedDB pour éviter toute perte de saisie en cas de micro-coupure réseau.", "Moyenne", "E65100"),
+        ("6. Automatisation CI/CD", "Mettre en place un workflow GitHub Actions pour exécuter les tests et déployer automatiquement sur la branche main avec clasp.", "Évolution", "2E7D32")
+    ]
+
+    for i, (ch, desc, prio, hex_col) in enumerate(roadmap_data):
+        row = t_roadmap.rows[i+1]
+        bg = "FBF9F6" if i % 2 == 0 else "FFFFFF"
+        for j, val in enumerate([ch, desc, prio]):
+            cell = row.cells[j]
+            cell.width = col_widths_roadmap[j]
+            set_cell_background(cell, bg)
+            set_cell_margins(cell, 90, 90, 130, 130)
+            p = cell.paragraphs[0]
+            r = p.add_run(val)
+            r.font.name = "Arial"
+            r.font.size = Pt(9.5)
+            if j == 0:
+                r.font.bold = True
+                r.font.color.rgb = primary_color
+            elif j == 2:
+                r.font.bold = True
+                r.font.color.rgb = RGBColor.from_string(hex_col)
+            else:
+                r.font.color.rgb = dark_text
+
+    # 8. GUIDE DES FUTURES MISES À JOUR & DÉPLOIEMENT
+    add_h1("8. Protocole Opérationnel des Futures Mises à Jour")
+    add_body("Pour toute mise à jour ultérieure, l'équipe technique doit suivre la procédure standard suivante :")
+    add_bullet("1. Récupération : ", "git pull origin main et npx clasp pull pour synchroniser le code.")
+    add_bullet("2. Développement : ", "Édition du code dans le respect de la charte visuelle Kanaga et des conventions de nommage.")
+    add_bullet("3. Sauvegarde Git : ", "git add -A puis git commit -m 'feat: ...' et git push origin main.")
+    add_bullet("4. Déploiement Permanent : ", "Exécuter 'node deploy.js' pour pousser le code et mettre à jour le déploiement fixe sans modifier l'URL publique des utilisateurs.")
+    add_bullet("5. URL Permanente Invariable : ", "https://script.google.com/macros/s/AKfycbxeoDfu8Uh9plmQXjud3N1cXUBmSAaIpgdrXQxgWEnp1jst3K3N2puD1pF3zl1XYsRntA/exec")
+
     output_path = r"c:\Users\Mahamane\Documents\Project\New_Kanaga-Portail-evaluation\Rapport_Processus_Evaluation_Kanaga.docx"
     doc.save(output_path)
     print("Document successfully created at:", output_path)
 
 if __name__ == '__main__':
     create_report()
+
