@@ -4,6 +4,116 @@
   let choicesInstances = { project: null, task: null, editProject: null, editTask: null };
   let evaluationData = {};
 
+  // --- Modale Globale Responsive Kanaga (Remplace alert() natif du navigateur) ---
+  let customAlertCallback = null;
+
+  function showAppModal(options) {
+    if (typeof options === 'string') {
+      options = { message: options };
+    }
+    options = options || {};
+    const message = options.message || '';
+    const lowMsg = message.toLowerCase();
+
+    // Détermination intelligente du type et du titre par défaut
+    let defaultType = 'warning';
+    let defaultTitle = 'Attention';
+
+    if (lowMsg.includes('erreur') || lowMsg.includes('échec') || lowMsg.includes('impossible') || lowMsg.includes('bloqué') || lowMsg.includes('invalide')) {
+      defaultType = 'error';
+      defaultTitle = 'Erreur';
+    } else if (lowMsg.includes('succès') || lowMsg.includes('enregistré') || lowMsg.includes('félicitation') || lowMsg.includes('soumis avec succès')) {
+      defaultType = 'success';
+      defaultTitle = 'Succès';
+    } else if (lowMsg.includes('information') || lowMsg.includes('note :')) {
+      defaultType = 'info';
+      defaultTitle = 'Information';
+    }
+
+    const type = options.type || defaultType;
+    const title = options.title || defaultTitle;
+    const btnText = options.buttonText || 'Compris';
+    customAlertCallback = options.onClose || null;
+
+    let overlay = document.getElementById('custom-app-alert-modal');
+    if (!overlay) {
+      setTimeout(() => showAppModal(options), 50);
+      return;
+    }
+
+    const titleEl = document.getElementById('custom-modal-title');
+    const msgEl = document.getElementById('custom-modal-message');
+    const iconContainer = document.getElementById('custom-modal-icon-container');
+    const btnEl = document.getElementById('custom-modal-btn');
+
+    if (titleEl) titleEl.textContent = title;
+    if (msgEl) msgEl.textContent = message;
+    if (btnEl) btnEl.textContent = btnText;
+
+    if (iconContainer) {
+      iconContainer.className = 'custom-modal-icon-wrapper ' + type;
+      if (type === 'error') {
+        iconContainer.innerHTML = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>';
+      } else if (type === 'success') {
+        iconContainer.innerHTML = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>';
+      } else if (type === 'info') {
+        iconContainer.innerHTML = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>';
+      } else {
+        // warning
+        iconContainer.innerHTML = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>';
+      }
+    }
+
+    overlay.style.display = 'flex';
+    requestAnimationFrame(() => {
+      overlay.classList.add('active');
+      if (btnEl) btnEl.focus();
+    });
+  }
+
+  function closeAppModal() {
+    const overlay = document.getElementById('custom-app-alert-modal');
+    if (!overlay) return;
+    overlay.classList.remove('active');
+    setTimeout(() => {
+      overlay.style.display = 'none';
+      if (typeof customAlertCallback === 'function') {
+        const cb = customAlertCallback;
+        customAlertCallback = null;
+        try { cb(); } catch(e) {}
+      }
+    }, 220);
+  }
+
+  function initAppModalListeners() {
+    const overlay = document.getElementById('custom-app-alert-modal');
+    if (overlay) {
+      overlay.onclick = function(e) {
+        if (e.target === overlay) closeAppModal();
+      };
+    }
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initAppModalListeners);
+  } else {
+    initAppModalListeners();
+  }
+
+  window.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' || e.key === 'Enter') {
+      const overlay = document.getElementById('custom-app-alert-modal');
+      if (overlay && overlay.classList.contains('active')) {
+        e.preventDefault();
+        closeAppModal();
+      }
+    }
+  });
+
+  // Interception universelle de window.alert
+  window.alert = function(msg) {
+    showAppModal(msg);
+  };
+
   // --- Fonction utilitaire de mapping robuste des questions de Conclusion ---
   function matchConclusionField(qText, idx) {
     if (!qText) qText = '';

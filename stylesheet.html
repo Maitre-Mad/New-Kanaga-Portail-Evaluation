@@ -1365,4 +1365,152 @@
     letter-spacing: 0.3px;
     white-space: nowrap;
   }
+
+  /* ========================================================
+     MODALE GLOBALE D'ALERTE & NOTIFICATION RESPONSIVE (KANAGA)
+     ======================================================== */
+  .custom-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(25, 15, 8, 0.65);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    z-index: 999999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: clamp(16px, 3vw, 40px);
+    box-sizing: border-box;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.22s ease;
+  }
+
+  .custom-modal-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .custom-modal-container {
+    background: #ffffff;
+    border-radius: clamp(14px, 2vw, 22px);
+    box-shadow: 0 25px 60px -15px rgba(45, 26, 10, 0.4), 0 0 0 1px rgba(124, 76, 38, 0.12);
+    width: clamp(360px, 46vw, 680px);
+    max-width: 95vw;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: clamp(28px, 3.5vw, 48px);
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    transform: scale(0.92) translateY(12px);
+    transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s ease;
+  }
+
+  .custom-modal-overlay.active .custom-modal-container {
+    transform: scale(1) translateY(0);
+  }
+
+  .custom-modal-icon-wrapper {
+    width: clamp(56px, 5.5vw, 80px);
+    height: clamp(56px, 5.5vw, 80px);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: clamp(16px, 2.2vh, 24px);
+    flex-shrink: 0;
+  }
+
+  .custom-modal-icon-wrapper.warning {
+    background: #FEF3C7;
+    color: #D97706;
+  }
+
+  .custom-modal-icon-wrapper.error {
+    background: #FEE2E2;
+    color: #DC2626;
+  }
+
+  .custom-modal-icon-wrapper.success {
+    background: #D1FAE5;
+    color: #059669;
+  }
+
+  .custom-modal-icon-wrapper.info {
+    background: #E0E7FF;
+    color: #4F46E5;
+  }
+
+  .custom-modal-icon-wrapper svg {
+    width: clamp(30px, 3vw, 44px);
+    height: clamp(30px, 3vw, 44px);
+  }
+
+  .custom-modal-body {
+    width: 100%;
+    margin-bottom: clamp(20px, 2.8vh, 32px);
+  }
+
+  .custom-modal-title {
+    font-family: 'Inter', sans-serif;
+    font-size: clamp(1.3rem, 2vw, 1.75rem);
+    font-weight: 700;
+    color: #2D1A0A;
+    margin: 0 0 clamp(10px, 1.4vh, 16px) 0;
+    line-height: 1.3;
+  }
+
+  .custom-modal-message {
+    font-family: 'Inter', sans-serif;
+    font-size: clamp(1.02rem, 1.35vw, 1.25rem);
+    line-height: 1.65;
+    color: #4A3E39;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-width: 540px;
+    margin: 0 auto;
+  }
+
+  .custom-modal-footer {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+  }
+
+  .custom-modal-button {
+    background: var(--primary-color, #7C4C26);
+    color: #ffffff;
+    border: none;
+    border-radius: 10px;
+    font-family: 'Inter', sans-serif;
+    font-size: clamp(0.95rem, 1.2vw, 1.15rem);
+    font-weight: 600;
+    padding: clamp(12px, 1.6vh, 16px) clamp(32px, 4vw, 56px);
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(124, 76, 38, 0.3);
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    outline: none;
+    min-width: 140px;
+  }
+
+  .custom-modal-button:hover {
+    background: #633C1E;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 22px rgba(124, 76, 38, 0.45);
+  }
+
+  .custom-modal-button:active {
+    transform: translateY(0);
+    box-shadow: 0 3px 8px rgba(124, 76, 38, 0.25);
+  }
+
+  .custom-modal-button:focus-visible {
+    box-shadow: 0 0 0 3px rgba(124, 76, 38, 0.4);
+  }
 </style>
