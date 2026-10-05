@@ -16,7 +16,7 @@
     <div class="panel">
       <h3>Mes Évaluations</h3>
       <p class="text-muted" style="margin-bottom:20px; font-size:14px;">Consultez vos évaluations initiées et vos historiques.</p>
-      <button class="btn btn-outline" onclick="showEmployeeDashboard()" style="width: 100%;">Consulter mes évaluations</button>
+      <button type="button" class="btn btn-outline" onclick="showEmployeeDashboard()" style="width: 100%;">Consulter mes évaluations</button>
     </div>
   </div>
 
@@ -25,18 +25,18 @@
       <h3>Portail Manager</h3>
       <p class="text-muted" style="margin-bottom:20px; font-size:14px;">Initiez des évaluations pour votre équipe et consultez leurs auto-évaluations.</p>
       <button class="btn btn-success" onclick="startEvaluationWizard('Initiation')" style="width: 100%; margin-bottom: 10px;">Initier une Évaluation</button>
-      <button class="btn btn-outline" onclick="showManagerDashboard()" style="width: 100%; margin-bottom: 20px;">Tableau de bord des Évaluations</button>
+      <button type="button" class="btn btn-outline" onclick="showManagerDashboard()" style="width: 100%; margin-bottom: 20px;">Tableau de bord des Évaluations</button>
     </div>
   </div>
 </div>
 
 <!-- WIZARD SCREEN (Creation) -->
 <div id="eval-wizard-screen" style="display: none;">
-  <div class="panel" style="max-width: 800px; margin: 0 auto;">
+  <div class="panel" style="max-width: 1100px; margin: 0 auto; background-color: var(--surface-1);">
     <!-- Bannière contextuelle de retour aux évaluateurs secondaires pour le manager -->
     <div id="eval-manager-secondary-return-banner" style="display: none; margin-bottom: 18px; padding: 12px 16px; background: #FFF8E1; border: 1px solid #FFE082; border-left: 5px solid #FF9800; border-radius: 6px; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
       <div style="font-size: 13px; color: #795548; line-height: 1.5; flex: 1; min-width: 250px;">
-        <strong style="color: #E65100;">↩️ Option Évaluateurs Secondaires :</strong> Ce dossier comporte des évaluateurs secondaires. Si vous êtes passé à l'évaluation principale par erreur, vous pouvez le leur renvoyer. Vos réponses déjà saisies seront automatiquement <strong>conservées en brouillon</strong>.
+        <strong style="color: #E65100;">Option Évaluateurs Secondaires :</strong> Ce dossier comporte des évaluateurs secondaires. Si vous êtes passé à l'évaluation principale par erreur, vous pouvez le leur renvoyer. Vos réponses déjà saisies seront automatiquement <strong>conservées en brouillon</strong>.
       </div>
       <button type="button" class="btn btn-outline" style="border-color: #FF9800; color: #E65100; font-weight: 600; font-size: 12px; padding: 6px 12px; white-space: nowrap;" onclick="returnFromWizardToSecondary()">← Retourner aux Secondaires</button>
     </div>
@@ -53,16 +53,24 @@
     <div id="eval-draft-toolbar" style="display: none; justify-content: space-between; align-items: center; background: #FAF8F5; border: 1px solid #E8DFD8; border-radius: 8px; padding: 10px 16px; margin-bottom: 16px; flex-wrap: wrap; gap: 10px; position: sticky; top: 60px; z-index: 20; box-shadow: 0 2px 6px rgba(0,0,0,0.04);">
       <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
         <span id="eval-draft-status-pill" style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; padding: 4px 10px; border-radius: 12px; background: #EFEBE9; color: #5D4037;">
-          <span id="eval-draft-status-icon">💾</span>
+          <span id="eval-draft-status-icon" style="display:none;"></span>
           <span id="eval-draft-status-text">Sauvegarde auto active</span>
         </span>
         <span id="eval-draft-last-saved-time" style="font-size: 12px; color: #795548;"></span>
+        <span id="eval-toolbar-progress-pill" style="display: none; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 12px; background: #FAF3E0; color: #7C4C26; border: 1px solid #E0CC99;" title="Avancement global du questionnaire">
+          Progression : <span id="eval-toolbar-progress-val">0%</span>
+        </span>
       </div>
       <div style="display: flex; gap: 8px; align-items: center;">
+        <button type="button" class="btn btn-outline" id="btn-show-scale-top" onclick="toggleEvalScaleModal(true)" style="border-color: #8C6D3B; color: #8C6D3B; font-weight: 600; font-size: 13px; padding: 6px 14px; display: inline-flex; align-items: center; gap: 6px;" title="Consulter le guide et barème de notation">
+          <span>Guide Barème</span>
+        </button>
         <button type="button" class="btn btn-outline" id="btn-manual-save-draft-top" onclick="manualSaveEvaluationDraft()" style="border-color: #7C4C26; color: #7C4C26; font-weight: 600; font-size: 13px; padding: 6px 14px; display: inline-flex; align-items: center; gap: 6px;" title="Sauvegarder immédiatement votre avancement pour pouvoir y revenir plus tard">
-          <span>💾</span>
           <span>Enregistrer le brouillon</span>
         </button>
+      </div>
+      <div style="position: absolute; bottom: 0; left: 0; width: 100%; height: 3px; background: #E2D9C8; border-bottom-left-radius: 8px; border-bottom-right-radius: 8px; overflow: hidden;">
+        <div id="eval-toolbar-progress-strip" style="width: 0%; height: 100%; background: linear-gradient(90deg, #7C4C26 0%, #A26938 100%); transition: width 0.3s ease;"></div>
       </div>
     </div>
 
@@ -73,13 +81,46 @@
       <div class="wizard-step" id="step-nav-4">4. Réunion Finale</div>
     </div>
 
+    <!-- Barre et carte de progression globale de l'évaluation -->
+    <div id="eval-completion-card" style="display:none; margin-bottom: 22px; background: #FAF8F5; border: 1px solid #E8DFD8; border-radius: 8px; padding: 14px 18px; box-shadow: 0 2px 6px rgba(0,0,0,0.03);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 13px; font-weight: 700; color: var(--primary-color, #7C4C26); text-transform: uppercase; letter-spacing: 0.5px;">Progression du formulaire</span>
+          <span id="eval-completion-badge" style="font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 12px; background: #EFEBE9; color: #5D4037; border: 1px solid #DDD3C7;">0% - À commencer</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <span id="eval-completion-count" style="font-size: 13px; color: #6c757d; font-weight: 600;">0 / 0 questions répondues</span>
+          <span id="eval-completion-percent" style="font-size: 15px; font-weight: 800; color: var(--primary-color, #7C4C26);">0%</span>
+        </div>
+      </div>
+      <div style="width: 100%; height: 10px; background: #E2D9C8; border-radius: 5px; overflow: hidden; position: relative;">
+        <div id="eval-completion-bar-fill" style="width: 0%; height: 100%; background: linear-gradient(90deg, #7C4C26 0%, #A26938 100%); border-radius: 5px; transition: width 0.35s cubic-bezier(0.16, 1, 0.3, 1), background 0.35s ease;"></div>
+      </div>
+      <div id="eval-completion-breakdown" style="display: flex; justify-content: space-between; margin-top: 8px; font-size: 12px; color: #795548; font-weight: 600; flex-wrap: wrap; gap: 8px;">
+        <span id="eval-breakdown-fonda">Tronc Commun : 0 / 0</span>
+        <span id="eval-breakdown-spec">Profil : 0 / 0</span>
+        <span id="eval-breakdown-conclusion">Conclusion : 0 / 0</span>
+      </div>
+    </div>
+
+    <!-- Notification visuelle animée de changement de page / questions -->
+    <div id="eval-page-change-toast" class="eval-page-toast" style="display:none;">
+      <div class="eval-page-toast-content">
+        <span class="eval-page-toast-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span>
+        <div>
+          <div id="eval-page-change-toast-title" class="eval-page-toast-title">Nouvelle page chargée</div>
+          <div id="eval-page-change-toast-sub" class="eval-page-toast-sub">Les questions correspondantes ont été mises à jour ci-dessous.</div>
+        </div>
+      </div>
+    </div>
+
     <form id="eval-wizard-form" novalidate onsubmit="submitEvaluationForm(); return false;">
+      <!-- Bannière informative Auto-évaluation (visible pour le collaborateur sans afficher la Section 0) -->
+      <div id="eval-autoeval-banner" style="display:none; margin-bottom: 18px; padding: 14px 18px; background: linear-gradient(135deg, #FAF6EE 0%, #F5EEDB 100%); border: 1px solid #E0CC99; border-left: 5px solid var(--primary-color, #7C4C26); border-radius: 6px; color: #2D1A0A; font-size: 13px; line-height: 1.6; box-shadow: var(--shadow-sm);"></div>
+
       <!-- Etape 1 : Entonnoir de départ -->
       <div class="wizard-content active" id="wizard-step-1">
         <h3 id="step-1-title">Section 0 : Entonnoir de départ (Informations Générales)</h3>
-        
-        <!-- Bannière informative Auto-évaluation -->
-        <div id="eval-autoeval-banner" style="display:none; margin-bottom: 18px; padding: 14px 18px; background: linear-gradient(135deg, #FAF6EE 0%, #F5EEDB 100%); border: 1px solid #E0CC99; border-left: 5px solid var(--primary-color, #7C4C26); border-radius: 6px; color: #2D1A0A; font-size: 13px; line-height: 1.6; box-shadow: var(--shadow-sm);"></div>
 
         <div class="form-group">
           <label>Type d'évaluation</label>
@@ -178,9 +219,9 @@
            <!-- Injected via JS -->
         </div>
         <div class="wizard-actions">
-          <button type="button" class="btn btn-outline" onclick="prevEvalStep(2, 1)">Précédent</button>
+          <button type="button" class="btn btn-outline" id="btn-eval-step2-prev" onclick="prevEvalStep(2, 1)">Précédent</button>
           <button type="button" class="btn btn-primary" onclick="nextEvalStep(2, 3)">Suivant</button>
-          <button type="button" class="btn btn-outline btn-save-draft-action" onclick="manualSaveEvaluationDraft()" style="border-color: #8C6D3B; color: #8C6D3B; font-weight: 600;">💾 Enregistrer le Brouillon</button>
+          <button type="button" class="btn btn-outline btn-save-draft-action" onclick="manualSaveEvaluationDraft()" style="border-color: #8C6D3B; color: #8C6D3B; font-weight: 600;">Enregistrer le Brouillon</button>
         </div>
       </div>
 
@@ -257,7 +298,7 @@
         <div class="wizard-actions">
           <button type="button" class="btn btn-outline" id="btn-eval-spec-prev" onclick="evalSpecPrev()">Précédent</button>
           <button type="button" class="btn btn-primary" id="btn-eval-spec-next" onclick="evalSpecNext()">Suivant</button>
-          <button type="button" class="btn btn-outline btn-save-draft-action" onclick="manualSaveEvaluationDraft()" style="border-color: #8C6D3B; color: #8C6D3B; font-weight: 600;">💾 Enregistrer le Brouillon</button>
+          <button type="button" class="btn btn-outline btn-save-draft-action" onclick="manualSaveEvaluationDraft()" style="border-color: #8C6D3B; color: #8C6D3B; font-weight: 600;">Enregistrer le Brouillon</button>
         </div>
       </div>
 
@@ -295,7 +336,7 @@
         <div class="wizard-actions">
           <button type="button" class="btn btn-outline" id="btn-eval-conclusion-prev" onclick="evalConclusionPrev()">Précédent</button>
           <button type="button" class="btn btn-primary" id="btn-eval-conclusion-next" onclick="evalConclusionNext()">Suivant</button>
-          <button type="button" class="btn btn-outline btn-save-draft-action" id="btn-save-eval-draft" style="border-color: #8C6D3B; color: #8C6D3B; font-weight: 600;" onclick="manualSaveEvaluationDraft()">💾 Enregistrer le Brouillon</button>
+          <button type="button" class="btn btn-outline btn-save-draft-action" id="btn-save-eval-draft" style="border-color: #8C6D3B; color: #8C6D3B; font-weight: 600;" onclick="manualSaveEvaluationDraft()">Enregistrer le Brouillon</button>
           <button type="button" class="btn btn-outline" id="btn-save-secondary-draft" style="display:none; border-color:#FF9800; color:#E65100;" onclick="manualSaveEvaluationDraft()">Enregistrer le Brouillon</button>
           <button type="button" class="btn btn-outline" id="btn-wizard-return-secondary" style="display:none; border-color:#FF9800; color:#E65100;" onclick="returnFromWizardToSecondary()">← Retourner aux Secondaires (Brouillon)</button>
           <button type="button" class="btn btn-outline" id="btn-wizard-return-employee" style="display:none; border-color:#D32F2F; color:#D32F2F;" onclick="returnFromWizardToEmployee()">↩ Retourner au Collaborateur</button>
@@ -320,12 +361,12 @@
       <table class="modern-table" id="evals-table">
         <thead>
           <tr>
-            <th>Date</th>
-            <th>Type</th>
-            <th>Employé</th>
-            <th>Évaluateur</th>
-            <th>Note Globale</th>
-            <th>Action</th>
+            <th style="width: 140px; min-width: 130px; white-space: nowrap;">Date</th>
+            <th style="width: 150px; min-width: 130px;">Type</th>
+            <th style="min-width: 150px;">Employé</th>
+            <th style="min-width: 150px;">Évaluateur</th>
+            <th style="width: 150px; min-width: 130px; text-align: center;">Note Globale</th>
+            <th style="width: 160px; min-width: 140px; text-align: right;">Action</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -336,7 +377,7 @@
 
 <!-- SINGLE PAGE EVALUATION VIEWER -->
 <div id="eval-viewer-screen" style="display: none;">
-  <div class="panel" style="max-width: 900px; margin: 0 auto; background-color: var(--surface-1);">
+  <div class="panel" style="max-width: 1100px; margin: 0 auto; background-color: var(--surface-1);">
     <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--primary-color); padding-bottom: 15px; margin-bottom: 25px;">
       <h2 style="margin: 0; color: var(--primary-color);">Fiche d'Évaluation</h2>
       <div>
@@ -442,3 +483,10 @@
     </div>
   </div>
 </div>
+
+<!-- BOUTON FLOTTANT : Barème de notation accessible à tout moment -->
+<button type="button" id="btn-floating-eval-scale" class="eval-floating-scale-btn" onclick="toggleEvalScaleModal(true)" title="Consulter le barème d'évaluation de la performance" style="display: none;">
+  
+  <span class="eval-floating-text">Barème de notation</span>
+</button>
+

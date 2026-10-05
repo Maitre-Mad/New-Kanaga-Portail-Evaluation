@@ -143,7 +143,7 @@
       <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px; margin-bottom:14px;">
         <div>
           <h4 style="margin:0; font-size:15px; color:#1E293B; display:flex; align-items:center; gap:8px;">
-            <span>🔔</span> Système de Rappels Automatiques & Déclencheur Quotidien
+            Système de Rappels Automatiques & Déclencheur Quotidien
           </h4>
           <p class="text-muted" style="font-size:12px; margin:4px 0 0 0;">
             Relance automatiquement par e-mail les acteurs en attente (Collaborateur, Évaluateurs secondaires, Manager) après une période d'inactivité.
@@ -175,16 +175,16 @@
 
       <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; padding-top:12px; border-top:1px solid #E2E8F0;">
         <button type="button" class="btn btn-primary" id="btn-save-reminder-config" onclick="saveReminderConfig()" style="font-size:12px; padding:7px 14px;">
-          💾 Enregistrer les critères de rappel
+          Enregistrer les critères de rappel
         </button>
         <button type="button" class="btn btn-outline" id="btn-setup-reminder-trigger" onclick="toggleReminderTrigger(true)" style="font-size:12px; padding:7px 14px; border-color:#0284C7; color:#0284C7;">
-          ⏰ Activer le déclencheur quotidien (8h00)
+          Activer le déclencheur quotidien (8h00)
         </button>
         <button type="button" class="btn btn-outline" id="btn-remove-reminder-trigger" onclick="toggleReminderTrigger(false)" style="font-size:12px; padding:7px 14px; border-color:#DC2626; color:#DC2626;">
-          ⏹️ Désactiver le déclencheur
+          Désactiver le déclencheur
         </button>
         <button type="button" class="btn btn-outline" id="btn-run-manual-reminders" onclick="runManualRemindersCheck()" style="font-size:12px; padding:7px 14px; border-color:#D97706; color:#B45309; margin-left:auto;">
-          🚀 Vérifier et relancer maintenant
+          Vérifier et relancer maintenant
         </button>
       </div>
       <div id="eval-reminder-ctrl-status" class="status-msg" style="margin-top:10px; font-size:12px;"></div>
@@ -256,7 +256,7 @@
        <div>
          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
            <h3 style="margin:0; color: var(--primary-color);">Personnalisation des Profils et Questions</h3>
-           <span id="admin-unsaved-badge" style="display:none; background:#FEF3C7; color:#92400E; border:1px solid #FCD34D; padding:4px 10px; border-radius:12px; font-size:12px; font-weight:700;">⚠️ Modifications non enregistrées</span>
+           <span id="admin-unsaved-badge" style="display:none; background:#FEF3C7; color:#92400E; border:1px solid #FCD34D; padding:4px 10px; border-radius:12px; font-size:12px; font-weight:700;">Modifications non enregistrées</span>
          </div>
          <p class="text-muted" style="margin: 4px 0 0 0; font-size: 13px;">
            Les questions et leurs pages sont synchronisées avec la feuille Google Sheets <strong>EvaluationQuestions</strong>.
@@ -329,12 +329,12 @@
     <!-- Barre de détails et d'action de la Page Active (Titre et Réutilisation) -->
     <div id="admin-page-details-bar" style="margin-bottom:12px; background:#fff; padding:10px 14px; border-radius:6px; border:1px solid #CBD5E0; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
       <div style="display:flex; align-items:center; gap:10px; flex:1; min-width:280px;">
-        <label style="font-size:12px; font-weight:700; color:#4A5568; white-space:nowrap;">📄 Titre de cette Page :</label>
+        <label style="font-size:12px; font-weight:700; color:#4A5568; white-space:nowrap;">Titre de cette Page :</label>
         <input type="text" id="admin-page-title-input" class="form-control" style="font-size:13px; font-weight:600; flex:1;" placeholder="Ex: Savoir-être et relation client..." oninput="updateCurrentAdminPageTitle(this.value)">
       </div>
       <div style="display:flex; gap:8px; align-items:center;">
         <button type="button" class="btn btn-outline" style="font-size:12px; padding:5px 12px; font-weight:600; border-color:#CBD5E0;" onclick="openReusePageModal()" title="Réutiliser ou importer une page depuis un autre profil">
-          📥 Réutiliser une Page d'un autre profil
+          Réutiliser une Page d'un autre profil
         </button>
       </div>
     </div>
@@ -475,7 +475,7 @@
 <div id="admin-reuse-page-modal" class="modal">
   <div class="modal-content" style="max-width: 550px;">
     <div class="modal-header">
-      <h3 style="margin: 0; color: var(--primary-color);">📥 Réutiliser une Page de Questions</h3>
+      <h3 style="margin: 0; color: var(--primary-color);">Réutiliser une Page de Questions</h3>
       <span class="close-button" onclick="closeReusePageModal()">&times;</span>
     </div>
     <div class="modal-body">

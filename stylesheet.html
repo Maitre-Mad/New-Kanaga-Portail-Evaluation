@@ -1,4 +1,4 @@
-﻿<style>
+<style>
   :root {
     /* Kanaga Consulting Colors */
     --primary-color: #7C4C26;
@@ -501,6 +501,11 @@
     padding: 12px 15px;
     text-align: left;
     border-bottom: 1px solid var(--border-color);
+    word-break: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
+    vertical-align: top;
+    box-sizing: border-box;
   }
 
   .modern-table th {
@@ -707,9 +712,111 @@
     border-radius: var(--radius-md);
     border: 1px solid #fca5a5;
   }
-</style>
 
-<style>
+  /* --- Wizard Page Change Animation & Toast --- */
+  .eval-page-toast {
+    margin: 15px 0 20px 0;
+    padding: 12px 18px;
+    background: linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 100%);
+    border: 1px solid #86EFAC;
+    border-left: 5px solid #16A34A;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(22, 163, 74, 0.12);
+    animation: toastSlideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  .eval-page-toast-content {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .eval-page-toast-icon {
+    font-size: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    background: #BBF7D0;
+    color: #166534;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .eval-page-toast-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #166534;
+    line-height: 1.3;
+  }
+
+  .eval-page-toast-sub {
+    font-size: 12px;
+    color: #15803D;
+    margin-top: 2px;
+  }
+
+  @keyframes toastSlideDown {
+    0% {
+      opacity: 0;
+      transform: translateY(-14px) scale(0.98);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes evalPageSlideIn {
+    0% {
+      opacity: 0;
+      transform: translateY(22px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .eval-page-transition {
+    animation: evalPageSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+  }
+
+  @keyframes evalRowPopIn {
+    0% {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .eval-grid-row.page-swapped,
+  .eval-section-header.page-swapped {
+    animation: evalRowPopIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  @keyframes evalBarPulse {
+    0% {
+      box-shadow: 0 0 0 0 rgba(124, 76, 38, 0.4);
+      transform: scale(1);
+    }
+    50% {
+      box-shadow: 0 0 0 8px rgba(124, 76, 38, 0);
+      transform: scale(1.01);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+
+  .eval-page-pulse {
+    animation: evalBarPulse 0.6s ease-out;
+  }
+
   /* --- Evaluation Wizard Styles --- */
   .wizard-progress {
     display: flex;
@@ -746,11 +853,11 @@
 
   .wizard-content {
     display: none;
-    animation: fadeIn 0.3s ease-in-out;
   }
 
   .wizard-content.active {
     display: block;
+    animation: evalPageSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
 
   .wizard-actions {
@@ -790,29 +897,55 @@
 
   .eval-scale-items {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 10px;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  @media (max-width: 768px) {
+    .eval-scale-items {
+      grid-template-columns: 1fr;
+    }
   }
 
   .eval-scale-item {
     display: flex;
-    align-items: flex-start;
-    gap: 10px;
+    align-items: center;
+    gap: 14px;
     background: #fff;
-    padding: 10px 12px;
-    border-radius: 6px;
+    padding: 12px 16px;
+    border-radius: 8px;
     border: 1px solid var(--border-color);
-    font-size: 12px;
+    font-size: 13px;
     line-height: 1.4;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  }
+
+  .eval-scale-item .eval-badge {
+    white-space: nowrap !important;
+    word-break: normal !important;
+    flex-shrink: 0;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 6px 12px;
+    border-radius: 6px;
+    min-width: 96px;
+    text-align: center;
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .eval-badge {
     font-weight: 700;
-    padding: 3px 8px;
+    padding: 4px 10px;
     border-radius: 4px;
-    font-size: 11px;
-    white-space: nowrap;
+    font-size: 12px;
     display: inline-block;
+    white-space: nowrap;
+    line-height: 1.3;
+    box-sizing: border-box;
+    text-align: center;
   }
 
   .eval-badge-pe, .eval-badge-excepti { background-color: #e6f7ec; color: #1e7e34; border: 1px solid #b7e4c7; }
@@ -893,28 +1026,32 @@
 
   /* Modal for scale */
   .eval-modal-backdrop {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background: rgba(0, 0, 0, 0.5);
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    background: rgba(15, 23, 42, 0.65) !important;
+    backdrop-filter: blur(4px) !important;
     display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 9999;
+    align-items: center !important;
+    justify-content: center !important;
+    z-index: 99999 !important;
     padding: 20px;
+    box-sizing: border-box;
   }
 
   .eval-modal-content {
     background: #fff;
-    border-radius: 10px;
+    border-radius: 12px;
     max-width: 700px;
     width: 100%;
-    max-height: 90vh;
+    max-height: 85vh;
     overflow-y: auto;
     padding: 24px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+    margin: auto;
+    animation: evalPageSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
 
   .eval-grid {
@@ -1170,5 +1307,62 @@
   .btn-q-del:hover {
     background: #FEB2B2;
     color: #9B2C2C;
+  }
+  /* --- Evals Table Styling --- */
+  #evals-table td {
+    vertical-align: middle;
+  }
+  #evals-table td:nth-child(1) {
+    white-space: nowrap;
+    font-size: 13px;
+  }
+  #evals-table td:nth-child(5) {
+    text-align: center;
+  }
+  #evals-table td:nth-child(6) {
+    text-align: right;
+  }
+
+  /* --- Floating Scale Button --- */
+  .eval-floating-scale-btn {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 990;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(135deg, #7C4C26 0%, #5D371A 100%);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 50px;
+    padding: 11px 20px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 18px rgba(124, 76, 38, 0.45);
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .eval-floating-scale-btn:hover {
+    transform: translateY(-2px) scale(1.04);
+    box-shadow: 0 6px 24px rgba(124, 76, 38, 0.6);
+    background: linear-gradient(135deg, #8E582E 0%, #6E4120 100%);
+  }
+
+  .eval-floating-scale-btn:active {
+    transform: translateY(0) scale(0.98);
+  }
+
+  .eval-floating-icon {
+    font-size: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .eval-floating-text {
+    letter-spacing: 0.3px;
+    white-space: nowrap;
   }
 </style>

@@ -1264,7 +1264,7 @@ function sendEvaluationNotification(eventType, context) {
         .replace(/{lien_portail}/g, portailUrl);
       
       if (pdfUrl) {
-        res = res.replace(/{bloc_pdf}/g, `<div style="text-align:center; margin:10px 0;"><a href="${pdfUrl}" class="btn-email" style="background:#5D4037;" target="_blank">📄 Télécharger le Compte-Rendu PDF</a></div><br>`);
+        res = res.replace(/{bloc_pdf}/g, `<div style="text-align:center; margin:10px 0;"><a href="${pdfUrl}" class="btn-email" style="background:#5D4037;" target="_blank">Télécharger le Compte-Rendu PDF</a></div><br>`);
         res = res.replace(/{lien_pdf}/g, pdfUrl);
       } else {
         res = res.replace(/{bloc_pdf}/g, '');
@@ -1465,7 +1465,7 @@ function testSendEvaluationNotification(token, eventKey, testEmail, customSubjec
       .replace(/{evaluateur_principal}/g, dummyPrincipal)
       .replace(/{evaluateurs_secondaires}/g, dummySecondaries)
       .replace(/{lien_portail}/g, portailUrl)
-      .replace(/{bloc_pdf}/g, `<div style="text-align:center; margin:10px 0;"><a href="${dummyPdfUrl}" class="btn-email" style="background:#5D4037;" target="_blank">📄 Télécharger le Compte-Rendu PDF (Exemple Test)</a></div><br>`)
+      .replace(/{bloc_pdf}/g, `<div style="text-align:center; margin:10px 0;"><a href="${dummyPdfUrl}" class="btn-email" style="background:#5D4037;" target="_blank">Télécharger le Compte-Rendu PDF (Exemple Test)</a></div><br>`)
       .replace(/{lien_pdf}/g, dummyPdfUrl);
   }
 
