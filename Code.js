@@ -3022,11 +3022,12 @@ function generateEvaluationPDF(rowId) {
     const secFonda = safeParse(data[34]);
     const secSpec = safeParse(data[35]);
 
-    const formatAnswerCell = (qObj) => {
+    const formatAnswerCell = (qObj, isEmployee) => {
       if (!qObj) return '-';
       const ans = qObj.answer || '-';
       const comment = qObj.empComment || qObj.mgrComment || qObj.comment || '';
       if (comment) {
+        if (isEmployee) return ans + "\n" + comment;
         return ans + "\nCommentaire : " + comment;
       }
       return ans;
@@ -3053,7 +3054,7 @@ function generateEvaluationPDF(rowId) {
         const empQ = empFonda[i] || {};
         const mgrQ = mgrFonda[i] || {};
         const qText = empQ.question || mgrQ.question || `Question ${i+1}`;
-        compData.push([qText, formatAnswerCell(empQ), formatSecondaryCell(secFonda, i), formatAnswerCell(mgrQ)]);
+        compData.push([qText, formatAnswerCell(empQ, true), formatSecondaryCell(secFonda, i), formatAnswerCell(mgrQ)]);
       }
     }
     
@@ -3064,7 +3065,7 @@ function generateEvaluationPDF(rowId) {
         const empQ = empSpec[i] || {};
         const mgrQ = mgrSpec[i] || {};
         const qText = empQ.question || mgrQ.question || `Question ${i+1}`;
-        compData.push([qText, formatAnswerCell(empQ), formatSecondaryCell(secSpec, i), formatAnswerCell(mgrQ)]);
+        compData.push([qText, formatAnswerCell(empQ, true), formatSecondaryCell(secSpec, i), formatAnswerCell(mgrQ)]);
       }
     }
     
