@@ -119,25 +119,25 @@
     if (!qText) qText = '';
     const q = String(qText).toLowerCase().trim();
     
-    // 1. Objectifs Période Passée / Écoulée
-    if (q.includes('objectif') && (q.includes('écoul') || q.includes('passé') || q.includes('bilan') || q.includes('précédent'))) {
+    // 1. Note / Performance Globale (prioritaire)
+    if (q.includes('performance globale') || q.includes('note globale') || q.includes('appréciation globale') || q.includes('global rating')) {
+      return 'globalRating';
+    }
+    // 2. Objectifs Période Passée / Écoulée / Travaux & Missions
+    if (q.includes('travaux') || q.includes('mission') || (q.includes('objectif') && (q.includes('écoul') || q.includes('passé') || q.includes('bilan') || q.includes('précédent')))) {
       return 'pastGoals';
     }
-    // 2. Objectifs Période Suivante / Futurs / SMART
+    // 3. Objectifs Période Suivante / Futurs / SMART
     if (q.includes('smart') || (q.includes('objectif') && (q.includes('prochain') || q.includes('suivant') || q.includes('futur') || q.includes('à venir')))) {
       return 'smartGoals';
     }
-    // 3. Points Forts
+    // 4. Points Forts
     if ((q.includes('point') && q.includes('fort')) || q.includes('forces') || q.includes('succès') || q.includes('atout')) {
       return 'strengths';
     }
-    // 4. Axes d'Amélioration
+    // 5. Axes d'Amélioration
     if (q.includes('amélior') || q.includes('progrès') || q.includes('perfectionn')) {
       return 'improvements';
-    }
-    // 5. Note / Performance Globale
-    if (q.includes('performance globale') || q.includes('note globale') || q.includes('appréciation globale')) {
-      return 'globalRating';
     }
     // 6. Besoins en Formation
     if (q.includes('formation')) {
@@ -153,10 +153,10 @@
     }
 
     // Fallback par position si les intitulés sont complètement personnalisés
-    if (idx === 0) return 'pastGoals';
-    if (idx === 1) return 'strengths';
-    if (idx === 2) return 'improvements';
-    if (idx === 3) return 'globalRating';
+    if (idx === 0) return 'globalRating';
+    if (idx === 1) return 'pastGoals';
+    if (idx === 2) return 'strengths';
+    if (idx === 3) return 'improvements';
     if (idx === 4) return 'training';
     if (idx === 5) return 'smartGoals';
     if (idx === 6) return 'aspirations';
@@ -1508,7 +1508,7 @@
     if (!evalQuestions || Object.keys(evalQuestions).length === 0) {
       google.script.run
         .withSuccessHandler(function(config) {
-           evalQuestions = config;
+           evalQuestions = normalizeEvalConfig(config);
            populateEvaluationProfileSelect(config);
         })
         .withFailureHandler(function(error) {
@@ -1747,7 +1747,7 @@
        }
        google.script.run
          .withSuccessHandler(function(config) {
-            evalQuestions = config || {};
+            evalQuestions = normalizeEvalConfig(config || {});
             // Populer le sélecteur de profils si vide
             const select = document.getElementById('eval-profile-select');
             if (select) {
@@ -2072,7 +2072,8 @@
             document.getElementById('step-nav-3').style.display = 'none';
         }
 
-        const conclusionQuestions = (evalQuestions && evalQuestions.conclusion) ? evalQuestions.conclusion : [];
+        const rawConclusion = (evalQuestions && evalQuestions.conclusion) ? evalQuestions.conclusion : [];
+        const conclusionQuestions = prepareConclusionQuestions(rawConclusion);
         generateGrid('grid-conclusion', 'conclusion', conclusionQuestions);
         window.evalCurrentConclusionPage = 1;
         updateConclusionPageView();
@@ -2749,6 +2750,11 @@
       if (paginationBar) paginationBar.style.display = 'none';
     }
 
+    // Afficher ou masquer le récapitulatif des notes (uniquement sur la Page 1 de conclusion)
+    if (typeof renderScoreRecapCard === 'function') {
+      renderScoreRecapCard(curPage === 1);
+    }
+
     // Filtrer les questions visibles selon la page courante avec animation
     const rows = document.querySelectorAll('#grid-conclusion .eval-grid-row, #grid-conclusion .eval-section-header');
     rows.forEach(row => {
@@ -3054,6 +3060,181 @@
       return selected !== null;
     }
   };
+
+
+  // --- Helper: Préparation de l'ordre de la Conclusion (Performance Globale en Question 1) ---
+  function prepareConclusionQuestions(rawList) {
+    if (!rawList || !Array.isArray(rawList) || rawList.length === 0) return [];
+
+    const list = rawList.map(q => Object.assign({}, typeof q === 'string' ? { text: q, type: 'scale', page: 1 } : q));
+
+    const globalIdx = list.findIndex((q, i) => matchConclusionField(q.text, i) === 'globalRating');
+    if (globalIdx > -1) {
+      const [globalQ] = list.splice(globalIdx, 1);
+      globalQ.page = 1;
+      let cleanText = (globalQ.text || '').replace(/^\s*\d+[\.\)]\s*/, '').trim();
+      if (!cleanText.toLowerCase().includes('globale')) cleanText = 'Appréciation de la Performance Globale';
+      globalQ.text = '1. ' + cleanText;
+      list.unshift(globalQ);
+    }
+
+    let p1Num = 2;
+    list.forEach((q, idx) => {
+      if (idx === 0) return;
+      const page = parseInt(q.page, 10) || 1;
+      if (page === 1) {
+        let cleanText = (q.text || '').replace(/^\s*\d+[\.\)]\s*/, '').trim();
+        q.text = p1Num + '. ' + cleanText;
+        p1Num++;
+      }
+    });
+
+    return list;
+  }
+
+  function normalizeEvalConfig(config) {
+    if (!config) return config;
+    if (config.conclusion && Array.isArray(config.conclusion)) {
+      config.conclusion = prepareConclusionQuestions(config.conclusion);
+    }
+    return config;
+  }
+
+  // --- Helper: Synthèse des Notes Attribuées (EXCEPTI à INSATIS et NONAPPL) ---
+  function calculateScoreCountsFromElements(selector) {
+    const counts = {
+      'EXCEPTI': 0,
+      'SUPERIE': 0,
+      'CONFORM': 0,
+      'AMELIOR': 0,
+      'INSATIS': 0,
+      'NONAPPL': 0
+    };
+    let total = 0;
+    const radios = document.querySelectorAll(selector);
+    radios.forEach(r => {
+      if (!r.checked) return;
+      const val = (r.value || '').toUpperCase();
+      if (counts.hasOwnProperty(val)) {
+        counts[val]++;
+        total++;
+      } else if (val === 'PE' || val.includes('EXCEPTI')) { counts['EXCEPTI']++; total++; }
+      else if (val === 'PS' || val.includes('SUPERIE')) { counts['SUPERIE']++; total++; }
+      else if (val === 'CA' || val.includes('CONFORM')) { counts['CONFORM']++; total++; }
+      else if (val === 'PA' || val.includes('AMELIOR')) { counts['AMELIOR']++; total++; }
+      else if (val === 'PI' || val.includes('INSATIS')) { counts['INSATIS']++; total++; }
+      else if (val === 'N/A' || val.includes('NONAPPL')) { counts['NONAPPL']++; total++; }
+    });
+    return { counts, total };
+  }
+
+  function calculateAutoEvalScoreCounts() {
+    const ev = window.evalCurrentEv;
+    if (!ev) return null;
+    const counts = {
+      'EXCEPTI': 0,
+      'SUPERIE': 0,
+      'CONFORM': 0,
+      'AMELIOR': 0,
+      'INSATIS': 0,
+      'NONAPPL': 0
+    };
+    let total = 0;
+
+    function countList(raw) {
+      if (!raw) return;
+      try {
+        const list = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        if (Array.isArray(list)) {
+          list.forEach(item => {
+            const val = ((item && (item.answer || item.rating)) || '').toUpperCase();
+            if (counts.hasOwnProperty(val)) {
+              counts[val]++;
+              total++;
+            } else if (val === 'PE' || val.includes('EXCEPTI')) { counts['EXCEPTI']++; total++; }
+            else if (val === 'PS' || val.includes('SUPERIE')) { counts['SUPERIE']++; total++; }
+            else if (val === 'CA' || val.includes('CONFORM')) { counts['CONFORM']++; total++; }
+            else if (val === 'PA' || val.includes('AMELIOR')) { counts['AMELIOR']++; total++; }
+            else if (val === 'PI' || val.includes('INSATIS')) { counts['INSATIS']++; total++; }
+            else if (val === 'N/A' || val.includes('NONAPPL')) { counts['NONAPPL']++; total++; }
+          });
+        }
+      } catch(e) {}
+    }
+
+    countList(ev.fondamentales);
+    countList(ev.specifiques);
+    return total > 0 ? { counts, total } : null;
+  }
+
+  function renderScoreRecapCard(show) {
+    const container = document.getElementById('eval-score-recap-container');
+    if (!container) return;
+    if (show === false) {
+      container.style.display = 'none';
+      return;
+    }
+
+    const currentScores = calculateScoreCountsFromElements('#grid-fondamentales input[type="radio"], #grid-specifiques input[type="radio"]');
+    const autoScores = calculateAutoEvalScoreCounts();
+    const isManagerMode = (window.evalCurrentType && window.evalCurrentType !== 'Auto-évaluation') && autoScores !== null;
+
+    const badgesDef = [
+      { key: 'EXCEPTI', label: '5 - Exceptionnel', short: 'EXCEPTI', color: '#1B5E20', bg: '#E8F5E9', border: '#A5D6A7' },
+      { key: 'SUPERIE', label: '4 - Supérieur aux attentes', short: 'SUPERIE', color: '#2E7D32', bg: '#F1F8E9', border: '#C5E1A5' },
+      { key: 'CONFORM', label: '3 - Conforme aux exigences', short: 'CONFORM', color: '#F57F17', bg: '#FFFDE7', border: '#FFF59D' },
+      { key: 'AMELIOR', label: '2 - À améliorer', short: 'AMELIOR', color: '#E65100', bg: '#FFF3E0', border: '#FFCC80' },
+      { key: 'INSATIS', label: '1 - Insatisfaisant', short: 'INSATIS', color: '#C62828', bg: '#FFEBEE', border: '#EF9A9A' },
+      { key: 'NONAPPL', label: 'Non Applicable', short: 'NONAPPL', color: '#546E7A', bg: '#ECEFF1', border: '#CFD8DC' }
+    ];
+
+    function renderBadgesHtml(scoreObj) {
+      return '<div class="eval-score-recap-grid">' +
+        badgesDef.map(b => {
+          const count = (scoreObj && scoreObj.counts && scoreObj.counts[b.key]) || 0;
+          return '<div class="eval-score-recap-item" style="border-color:' + b.border + '; background:' + b.bg + ';">' +
+            '<span class="eval-score-recap-count" style="color:' + b.color + ';">' + count + '</span>' +
+            '<span style="font-size:11px; font-weight:700; color:' + b.color + '; text-transform:uppercase;">' + b.short + '</span>' +
+            '<span style="font-size:10px; color:#616161; line-height:1.1;">' + (b.label.split(' - ')[1] || b.label) + '</span>' +
+          '</div>';
+        }).join('') +
+      '</div>';
+    }
+
+    let html = '<div class="eval-score-recap-header">' +
+      '<div>' +
+        '<div class="eval-score-recap-title">📊 Résumé des Notes Attribuées (Sections 1 & 2)</div>' +
+        '<div class="eval-score-recap-subtitle">Consultez la synthèse chiffrée de vos évaluations préalables pour vous guider dans la notation de la Performance Globale ci-dessous.</div>' +
+      '</div>' +
+    '</div>';
+
+    if (isManagerMode) {
+      html += '<div class="eval-score-comparison-wrapper">' +
+        '<div class="eval-score-col" style="border-left: 3px solid #1976D2;">' +
+          '<div class="eval-score-col-header" style="color:#0D47A1; display:flex; justify-content:space-between; align-items:center;">' +
+            '<span>👤 Auto-évaluation du Collaborateur</span>' +
+            '<span class="text-muted" style="font-size:12px; font-weight:normal;">Total : ' + autoScores.total + ' note(s)</span>' +
+          '</div>' +
+          renderBadgesHtml(autoScores) +
+        '</div>' +
+        '<div class="eval-score-col" style="border-left: 3px solid #E65100;">' +
+          '<div class="eval-score-col-header" style="color:#BF360C; display:flex; justify-content:space-between; align-items:center;">' +
+            '<span>👔 Votre Évaluation Manager</span>' +
+            '<span class="text-muted" style="font-size:12px; font-weight:normal;">Total : ' + currentScores.total + ' note(s)</span>' +
+          '</div>' +
+          renderBadgesHtml(currentScores) +
+        '</div>' +
+      '</div>';
+    } else {
+      html += '<div style="margin-bottom:8px; font-size:12px; font-weight:600; color:#5D4037;">' +
+        'Total évalué : ' + currentScores.total + ' compétence(s)' +
+      '</div>' +
+      renderBadgesHtml(currentScores);
+    }
+
+    container.innerHTML = html;
+    container.style.display = 'block';
+  }
 
   window.validateSectionQuestions = function(prefix, questionsList, pageFilter) {
     if (window.evalIsAdminOverride || (window.evalCurrentEv && window.evalCurrentEv.status === 'Complétée' && typeof isUserAdmin === 'function' && isUserAdmin())) {
