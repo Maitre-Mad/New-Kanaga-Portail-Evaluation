@@ -2980,19 +2980,38 @@
 
       let collabSummaryHtml = '';
       if (window.evalCurrentMode === 'Évaluation Manager' || window.evalCurrentMode === 'Évaluation Secondaire') {
-        const badgeCls = getEvalBadgeClass(collabAnswer);
-        const commentDisplay = collabComment ? escapeHtml(collabComment) : '<em>Aucun commentaire renseigné par le collaborateur</em>';
-        collabSummaryHtml = `
-          <div class="eval-collab-summary">
-            <div class="eval-collab-summary-header">
-              <span>Auto-évaluation du Collaborateur</span>
-              <span class="eval-badge eval-badge-${badgeCls}">${collabAnswer || 'Non renseignée'}</span>
+        if (q.type === 'scale' || q.type === 'boolean') {
+          const badgeCls = getEvalBadgeClass(collabAnswer);
+          const commentDisplay = collabComment 
+            ? `<div style="margin-top: 4px; white-space: pre-wrap; color: #2D1A0A;">${escapeHtml(collabComment)}</div>` 
+            : '<em>Aucun commentaire renseigné par le collaborateur</em>';
+          collabSummaryHtml = `
+            <div class="eval-collab-summary">
+              <div class="eval-collab-summary-header">
+                <span>Auto-évaluation du Collaborateur</span>
+                <span class="eval-badge eval-badge-${badgeCls}">${collabAnswer || 'Non renseignée'}</span>
+              </div>
+              <div class="eval-collab-comment-content">
+                ${commentDisplay}
+              </div>
             </div>
-            <div class="eval-collab-comment-content">
-              <strong>Commentaire / Justification du collaborateur :</strong> ${commentDisplay}
+          `;
+        } else {
+          const textAns = (collabAnswer || collabComment || '').trim();
+          const commentDisplay = textAns 
+            ? `<div style="margin-top: 4px; white-space: pre-wrap; color: #2D1A0A;">${escapeHtml(textAns)}</div>` 
+            : '<em>Aucun commentaire renseigné par le collaborateur</em>';
+          collabSummaryHtml = `
+            <div class="eval-collab-summary">
+              <div class="eval-collab-summary-header">
+                <span>Auto-évaluation du Collaborateur</span>
+              </div>
+              <div class="eval-collab-comment-content">
+                ${commentDisplay}
+              </div>
             </div>
-          </div>
-        `;
+          `;
+        }
       }
 
       let secondarySummaryHtml = '';
