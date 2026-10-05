@@ -1605,6 +1605,7 @@
   }
 
   window.evalAttachedRowId = null;
+  window.evalIsAdminOverride = false;
   window.evalCurrentMode = null;
 
 
@@ -1720,6 +1721,19 @@
     }
   }
 
+  window.startAdminEvaluationWizard = function(rowId) {
+    window.evalIsAdminOverride = true;
+    startEvaluationWizard('Évaluation Manager', rowId);
+
+    // Boîte de dialogue expliquant le rôle administrateur actif pour affecter cette évaluation
+    showAppModal({
+      title: "Rôle Administrateur Actif",
+      message: "Vous accédez à cette évaluation complétée avec le rôle Administrateur.\n\nVous disposez des privilèges de modification avancés : vous pouvez naviguer librement entre les pages sans remplir obligatoirement chaque question, et réajuster les réponses de ce dossier.",
+      type: "info",
+      buttonText: "Compris"
+    });
+  };
+
   function startEvaluationWizard(type, attachedRowId = null) {
     // 1. Vérifier si les questions d'évaluation sont bien chargées avant d'ouvrir le wizard
     if (!evalQuestions || Object.keys(evalQuestions).length === 0 || !evalQuestions.fondamentales || evalQuestions.fondamentales.length === 0) {
@@ -1819,6 +1833,35 @@
       ? window.loadedEvals.find(e => parseInt(e.rowId, 10) === parseInt(attachedRowId, 10)) 
       : null;
     window.evalCurrentEv = ev || null;
+    const adminBanner = document.getElementById('eval-admin-override-banner');
+    if (adminBanner) {
+      adminBanner.style.display = (window.evalIsAdminOverride || (ev && ev.status === 'Complétée' && isUserAdmin())) ? 'flex' : 'none';
+    }
+
+    // Permettre la navigation par clic sur les étapes du wizard en mode admin
+    ['step-nav-1', 'step-nav-2', 'step-nav-3', 'step-nav-4'].forEach((id, idx) => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.style.cursor = (window.evalIsAdminOverride || isUserAdmin()) ? 'pointer' : 'default';
+        el.onclick = function() {
+          if (window.evalIsAdminOverride || isUserAdmin()) {
+            const stepNum = idx + 1;
+            if (stepNum === 3) {
+              const curProfile = (window.evalCurrentEv && window.evalCurrentEv.profile) ? window.evalCurrentEv.profile : document.getElementById('eval-profile-select').value;
+              const spQ = (curProfile && curProfile !== 'Autre') ? findProfileQuestions(curProfile) : null;
+              if (spQ && spQ.length > 0) {
+                document.getElementById('step-nav-3').style.display = 'inline-block';
+                updateSpecPageView();
+              }
+            } else if (stepNum === 4) {
+              document.getElementById('step-nav-4').style.display = 'inline-block';
+              updateConclusionPageView();
+            }
+            showEvalStep(stepNum);
+          }
+        };
+      }
+    });
 
     let hasSecEvaluators = false;
     if (ev && ev.secondaryEvaluators) {
@@ -3013,6 +3056,9 @@
   };
 
   window.validateSectionQuestions = function(prefix, questionsList, pageFilter) {
+    if (window.evalIsAdminOverride || (window.evalCurrentEv && window.evalCurrentEv.status === 'Complétée' && typeof isUserAdmin === 'function' && isUserAdmin())) {
+      return true; // Mode Administrateur : navigation et modification libres sans obligation de remplir tous les champs
+    }
     if (!questionsList || !Array.isArray(questionsList) || questionsList.length === 0) {
       if (prefix === 'fonda') return false;
       return true;
@@ -4510,6 +4556,10 @@
       actionBtns += ` <button class="btn btn-outline" style="padding:5px 10px; font-size:12px; margin-left:5px; border-color:#d97706; color:#b45309;" onclick="triggerManualReminder(${ev.rowId}, '${escapeHtml(ev.employeeName)}', '${escapeHtml(ev.status)}')" title="${escapeHtml(relanceTip)}">Relancer (${relanceCount})</button>`;
     }
 
+    if (ev.status === 'Complétée' && isUserAdmin()) {
+      actionBtns += ` <button class="btn btn-outline" style="padding:5px 10px; font-size:12px; margin-left:5px; border-color:var(--primary-color); color:var(--primary-color); font-weight:600;" onclick="startAdminEvaluationWizard(${ev.rowId})" title="Réouvrir et modifier ce dossier complété en mode Administrateur">Réouvrir (Admin)</button>`;
+    }
+
     if (ev.status === 'Complétée' && ev.pdfUrl) {
       actionBtns += ` <a href="${ev.pdfUrl}" target="_blank" class="btn btn-outline" style="padding:5px 10px; font-size:12px; margin-left:5px;">Télécharger PDF</a>`;
     }
@@ -5053,13 +5103,14 @@
            </div>
          `;
        }
-     } else if (ev.status === 'Complétée' && isPrincipalUser) {
-       html += `
-         <div style="margin-top:30px; padding:20px; background:#f9f9f9; text-align:center; border:1px dashed #ccc; border-radius:6px;">
-           <p style="margin-bottom:15px; color:#555;">Ce dossier est complété (Évaluateur principal: ${ev.principalEvaluatorName || ev.mgrName || ev.evaluatorName}).</p>
-           <button class="btn btn-outline" onclick="startEvaluationWizard('Évaluation Manager', ${ev.rowId})">Modifier / Compléter l'évaluation</button>
-         </div>
-       `;
+      } else if (ev.status === 'Complétée' && (isPrincipalUser || isUserAdmin())) {
+        const adminBadge = isUserAdmin() ? ' <span class="badge" style="background:#7C4C26; color:#fff; font-size:11px; margin-left:6px;">Rôle Administrateur</span>' : '';
+        html += `
+          <div style="margin-top:30px; padding:20px; background:#fffcf5; text-align:center; border:1px dashed #E2D9C8; border-radius:8px;">
+            <p style="margin-bottom:12px; color:#5D4037; font-weight:600;">Ce dossier est complété (Évaluateur: ${escapeHtml(ev.principalEvaluatorName || ev.mgrName || ev.evaluatorName)})${adminBadge}</p>
+            <button class="btn btn-primary" style="background-color:var(--primary-color); color:#fff; font-weight:600; padding:8px 20px;" onclick="closeEvaluationModal(); startAdminEvaluationWizard(${ev.rowId})">Réouvrir et Modifier (Mode Admin)</button>
+          </div>
+        `;
      }
      
      document.getElementById('eval-viewer-content').innerHTML = html;
