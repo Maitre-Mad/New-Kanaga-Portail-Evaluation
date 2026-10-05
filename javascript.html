@@ -2120,12 +2120,38 @@
                     else if (fieldKey === 'aspirations') ans = ev.aspirations || '';
                     else if (fieldKey === 'empComments') ans = ev.empComments || '';
                     
+                    let comm = '';
+                    if (fieldKey === 'globalRating') {
+                      const parsedG = extractGradeAndComment(ans);
+                      ans = parsedG.grade;
+                      comm = parsedG.comment;
+                    }
+                    if (ev.conclusion) {
+                      try {
+                        const parsedConc = JSON.parse(ev.conclusion);
+                        if (parsedConc && parsedConc[idx]) {
+                          if (parsedConc[idx].answer) {
+                            const pSub = extractGradeAndComment(parsedConc[idx].answer);
+                            if (pSub.grade) ans = pSub.grade;
+                            if (pSub.comment && !comm) comm = pSub.comment;
+                          }
+                          const ec = parsedConc[idx].empComment || parsedConc[idx].comment || '';
+                          if (ec) comm = ec;
+                        }
+                      } catch(e){}
+                    }
+
                     if (q.type === 'scale' || q.type === 'boolean') {
-                        const r = document.querySelector(`input[name="conclusion_q${idx}"][value="${ans}"]`) || document.querySelector(`input[name="conclusion_q${idx}"][value="${normalizeRatingValue(ans)}"]`);
-                        if(r) r.checked = true;
+                        if (ans) {
+                          setRadioAnswer('conclusion', idx, ans);
+                        }
+                        if (comm) {
+                          const cEl = document.querySelector(`textarea[name="conclusion_emp_comment_${idx}"]`);
+                          if (cEl) cEl.value = comm;
+                        }
                     } else if (q.type === 'text') {
                         const t = document.querySelector(`textarea[name="conclusion_q${idx}"]`);
-                        if(t) t.value = ans;
+                        if(t) t.value = ans || comm || '';
                     }
                 });
             } catch(e) {}
@@ -2189,14 +2215,23 @@
                 else if (fieldKey === 'pastGoals') ans = mySynth.pastGoals || '';
                 else if (fieldKey === 'aspirations') ans = mySynth.aspirations || '';
               }
+              let comm = '';
+              if (fieldKey === 'globalRating') {
+                const parsedG = extractGradeAndComment(ans);
+                ans = parsedG.grade;
+                comm = parsedG.comment;
+              }
               if (q.type === 'scale' || q.type === 'boolean') {
                 if (ans) {
-                  const r = document.querySelector(`input[name="conclusion_q${idx}"][value="${ans}"]`);
-                  if(r) r.checked = true;
+                  setRadioAnswer('conclusion', idx, ans);
+                }
+                if (comm) {
+                  const cEl = document.querySelector(`textarea[name="conclusion_sec_comment_${idx}"]`);
+                  if (cEl) cEl.value = comm;
                 }
               } else if (q.type === 'text') {
                 const t = document.querySelector(`textarea[name="conclusion_q${idx}"]`);
-                if(t) t.value = ans || '';
+                if(t) t.value = ans || comm || '';
               }
             });
         }
@@ -2254,14 +2289,37 @@
                   }
                 } catch(e){}
               }
+              let comm = '';
+              if (fieldKey === 'globalRating') {
+                const parsedG = extractGradeAndComment(ans);
+                ans = parsedG.grade;
+                comm = parsedG.comment;
+              }
+              if (ev.mgrConclusion) {
+                try {
+                  const parsedMgrConc = JSON.parse(ev.mgrConclusion);
+                  if (parsedMgrConc && parsedMgrConc[idx]) {
+                    if (parsedMgrConc[idx].answer) {
+                      const pSub = extractGradeAndComment(parsedMgrConc[idx].answer);
+                      if (pSub.grade) ans = pSub.grade;
+                      if (pSub.comment && !comm) comm = pSub.comment;
+                    }
+                    const mc = parsedMgrConc[idx].mgrComment || parsedMgrConc[idx].comment || '';
+                    if (mc) comm = mc;
+                  }
+                } catch(e){}
+              }
               if (q.type === 'scale' || q.type === 'boolean') {
                 if (ans) {
-                  const r = document.querySelector(`input[name="conclusion_q${idx}"][value="${ans}"]`);
-                  if(r) r.checked = true;
+                  setRadioAnswer('conclusion', idx, ans);
+                }
+                if (comm) {
+                  const cEl = document.querySelector(`textarea[name="conclusion_mgr_comment_${idx}"]`);
+                  if (cEl) cEl.value = comm;
                 }
               } else if (q.type === 'text') {
                 const t = document.querySelector(`textarea[name="conclusion_q${idx}"]`);
-                if(t) t.value = ans || '';
+                if(t) t.value = ans || comm || '';
               }
             });
         }
@@ -3062,6 +3120,28 @@
   };
 
 
+  // --- Helper: Extraction Note & Commentaire (pour réponses préexistantes) ---
+  function extractGradeAndComment(raw) {
+    if (!raw) return { grade: '', comment: '' };
+    const str = String(raw).trim();
+    if (!str) return { grade: '', comment: '' };
+
+    const norm = normalizeRatingValue(str);
+    const validRatings = ['EXCEPTI', 'SUPERIE', 'CONFORM', 'AMELIOR', 'INSATIS', 'NONAPPL'];
+
+    if (str.length <= 25 && validRatings.includes(norm)) {
+      return { grade: norm, comment: '' };
+    }
+
+    if (validRatings.includes(norm)) {
+      let comm = str.replace(/^(5\s*-\s*EXCEPTI|4\s*-\s*SUPERIE|3\s*-\s*CONFORM|2\s*-\s*AMELIOR|1\s*-\s*INSATIS|NONAPPL|EXCEPTI|SUPERIE|CONFORM|AMELIOR|INSATIS|PE|PS|CA|PA|PI|N\/A)[:\s\-\n]*/i, '').trim();
+      return { grade: norm, comment: comm };
+    }
+
+    // Réponse antérieure en texte libre : considérée comme un commentaire
+    return { grade: '', comment: str };
+  }
+
   // --- Helper: Préparation de l'ordre de la Conclusion (Performance Globale en Question 1) ---
   function prepareConclusionQuestions(rawList) {
     if (!rawList || !Array.isArray(rawList) || rawList.length === 0) return [];
@@ -3072,6 +3152,10 @@
     if (globalIdx > -1) {
       const [globalQ] = list.splice(globalIdx, 1);
       globalQ.page = 1;
+      globalQ.type = 'scale'; // Forcer la question en choix multiple avec échelle
+      if (!globalQ.options || !globalQ.options.includes('INSATIS')) {
+        globalQ.options = 'INSATIS, AMELIOR, CONFORM, SUPERIE, EXCEPTI, NONAPPL';
+      }
       let cleanText = (globalQ.text || '').replace(/^\s*\d+[\.\)]\s*/, '').trim();
       if (!cleanText.toLowerCase().includes('globale')) cleanText = 'Appréciation de la Performance Globale';
       globalQ.text = '1. ' + cleanText;
@@ -3203,7 +3287,7 @@
 
     let html = '<div class="eval-score-recap-header">' +
       '<div>' +
-        '<div class="eval-score-recap-title">📊 Résumé des Notes Attribuées (Sections 1 & 2)</div>' +
+        '<div class="eval-score-recap-title">Résumé des Notes Attribuées (Sections 1 & 2)</div>' +
         '<div class="eval-score-recap-subtitle">Consultez la synthèse chiffrée de vos évaluations préalables pour vous guider dans la notation de la Performance Globale ci-dessous.</div>' +
       '</div>' +
     '</div>';
@@ -3306,7 +3390,26 @@
             if (fieldKey === 'pastGoals') collabAnswer = window.evalCurrentEv.pastGoals || '';
             else if (fieldKey === 'strengths') collabAnswer = window.evalCurrentEv.strengths || '';
             else if (fieldKey === 'improvements') collabAnswer = window.evalCurrentEv.improvements || '';
-            else if (fieldKey === 'globalRating') collabAnswer = window.evalCurrentEv.globalRating || '';
+            else if (fieldKey === 'globalRating') {
+              const rawGlob = window.evalCurrentEv.globalRating || '';
+              const parsedG = extractGradeAndComment(rawGlob);
+              collabAnswer = parsedG.grade;
+              collabComment = parsedG.comment;
+              if (window.evalCurrentEv.conclusion) {
+                try {
+                  const parsedConc = JSON.parse(window.evalCurrentEv.conclusion);
+                  if (parsedConc && parsedConc[idx]) {
+                    if (parsedConc[idx].answer) {
+                      const pSub = extractGradeAndComment(parsedConc[idx].answer);
+                      if (pSub.grade) collabAnswer = pSub.grade;
+                      if (pSub.comment && !collabComment) collabComment = pSub.comment;
+                    }
+                    const ec = parsedConc[idx].empComment || parsedConc[idx].comment || '';
+                    if (ec) collabComment = ec;
+                  }
+                } catch(e){}
+              }
+            }
             else if (fieldKey === 'training') collabAnswer = window.evalCurrentEv.training || '';
             else if (fieldKey === 'smartGoals') collabAnswer = window.evalCurrentEv.smartGoals || '';
             else if (fieldKey === 'aspirations') collabAnswer = window.evalCurrentEv.aspirations || '';
@@ -3599,7 +3702,16 @@
         if (fieldKey === 'pastGoals') formData.pastGoals = val;
         else if (fieldKey === 'strengths') formData.strengths = val;
         else if (fieldKey === 'improvements') formData.improvements = val;
-        else if (fieldKey === 'globalRating') formData.globalRating = val;
+        else if (fieldKey === 'globalRating') {
+          const comm = (item.empComment || item.mgrComment || item.secComment || item.comment || '').trim();
+          if (val && comm) {
+            formData.globalRating = val + "\n\n" + comm;
+          } else {
+            formData.globalRating = val || comm;
+          }
+          const hiddenEl = document.getElementById('eval-global-rating');
+          if (hiddenEl) hiddenEl.value = formData.globalRating;
+        }
         else if (fieldKey === 'training') formData.training = val;
         else if (fieldKey === 'smartGoals') formData.smartGoals = val;
         else if (fieldKey === 'aspirations') formData.aspirations = val;

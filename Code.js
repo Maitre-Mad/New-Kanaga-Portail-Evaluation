@@ -1976,7 +1976,7 @@ function getEvaluationConfig(token) {
       { text: "6. Posture professionnelle et indépendance", description: "Esprit critique constructif, neutralité et respect de la déontologie.", type: "scale", options: defaultScale, page: 2 }
     ],
     "conclusion": [
-      { text: "1. Appréciation de la Performance Globale", description: "Appréciation synthétique de la performance générale sur la période.", type: "scale", options: "INSATIS, AMELIOR, CONFORM, SUPERIE, EXCEPTI", page: 1 },
+      { text: "1. Appréciation de la Performance Globale", description: "Appréciation synthétique de la performance générale sur la période.", type: "scale", options: "INSATIS, AMELIOR, CONFORM, SUPERIE, EXCEPTI, NONAPPL", page: 1 },
       { text: "2. Réalisation des Objectifs de la période écoulée", description: "Détaillez les objectifs fixés, résultats atteints, faits marquants et difficultés rencontrées.", type: "text", options: "", page: 1 },
       { text: "3. Principaux Points Forts de l'Employé(e)", description: "Compétences clés démontrées, succès et contributions notables.", type: "text", options: "", page: 1 },
       { text: "4. Axes d'Amélioration Prioritaires", description: "Domaines nécessitant un perfectionnement ou un accompagnement particulier.", type: "text", options: "", page: 1 },
