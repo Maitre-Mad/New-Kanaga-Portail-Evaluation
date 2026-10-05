@@ -265,9 +265,8 @@ Avant chaque mise en production, cocher impérativement les points suivants :
 
 ## 7. Journal des Mises à Jour (Changelog)
 
-| Date | Version / Commit | Auteur | Description des Évolutions |
-|---|---|---|---|
 | **05/10/2026** | `38c753b` | Équipe Projet | • Barre de progression dynamique avec répartition par sections.<br>• Bouton flottant et modale accessible pour le barème de notation.<br>• Épuration visuelle professionnelle (suppression des emojis dans l'UI).<br>• Script de déploiement à URL permanente (`deploy.js`).<br>• Normalisation et rétrocompatibilité totale des sigles de notation. |
+| **05/10/2026** | `v1.0.1` | Équipe Projet | • **Correction critique de routage :** Fonction `matchConclusionField` fiabilisant la détection des objectifs de la période suivante (`smartGoals`) quelle que soit la formulation (avec ou sans « SMART »).<br>• **Suppression de la collision :** Les objectifs futurs ne sont plus jamais écrasés ni envoyés dans les *Commentaires Généraux Manager*.<br>• **Harmonisation des libellés :** Intitulé explicite « Objectifs de la Période Suivante (SMART) » dans le visualiseur et le PDF.<br>• Protection contre les verrous de fichiers Office dans le script de génération Word. |
 | *Prochaine MAJ* | *v1.1.0* | — | *Mise en place de `LockService` et mise en cache `CacheService`.* |
 
 ---

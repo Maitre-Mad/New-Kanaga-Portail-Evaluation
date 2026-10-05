@@ -1981,7 +1981,7 @@ function getEvaluationConfig(token) {
       { text: "2. Axes d'Amélioration Prioritaires", description: "Domaines nécessitant un perfectionnement ou un accompagnement particulier.", type: "text", options: "", page: 1 },
       { text: "3. Appréciation de la Performance Globale", description: "Appréciation synthétique de la performance générale sur la période.", type: "scale", options: "INSATIS, AMELIOR, CONFORM, SUPERIE, EXCEPTI", page: 1 },
       { text: "VI. 1. Besoins en Formation", description: "Formations techniques, managériales ou linguistiques souhaitées pour la progression.", type: "text", options: "", page: 2 },
-      { text: "VI. 2. Objectifs SMART pour la Prochaine Période", description: "Objectifs Spécifiques, Mesurables, Atteignables, Réalistes et Temporellement définis.", type: "text", options: "", page: 2 },
+      { text: "VI. 2. Objectifs de la Période Suivante (SMART)", description: "Objectifs Spécifiques, Mesurables, Atteignables, Réalistes et Temporellement définis.", type: "text", options: "", page: 2 },
       { text: "VI. 3. Aspirations Professionnelles", description: "Évolution de carrière envisagée, souhaits de mobilité ou nouvelles responsabilités.", type: "text", options: "", page: 2 },
       { text: "VII. Commentaires de l'Employé(e) Évalué(e)", description: "Remarques complémentaires du collaborateur.", type: "text", options: "", page: 2 }
     ]
@@ -2951,7 +2951,7 @@ function generateEvaluationPDF(rowId) {
       ["Points Forts", data[13] || '-', secStrengths || '-', data[23] || '-'],
       ["Axes d'Amélioration", data[14] || '-', secImprovements || '-', data[24] || '-'],
       ["Besoins en Formation", data[16] || '-', '-', data[26] || '-'],
-      ["Objectifs SMART", data[17] || '-', '-', data[27] || '-'],
+      ["Objectifs de la Période Suivante (SMART)", data[17] || '-', '-', data[27] || '-'],
       ["Commentaires", data[19] || '-', secComments || '-', data[28] || '-']
     ]);
     

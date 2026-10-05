@@ -232,7 +232,7 @@ def create_report():
         ("Étape 1", "Section 0 : Entonnoir de départ", "Informations générales : Période d'évaluation, employé(s) ciblé(s), profil de poste, désignation de l'évaluateur principal et des évaluateurs secondaires."),
         ("Étape 2", "Section 1 : Tronc Commun", "8 compétences fondamentales partagées par l'ensemble des collaborateurs de Kanaga Consulting :\n1. Professionnalisme et éthique\n2. Communication Orale et Écrite\n3. Travail d'équipe et Collaboration\n4. Organisation et Gestion du Temps\n5. Initiative et Proactivité\n6. Adaptabilité et Apprentissage Continu\n7. Compréhension du Contexte Local\n8. Capacité d'Innovation"),
         ("Étape 3", "Section 2 : Aiguillage Profil", "Compétences spécifiques au métier avec pagination dynamique (ex: Junior Secteur Privé, Assistant Secteur Public, Consultant, Comptable, Chef de Projet, Auditeur ou profil sur-mesure)."),
-        ("Étape 4", "Section 3 : Conclusion Commune", "Synthèse globale et projection d'avenir :\n• Réalisation des objectifs de la période écoulée\n• Principaux points forts\n• Axes d'amélioration prioritaires\n• Appréciation de la performance globale\n• Besoins en formation\n• Objectifs SMART futurs\n• Aspirations professionnelles\n• Commentaires libres")
+        ("Étape 4", "Section 3 : Conclusion Commune", "Synthèse globale et projection d'avenir :\n• Réalisation des objectifs de la période écoulée\n• Principaux points forts\n• Axes d'amélioration prioritaires\n• Appréciation de la performance globale\n• Besoins en formation\n• Objectifs de la période suivante (SMART)\n• Aspirations professionnelles\n• Commentaires libres")
     ]
 
     for i, (st, tit, desc) in enumerate(struct_data):
@@ -386,8 +386,13 @@ def create_report():
     add_bullet("5. URL Permanente Invariable : ", "https://script.google.com/macros/s/AKfycbxeoDfu8Uh9plmQXjud3N1cXUBmSAaIpgdrXQxgWEnp1jst3K3N2puD1pF3zl1XYsRntA/exec")
 
     output_path = r"c:\Users\Mahamane\Documents\Project\New_Kanaga-Portail-evaluation\Rapport_Processus_Evaluation_Kanaga.docx"
-    doc.save(output_path)
-    print("Document successfully created at:", output_path)
+    try:
+        doc.save(output_path)
+        print("Document successfully created at:", output_path)
+    except PermissionError:
+        alt_path = r"c:\Users\Mahamane\Documents\Project\New_Kanaga-Portail-evaluation\Rapport_Processus_Evaluation_Kanaga_MAJ.docx"
+        doc.save(alt_path)
+        print(f"Note: Le fichier principal était ouvert dans Word. Document généré sous: {alt_path}")
 
 if __name__ == '__main__':
     create_report()

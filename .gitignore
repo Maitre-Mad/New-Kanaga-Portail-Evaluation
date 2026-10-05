@@ -12,3 +12,8 @@ package-lock.json
 # OS files
 .DS_Store
 Thumbs.db
+
+# Office temporary lock files
+~$*
+*_MAJ.docx
+

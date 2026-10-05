@@ -4,6 +4,57 @@
   let choicesInstances = { project: null, task: null, editProject: null, editTask: null };
   let evaluationData = {};
 
+  // --- Fonction utilitaire de mapping robuste des questions de Conclusion ---
+  function matchConclusionField(qText, idx) {
+    if (!qText) qText = '';
+    const q = String(qText).toLowerCase().trim();
+    
+    // 1. Objectifs Période Passée / Écoulée
+    if (q.includes('objectif') && (q.includes('écoul') || q.includes('passé') || q.includes('bilan') || q.includes('précédent'))) {
+      return 'pastGoals';
+    }
+    // 2. Objectifs Période Suivante / Futurs / SMART
+    if (q.includes('smart') || (q.includes('objectif') && (q.includes('prochain') || q.includes('suivant') || q.includes('futur') || q.includes('à venir')))) {
+      return 'smartGoals';
+    }
+    // 3. Points Forts
+    if ((q.includes('point') && q.includes('fort')) || q.includes('forces') || q.includes('succès') || q.includes('atout')) {
+      return 'strengths';
+    }
+    // 4. Axes d'Amélioration
+    if (q.includes('amélior') || q.includes('progrès') || q.includes('perfectionn')) {
+      return 'improvements';
+    }
+    // 5. Note / Performance Globale
+    if (q.includes('performance globale') || q.includes('note globale') || q.includes('appréciation globale')) {
+      return 'globalRating';
+    }
+    // 6. Besoins en Formation
+    if (q.includes('formation')) {
+      return 'training';
+    }
+    // 7. Aspirations Professionnelles
+    if (q.includes('aspiration') || q.includes('carrière') || q.includes('mobilité')) {
+      return 'aspirations';
+    }
+    // 8. Commentaires (uniquement si ce n'est PAS un objectif)
+    if ((q.includes('commentaire') || q.includes('remarque') || q.includes('observation')) && !q.includes('objectif')) {
+      return 'empComments';
+    }
+
+    // Fallback par position si les intitulés sont complètement personnalisés
+    if (idx === 0) return 'pastGoals';
+    if (idx === 1) return 'strengths';
+    if (idx === 2) return 'improvements';
+    if (idx === 3) return 'globalRating';
+    if (idx === 4) return 'training';
+    if (idx === 5) return 'smartGoals';
+    if (idx === 6) return 'aspirations';
+    if (idx === 7) return 'empComments';
+
+    return null;
+  }
+
   // --- Auto Logout System ---
   let inactivityTimeout;
   const INACTIVITY_LIMIT = 30 * 60 * 1000; // 30 minutes
@@ -1905,25 +1956,16 @@
                 }
                 conclusionQuestions.forEach((q, idx) => {
                     let ans = '';
-                    const qText = (q.text || '').toLowerCase();
-                    if (qText.includes('objectifs') && (qText.includes('écoulée') || qText.includes('passés'))) ans = ev.pastGoals || '';
-                    else if (qText.includes('points forts')) ans = ev.strengths || '';
-                    else if (qText.includes('amélioration')) ans = ev.improvements || '';
-                    else if (qText.includes('performance globale') || qText.includes('note globale')) ans = ev.globalRating || '';
-                    else if (qText.includes('formation')) ans = ev.training || '';
-                    else if (qText.includes('smart')) ans = ev.smartGoals || '';
-                    else if (qText.includes('aspirations')) ans = ev.aspirations || '';
-                    else if (qText.includes('commentaires')) ans = ev.empComments || '';
-                    else {
-                        if (idx === 0) ans = ev.pastGoals || '';
-                        if (idx === 1) ans = ev.strengths || '';
-                        if (idx === 2) ans = ev.improvements || '';
-                        if (idx === 3) ans = ev.globalRating || '';
-                        if (idx === 4) ans = ev.training || '';
-                        if (idx === 5) ans = ev.smartGoals || '';
-                        if (idx === 6) ans = ev.aspirations || '';
-                        if (idx === 7) ans = ev.empComments || '';
-                    }
+                    const fieldKey = matchConclusionField(q.text, idx);
+                    if (fieldKey === 'pastGoals') ans = ev.pastGoals || '';
+                    else if (fieldKey === 'strengths') ans = ev.strengths || '';
+                    else if (fieldKey === 'improvements') ans = ev.improvements || '';
+                    else if (fieldKey === 'globalRating') ans = ev.globalRating || '';
+                    else if (fieldKey === 'training') ans = ev.training || '';
+                    else if (fieldKey === 'smartGoals') ans = ev.smartGoals || '';
+                    else if (fieldKey === 'aspirations') ans = ev.aspirations || '';
+                    else if (fieldKey === 'empComments') ans = ev.empComments || '';
+                    
                     if (q.type === 'scale' || q.type === 'boolean') {
                         const r = document.querySelector(`input[name="conclusion_q${idx}"][value="${ans}"]`) || document.querySelector(`input[name="conclusion_q${idx}"][value="${normalizeRatingValue(ans)}"]`);
                         if(r) r.checked = true;
@@ -1983,25 +2025,15 @@
             conclusionQuestions.forEach((q, idx) => {
               let ans = '';
               if (mySynth) {
-                const qText = (q.text || '').toLowerCase();
-                if (qText.includes('points forts')) ans = mySynth.strengths || '';
-                else if (qText.includes('amélioration')) ans = mySynth.improvements || '';
-                else if (qText.includes('performance globale') || qText.includes('note globale')) ans = mySynth.globalRating || '';
-                else if (qText.includes('formation')) ans = mySynth.training || '';
-                else if (qText.includes('smart')) ans = mySynth.smartGoals || '';
-                else if (qText.includes('commentaires')) ans = mySynth.comments || '';
-                else if (qText.includes('objectifs') && (qText.includes('écoulée') || qText.includes('passés'))) ans = mySynth.pastGoals || '';
-                else if (qText.includes('aspirations')) ans = mySynth.aspirations || '';
-                else {
-                  if (idx === 0) ans = mySynth.pastGoals || '';
-                  if (idx === 1) ans = mySynth.strengths || '';
-                  if (idx === 2) ans = mySynth.improvements || '';
-                  if (idx === 3) ans = mySynth.globalRating || '';
-                  if (idx === 4) ans = mySynth.training || '';
-                  if (idx === 5) ans = mySynth.smartGoals || '';
-                  if (idx === 6) ans = mySynth.aspirations || '';
-                  if (idx === 7) ans = mySynth.comments || '';
-                }
+                const fieldKey = matchConclusionField(q.text, idx);
+                if (fieldKey === 'strengths') ans = mySynth.strengths || '';
+                else if (fieldKey === 'improvements') ans = mySynth.improvements || '';
+                else if (fieldKey === 'globalRating') ans = mySynth.globalRating || '';
+                else if (fieldKey === 'training') ans = mySynth.training || '';
+                else if (fieldKey === 'smartGoals') ans = mySynth.smartGoals || '';
+                else if (fieldKey === 'empComments') ans = mySynth.comments || '';
+                else if (fieldKey === 'pastGoals') ans = mySynth.pastGoals || '';
+                else if (fieldKey === 'aspirations') ans = mySynth.aspirations || '';
               }
               if (q.type === 'scale' || q.type === 'boolean') {
                 if (ans) {
@@ -2051,25 +2083,15 @@
             // Conclusion : uniquement les réponses propres de l'évaluateur principal (vides par défaut)
             conclusionQuestions.forEach((q, idx) => {
               let ans = '';
-              const qText = (q.text || '').toLowerCase();
-              if (qText.includes('objectifs') && (qText.includes('écoulée') || qText.includes('passés'))) ans = ev.mgrPastGoals || '';
-              else if (qText.includes('aspirations')) ans = ev.mgrAspirations || '';
-              else if (qText.includes('points forts')) ans = ev.mgrStrengths || '';
-              else if (qText.includes('amélioration')) ans = ev.mgrImprovements || '';
-              else if (qText.includes('performance globale') || qText.includes('note globale')) ans = ev.mgrGlobalRating || '';
-              else if (qText.includes('formation')) ans = ev.mgrTraining || '';
-              else if (qText.includes('smart')) ans = ev.mgrSmartGoals || '';
-              else if (qText.includes('commentaires')) ans = ev.mgrComments || '';
-              else {
-                if (idx === 0) ans = ev.mgrPastGoals || '';
-                if (idx === 1) ans = ev.mgrStrengths || '';
-                if (idx === 2) ans = ev.mgrImprovements || '';
-                if (idx === 3) ans = ev.mgrGlobalRating || '';
-                if (idx === 4) ans = ev.mgrTraining || '';
-                if (idx === 5) ans = ev.mgrSmartGoals || '';
-                if (idx === 6) ans = ev.mgrAspirations || '';
-                if (idx === 7) ans = ev.mgrComments || '';
-              }
+              const fieldKey = matchConclusionField(q.text, idx);
+              if (fieldKey === 'pastGoals') ans = ev.mgrPastGoals || '';
+              else if (fieldKey === 'aspirations') ans = ev.mgrAspirations || '';
+              else if (fieldKey === 'strengths') ans = ev.mgrStrengths || '';
+              else if (fieldKey === 'improvements') ans = ev.mgrImprovements || '';
+              else if (fieldKey === 'globalRating') ans = ev.mgrGlobalRating || '';
+              else if (fieldKey === 'training') ans = ev.mgrTraining || '';
+              else if (fieldKey === 'smartGoals') ans = ev.mgrSmartGoals || '';
+              else if (fieldKey === 'empComments') ans = ev.mgrComments || '';
               if (ev.mgrConclusion) {
                 try {
                   const parsedMgrConc = JSON.parse(ev.mgrConclusion);
@@ -2537,7 +2559,7 @@
       if (paginationBar) paginationBar.style.display = 'flex';
       const conclusionQuestions = (evalQuestions && evalQuestions.conclusion) ? evalQuestions.conclusion : [];
       const curQForPage = conclusionQuestions.find(q => (parseInt(q.page, 10) || 1) === curPage && q.pageTitle);
-      const defaultConcTitle = (curPage === 1) ? 'Bilan & Performance Globale' : (curPage === 2 ? 'Plan de Développement & Objectifs SMART' : '');
+      const defaultConcTitle = (curPage === 1) ? 'Bilan & Performance Globale' : (curPage === 2 ? 'Plan de Développement & Objectifs pour la Prochaine Période' : '');
       const curPageTitle = curQForPage ? curQForPage.pageTitle.trim() : defaultConcTitle;
       const pageTitleSuffix = curPageTitle ? ` : ${curPageTitle}` : '';
       if (pageLabel) pageLabel.textContent = `Page ${curIdx} sur ${totalPages}${pageTitleSuffix}`;
@@ -2546,7 +2568,7 @@
         pageNumbers.forEach((p, i) => {
           const pill = document.createElement('span');
           const pQ = conclusionQuestions.find(q => (parseInt(q.page, 10) || 1) === p && q.pageTitle);
-          const pDefTitle = (p === 1) ? 'Bilan & Performance Globale' : (p === 2 ? 'Plan de Développement & Objectifs SMART' : '');
+          const pDefTitle = (p === 1) ? 'Bilan & Performance Globale' : (p === 2 ? 'Plan de Développement & Objectifs pour la Prochaine Période' : '');
           const pTitle = pQ ? pQ.pageTitle.trim() : pDefTitle;
           pill.style.cssText = `display:inline-block; width:28px; height:28px; border-radius:50%; text-align:center; line-height:28px; font-size:12px; font-weight:700; cursor:pointer; ` +
             (p === curPage 
@@ -2943,25 +2965,15 @@
               collabComment = parsed[idx].empComment || parsed[idx].comment || '';
             }
           } else if (prefix === 'conclusion') {
-            const qText = (q.text || '').toLowerCase();
-            if (qText.includes('objectifs') && (qText.includes('écoulée') || qText.includes('passés'))) collabAnswer = window.evalCurrentEv.pastGoals || '';
-            else if (qText.includes('points forts')) collabAnswer = window.evalCurrentEv.strengths || '';
-            else if (qText.includes('amélioration')) collabAnswer = window.evalCurrentEv.improvements || '';
-            else if (qText.includes('performance globale') || qText.includes('note globale')) collabAnswer = window.evalCurrentEv.globalRating || '';
-            else if (qText.includes('formation')) collabAnswer = window.evalCurrentEv.training || '';
-            else if (qText.includes('smart')) collabAnswer = window.evalCurrentEv.smartGoals || '';
-            else if (qText.includes('aspirations')) collabAnswer = window.evalCurrentEv.aspirations || '';
-            else if (qText.includes('commentaires')) collabAnswer = window.evalCurrentEv.empComments || '';
-            else {
-              if (idx === 0) collabAnswer = window.evalCurrentEv.pastGoals || '';
-              if (idx === 1) collabAnswer = window.evalCurrentEv.strengths || '';
-              if (idx === 2) collabAnswer = window.evalCurrentEv.improvements || '';
-              if (idx === 3) collabAnswer = window.evalCurrentEv.globalRating || '';
-              if (idx === 4) collabAnswer = window.evalCurrentEv.training || '';
-              if (idx === 5) collabAnswer = window.evalCurrentEv.smartGoals || '';
-              if (idx === 6) collabAnswer = window.evalCurrentEv.aspirations || '';
-              if (idx === 7) collabAnswer = window.evalCurrentEv.empComments || '';
-            }
+            const fieldKey = matchConclusionField(q.text, idx);
+            if (fieldKey === 'pastGoals') collabAnswer = window.evalCurrentEv.pastGoals || '';
+            else if (fieldKey === 'strengths') collabAnswer = window.evalCurrentEv.strengths || '';
+            else if (fieldKey === 'improvements') collabAnswer = window.evalCurrentEv.improvements || '';
+            else if (fieldKey === 'globalRating') collabAnswer = window.evalCurrentEv.globalRating || '';
+            else if (fieldKey === 'training') collabAnswer = window.evalCurrentEv.training || '';
+            else if (fieldKey === 'smartGoals') collabAnswer = window.evalCurrentEv.smartGoals || '';
+            else if (fieldKey === 'aspirations') collabAnswer = window.evalCurrentEv.aspirations || '';
+            else if (fieldKey === 'empComments') collabAnswer = window.evalCurrentEv.empComments || '';
           }
         } catch(e) {}
       }
@@ -2992,21 +3004,15 @@
             if (Array.isArray(secSynth) && secSynth.length > 0) {
               secSynth.forEach(s => {
                 let sVal = '';
-                const qText = (q.text || '').toLowerCase();
-                if (qText.includes('points forts')) sVal = s.strengths || '';
-                else if (qText.includes('amélioration')) sVal = s.improvements || '';
-                else if (qText.includes('performance globale') || qText.includes('note globale')) sVal = s.globalRating || '';
-                else if (qText.includes('formation')) sVal = s.training || '';
-                else if (qText.includes('smart')) sVal = s.smartGoals || '';
-                else if (qText.includes('commentaires')) sVal = s.comments || '';
-                else {
-                  if (idx === 1) sVal = s.strengths || '';
-                  if (idx === 2) sVal = s.improvements || '';
-                  if (idx === 3) sVal = s.globalRating || '';
-                  if (idx === 4) sVal = s.training || '';
-                  if (idx === 5) sVal = s.smartGoals || '';
-                  if (idx === 7) sVal = s.comments || '';
-                }
+                const fieldKey = matchConclusionField(q.text, idx);
+                if (fieldKey === 'strengths') sVal = s.strengths || '';
+                else if (fieldKey === 'improvements') sVal = s.improvements || '';
+                else if (fieldKey === 'globalRating') sVal = s.globalRating || '';
+                else if (fieldKey === 'training') sVal = s.training || '';
+                else if (fieldKey === 'smartGoals') sVal = s.smartGoals || '';
+                else if (fieldKey === 'empComments') sVal = s.comments || '';
+                else if (fieldKey === 'pastGoals') sVal = s.pastGoals || '';
+                else if (fieldKey === 'aspirations') sVal = s.aspirations || '';
                 if (sVal) {
                   const bCls = getEvalBadgeClass(sVal);
                   secondarySummaryHtml += `
@@ -3232,32 +3238,16 @@
     if (evalQuestions && evalQuestions.conclusion) {
       formData.conclusion = extractItems(evalQuestions.conclusion, 'conclusion');
       formData.conclusion.forEach((item, idx) => {
-        const qText = (item.question || '').toLowerCase();
+        const fieldKey = matchConclusionField(item.question, idx);
         const val = item.answer || '';
-        if (qText.includes('objectifs') && (qText.includes('écoulée') || qText.includes('passés'))) formData.pastGoals = val;
-        else if (qText.includes('points forts')) formData.strengths = val;
-        else if (qText.includes('amélioration')) formData.improvements = val;
-        else if (qText.includes('performance globale') || qText.includes('note globale')) formData.globalRating = val;
-        else if (qText.includes('formation')) formData.training = val;
-        else if (qText.includes('smart')) formData.smartGoals = val;
-        else if (qText.includes('aspirations')) formData.aspirations = val;
-        else if (qText.includes('commentaires')) formData.empComments = val || item.comment || '';
-        else {
-          if (idx === 0 && !formData.pastGoals) formData.pastGoals = val;
-          if (idx === 1 && !formData.strengths) formData.strengths = val;
-          if (idx === 2 && !formData.improvements) formData.improvements = val;
-          if (idx === 3 && !formData.globalRating) formData.globalRating = val;
-          if (idx === 4 && !formData.training) formData.training = val;
-          if (idx === 5 && !formData.smartGoals) formData.smartGoals = val;
-          if (idx === 0 && val) formData.pastGoals = val;
-          if (idx === 1 && val) formData.strengths = val;
-          if (idx === 2 && val) formData.improvements = val;
-          if (idx === 3 && val) formData.globalRating = val;
-          if (idx === 4 && val) formData.training = val;
-          if (idx === 5 && val) formData.smartGoals = val;
-          if (idx === 6 && val) formData.aspirations = val;
-          if (idx === 7 && (val || item.comment)) formData.empComments = val || item.comment;
-        }
+        if (fieldKey === 'pastGoals') formData.pastGoals = val;
+        else if (fieldKey === 'strengths') formData.strengths = val;
+        else if (fieldKey === 'improvements') formData.improvements = val;
+        else if (fieldKey === 'globalRating') formData.globalRating = val;
+        else if (fieldKey === 'training') formData.training = val;
+        else if (fieldKey === 'smartGoals') formData.smartGoals = val;
+        else if (fieldKey === 'aspirations') formData.aspirations = val;
+        else if (fieldKey === 'empComments') formData.empComments = val || item.comment || '';
       });
     }
 
@@ -3380,25 +3370,15 @@
     const conclusionQuestions = (evalQuestions && evalQuestions.conclusion) ? evalQuestions.conclusion : [];
     conclusionQuestions.forEach((q, idx) => {
       let ans = '';
-      const qText = (q.text || '').toLowerCase();
-      if (qText.includes('objectifs') && (qText.includes('écoulée') || qText.includes('passés'))) ans = formData.pastGoals || '';
-      else if (qText.includes('points forts')) ans = formData.strengths || '';
-      else if (qText.includes('amélioration')) ans = formData.improvements || '';
-      else if (qText.includes('performance globale') || qText.includes('note globale')) ans = formData.globalRating || '';
-      else if (qText.includes('formation')) ans = formData.training || '';
-      else if (qText.includes('smart')) ans = formData.smartGoals || '';
-      else if (qText.includes('aspirations')) ans = formData.aspirations || '';
-      else if (qText.includes('commentaires')) ans = formData.empComments || '';
-      else {
-        if (idx === 0) ans = formData.pastGoals || '';
-        if (idx === 1) ans = formData.strengths || '';
-        if (idx === 2) ans = formData.improvements || '';
-        if (idx === 3) ans = formData.globalRating || '';
-        if (idx === 4) ans = formData.training || '';
-        if (idx === 5) ans = formData.smartGoals || '';
-        if (idx === 6) ans = formData.aspirations || '';
-        if (idx === 7) ans = formData.empComments || '';
-      }
+      const fieldKey = matchConclusionField(q.text, idx);
+      if (fieldKey === 'pastGoals') ans = formData.pastGoals || '';
+      else if (fieldKey === 'strengths') ans = formData.strengths || '';
+      else if (fieldKey === 'improvements') ans = formData.improvements || '';
+      else if (fieldKey === 'globalRating') ans = formData.globalRating || '';
+      else if (fieldKey === 'training') ans = formData.training || '';
+      else if (fieldKey === 'smartGoals') ans = formData.smartGoals || '';
+      else if (fieldKey === 'aspirations') ans = formData.aspirations || '';
+      else if (fieldKey === 'empComments') ans = formData.empComments || '';
 
       let itemComment = '';
       if (Array.isArray(formData.conclusion) && formData.conclusion[idx]) {
@@ -4712,7 +4692,7 @@
                <td>${(ev.mgrTraining || '-').replace(/\n/g, '<br>')}</td>
              </tr>
              <tr>
-               <td><strong>Objectifs SMART</strong></td>
+               <td><strong>Objectifs de la Période Suivante (SMART)</strong></td>
                <td>${(ev.smartGoals || '-').replace(/\n/g, '<br>')}</td>
                <td>${formatSecSynthField('smartGoals')}</td>
                <td>${(ev.mgrSmartGoals || '-').replace(/\n/g, '<br>')}</td>
