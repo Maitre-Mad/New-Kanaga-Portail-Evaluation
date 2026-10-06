@@ -3421,15 +3421,20 @@
       let collabSummaryHtml = '';
       if (window.evalCurrentMode === 'Évaluation Manager' || window.evalCurrentMode === 'Évaluation Secondaire') {
         if (q.type === 'scale' || q.type === 'boolean') {
-          const badgeCls = getEvalBadgeClass(collabAnswer);
+          const normAns = normalizeRatingValue(collabAnswer);
+          const hasValidGrade = ['EXCEPTI', 'SUPERIE', 'CONFORM', 'AMELIOR', 'INSATIS', 'NONAPPL'].includes(normAns);
+          const badgeCls = hasValidGrade ? getEvalBadgeClass(normAns) : '';
+          const badgeHtml = hasValidGrade 
+            ? `<span class="eval-badge eval-badge-${badgeCls}">${normAns}</span>` 
+            : (collabComment ? '' : '<span class="eval-badge eval-badge-na">Non renseignée</span>');
           const commentDisplay = collabComment 
-            ? `<div style="margin-top: 4px; white-space: pre-wrap; color: #2D1A0A;">${escapeHtml(collabComment)}</div>` 
+            ? `<div style="white-space: pre-wrap; color: #2D1A0A;">${escapeHtml(collabComment)}</div>` 
             : '<em>Aucun commentaire renseigné par le collaborateur</em>';
           collabSummaryHtml = `
             <div class="eval-collab-summary">
               <div class="eval-collab-summary-header">
                 <span>Auto-évaluation du Collaborateur</span>
-                <span class="eval-badge eval-badge-${badgeCls}">${collabAnswer || 'Non renseignée'}</span>
+                ${badgeHtml}
               </div>
               <div class="eval-collab-comment-content">
                 ${commentDisplay}
@@ -3473,14 +3478,22 @@
                 else if (fieldKey === 'pastGoals') sVal = s.pastGoals || '';
                 else if (fieldKey === 'aspirations') sVal = s.aspirations || '';
                 if (sVal) {
-                  const bCls = getEvalBadgeClass(sVal);
+                  const parsed = extractGradeAndComment(sVal);
+                  const grade = parsed.grade;
+                  const comment = (parsed.comment || (parsed.grade ? '' : sVal)).trim();
+                  const bCls = grade ? getEvalBadgeClass(grade) : '';
+                  const badgeHtml = grade ? `<span class="eval-badge eval-badge-${bCls}">${escapeHtml(grade)}</span>` : '';
+                  const commentHtml = comment 
+                    ? `<div class="eval-collab-comment-content">${escapeHtml(comment).replace(/\n/g, '<br>')}</div>` 
+                    : '';
+
                   secondarySummaryHtml += `
                     <div class="eval-collab-summary" style="border-left: 3px solid #ff9800; background: #fffcf5; margin-top: 6px;">
                       <div class="eval-collab-summary-header">
                         <span style="color:#b25900;">Évaluateur Secondaire (${escapeHtml(s.evaluatorName || s.evaluatorEmail)})</span>
-                        ${q.type === 'scale' ? `<span class="eval-badge eval-badge-${bCls}">${escapeHtml(sVal)}</span>` : ''}
+                        ${badgeHtml}
                       </div>
-                      ${q.type !== 'scale' ? `<div class="eval-collab-comment-content">${escapeHtml(sVal).replace(/\n/g, '<br>')}</div>` : ''}
+                      ${commentHtml}
                     </div>
                   `;
                 }
