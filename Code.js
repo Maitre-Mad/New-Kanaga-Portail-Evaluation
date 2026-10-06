@@ -1,5 +1,38 @@
 const SPREADSHEET_ID = '1WjsYi4GQsYyHa-LlCzg6FOr4qv9EPM7X8f6vM8aLSmQ';
 
+/**
+ * ============================================================================
+ * SYNCHRONISATION MULTI-UTILISATEURS & VERROUILLAGE SCRIPT (LockService)
+ * ============================================================================
+ * Empêche les conflits d'écritures concurrentes et les écrasements de données
+ * lorsque plusieurs utilisateurs (collaborateurs, managers, évaluateurs secondaires)
+ * travaillent sur la même ou différentes évaluations au même instant.
+ *
+ * @param {Function} callback - Bloc d'instructions à exécuter sous verrou exclusif.
+ * @param {number} [timeoutMs=20000] - Délai d'attente maximal (20 secondes par défaut).
+ * @return {*} La valeur de retour de la fonction callback.
+ */
+function withScriptLock(callback, timeoutMs) {
+  const timeout = timeoutMs || 20000;
+  const lock = LockService.getScriptLock();
+  const acquired = lock.tryLock(timeout);
+  if (!acquired) {
+    throw new Error("Le serveur traite actuellement un autre enregistrement simultané. Veuillez patienter quelques secondes et réessayer.");
+  }
+  try {
+    const result = callback();
+    SpreadsheetApp.flush(); // Force l'application immédiate et atomique des modifications dans la feuille
+    return result;
+  } finally {
+    try {
+      lock.releaseLock();
+    } catch(lockErr) {
+      Logger.log("Erreur releaseLock: " + lockErr.message);
+    }
+  }
+}
+
+
 function doGet(e) {
 
   try {
@@ -331,7 +364,8 @@ function isDurationValid(userEmail, entryDate, newDuration, editingRowId = null)
 function submitTimesheet(token, formData) {
   const sessionUser = verifySession(token);
   const userObj = sessionUser;
-  try {
+  return withScriptLock(function() {
+    try {
     const entryDate = new Date(formData.entryDate);
     const today = new Date();
     const oneMonthAgo = new Date();
@@ -388,8 +422,8 @@ function submitTimesheet(token, formData) {
   } catch (e) {
     throw new Error("Erreur serveur : " + e.message);
   }
+  });
 }
-
 function getUserTimesheets(token) {
   const sessionUser = verifySession(token);
   const username = sessionUser.username;
@@ -526,7 +560,8 @@ function deleteTimesheetEntry(token, rowId) {
 function updateTimesheetEntry(token, updatedData) {
   const sessionUser = verifySession(token);
   const userObj = sessionUser;
-  try {
+  return withScriptLock(function() {
+    try {
     const entryDate = new Date(updatedData.entryDate);
     if (parseFloat(updatedData.duration) <= 0) {
       throw new Error("La durée doit être supérieure à 0 heure.");
@@ -550,8 +585,8 @@ function updateTimesheetEntry(token, updatedData) {
   } catch (e) {
     throw new Error("Impossible de mettre à jour la ligne : " + e.message);
   }
+  });
 }
-
 function getEvaluationData() {
   return {
     role: 'manager',
@@ -2180,7 +2215,8 @@ function saveEvaluationConfig(token, config) {
     throw new Error("Action non autorisée. Seuls les administrateurs et managers peuvent modifier les profils et questions.");
   }
 
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  return withScriptLock(function() {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   let sheet = ss.getSheetByName('EvaluationQuestions');
   if (!sheet) {
     sheet = ss.insertSheet('EvaluationQuestions');
@@ -2220,8 +2256,8 @@ function saveEvaluationConfig(token, config) {
   }
 
   return { success: true, count: rowsToAdd.length };
+  });
 }
-
 function getEvaluationStepTitles() {
   const defaultTitles = {
     step1: "1. Entonnoir (Infos)",
@@ -2267,7 +2303,8 @@ function saveEvaluationStepTitles(token, titles) {
 function initiateEvaluationsBatch(token, formData) {
   const sessionUser = verifySession(token);
 
-  try {
+  return withScriptLock(function() {
+    try {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     let sheet = ss.getSheetByName('Evaluations');
     if (!sheet) {
@@ -2337,8 +2374,8 @@ function initiateEvaluationsBatch(token, formData) {
   } catch (e) {
     throw new Error("Erreur lors de l'initiation de l'évaluation: " + e.message);
   }
+  });
 }
-
 function submitSelfEvaluation(token, rowId, formData) {
   let userEmail = '';
   if (token && typeof token === 'string' && token.length > 10) {
@@ -2357,7 +2394,8 @@ function submitSelfEvaluation(token, rowId, formData) {
     throw new Error("Soumission rejetée : Aucune réponse n'a été saisie. Veuillez compléter vos réponses avant de soumettre l'auto-évaluation.");
   }
 
-  try {
+  return withScriptLock(function() {
+    try {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const sheet = ss.getSheetByName('Evaluations');
     if (!sheet) throw new Error("Feuille Evaluations introuvable.");
@@ -2419,8 +2457,8 @@ function submitSelfEvaluation(token, rowId, formData) {
   } catch (e) {
     throw new Error("Erreur lors de l'enregistrement de l'auto-évaluation: " + e.message);
   }
+  });
 }
-
 function saveSecondaryEvaluationDraft(token, rowId, formData) {
   let evaluatorName = '';
   let evaluatorEmail = '';
@@ -2433,7 +2471,8 @@ function saveSecondaryEvaluationDraft(token, rowId, formData) {
   }
   if (!evaluatorName) evaluatorName = formData.evaluatorName || 'Évaluateur Secondaire';
 
-  try {
+  return withScriptLock(function() {
+    try {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const sheet = ss.getSheetByName('Evaluations');
     if (!sheet) throw new Error("Feuille Evaluations introuvable.");
@@ -2538,8 +2577,8 @@ function saveSecondaryEvaluationDraft(token, rowId, formData) {
   } catch(e) {
     throw new Error("Erreur lors de la sauvegarde du brouillon de l'évaluation secondaire: " + e.message);
   }
+  });
 }
-
 function submitSecondaryEvaluation(token, rowId, formData) {
   let evaluatorName = '';
   let evaluatorEmail = '';
@@ -2552,7 +2591,8 @@ function submitSecondaryEvaluation(token, rowId, formData) {
   }
   if (!evaluatorName) evaluatorName = formData.evaluatorName || 'Évaluateur Secondaire';
 
-  try {
+  return withScriptLock(function() {
+    try {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const sheet = ss.getSheetByName('Evaluations');
     if (!sheet) throw new Error("Feuille Evaluations introuvable.");
@@ -2672,11 +2712,12 @@ function submitSecondaryEvaluation(token, rowId, formData) {
   } catch (e) {
     throw new Error("Erreur lors de l'enregistrement de l'évaluation secondaire: " + e.message);
   }
+  });
 }
-
 function advanceToPrincipalEvaluation(token, rowId) {
   const sessionUser = verifySession(token);
-  try {
+  return withScriptLock(function() {
+    try {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const sheet = ss.getSheetByName('Evaluations');
     if (!sheet) throw new Error("Feuille Evaluations introuvable.");
@@ -2706,11 +2747,12 @@ function advanceToPrincipalEvaluation(token, rowId) {
   } catch(e) {
     throw new Error("Erreur advanceToPrincipalEvaluation: " + e.message);
   }
+  });
 }
-
 function returnToSecondaryEvaluation(token, rowId, formData) {
   const sessionUser = verifySession(token);
-  try {
+  return withScriptLock(function() {
+    try {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const sheet = ss.getSheetByName('Evaluations');
     if (!sheet) throw new Error("Feuille Evaluations introuvable.");
@@ -2790,11 +2832,12 @@ function returnToSecondaryEvaluation(token, rowId, formData) {
   } catch(e) {
     throw new Error("Erreur returnToSecondaryEvaluation: " + e.message);
   }
+  });
 }
-
 function returnToEmployeeSelfEvaluation(token, rowId, reason) {
   const sessionUser = verifySession(token);
-  try {
+  return withScriptLock(function() {
+    try {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const sheet = ss.getSheetByName('Evaluations');
     if (!sheet) throw new Error("Feuille Evaluations introuvable.");
@@ -2834,8 +2877,8 @@ function returnToEmployeeSelfEvaluation(token, rowId, reason) {
   } catch(e) {
     throw new Error("Erreur returnToEmployeeSelfEvaluation: " + e.message);
   }
+  });
 }
-
 function saveSelfEvaluationDraft(token, rowId, formData) {
   let userEmail = '';
   if (token && typeof token === 'string' && token.length > 10) {
@@ -2845,7 +2888,8 @@ function saveSelfEvaluationDraft(token, rowId, formData) {
     } catch(e) {}
   }
 
-  try {
+  return withScriptLock(function() {
+    try {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const sheet = ss.getSheetByName('Evaluations');
     if (!sheet) throw new Error("Feuille Evaluations introuvable.");
@@ -2877,8 +2921,8 @@ function saveSelfEvaluationDraft(token, rowId, formData) {
   } catch (e) {
     throw new Error("Erreur lors de la sauvegarde du brouillon de l'auto-évaluation: " + e.message);
   }
+  });
 }
-
 function generateEvaluationPDF(rowId) {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const sheet = ss.getSheetByName('Evaluations');
@@ -3127,7 +3171,8 @@ function saveAttachedManagerEvaluationDraft(token, rowId, formData, managerNameF
     } catch(e) {}
   }
 
-  try {
+  return withScriptLock(function() {
+    try {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const sheet = ss.getSheetByName('Evaluations');
     if (!sheet) throw new Error("Feuille Evaluations introuvable.");
@@ -3164,8 +3209,8 @@ function saveAttachedManagerEvaluationDraft(token, rowId, formData, managerNameF
   } catch (e) {
     throw new Error("Erreur lors de la sauvegarde du brouillon manager: " + e.message);
   }
+  });
 }
-
 function submitAttachedManagerEvaluation(token, rowId, formData, managerNameFallback) {
   let managerName = managerNameFallback || '';
   if (token && typeof token === 'string' && token.length > 10) {
@@ -3175,7 +3220,8 @@ function submitAttachedManagerEvaluation(token, rowId, formData, managerNameFall
     } catch(e) {}
   }
 
-  try {
+  return withScriptLock(function() {
+    try {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const sheet = ss.getSheetByName('Evaluations');
     if (!sheet) throw new Error("Feuille Evaluations introuvable.");
@@ -3237,8 +3283,8 @@ function submitAttachedManagerEvaluation(token, rowId, formData, managerNameFall
   } catch (e) {
     throw new Error("Erreur lors de l'attachement de l'évaluation: " + e.message);
   }
+  });
 }
-
 function getNativeEvaluations(token) {
   const sessionUser = verifySession(token);
 
@@ -3487,7 +3533,8 @@ function savePreEvaluation(token, rowId, formData) {
   const sessionUser = verifySession(token);
   const managerName = sessionUser.fullName || sessionUser.username;
 
-  try {
+  return withScriptLock(function() {
+    try {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const sheet = ss.getSheetByName('Evaluations');
     if (!sheet) throw new Error('Feuille Evaluations introuvable.');
@@ -3523,12 +3570,8 @@ function savePreEvaluation(token, rowId, formData) {
   } catch (e) {
     throw new Error('Erreur lors de la sauvegarde de la pré-évaluation: ' + e.message);
   }
+  });
 }
-
-// ==========================================
-// TICKET SUPPORT SYSTEM
-// ==========================================
-
 function getTicketsSheet() {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   let sheet = ss.getSheetByName('Tickets');
