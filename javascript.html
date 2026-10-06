@@ -416,7 +416,10 @@
       ]).then(function(ipRes) {
         if (ipRes && (ipRes.ipAddress || ipRes.ip)) {
           clientData.ip = ipRes.ipAddress || ipRes.ip;
-          clientData.appUrl = window.location.href;
+          const refUrl = (document.referrer || '') + ' ' + (window.location.href || '');
+          const isTest = refUrl.includes('AKfycbwauIpOqIbIiuEO55xTs6KOuTiqcOKlj90gr8R4sljI8UrM9EfLA4xUccfOzWKvlqn3lA') || refUrl.includes('/dev') || refUrl.includes('env=test');
+          clientData.appUrl = refUrl;
+          clientData.isTestEnv = isTest;
           clientData.version = window.KANAGA_PLATFORM_VERSION || 'v1.0.8';
           const locParts = [ipRes.cityName || ipRes.city, ipRes.countryName || ipRes.country].filter(Boolean);
           if (locParts.length > 0) clientData.location = locParts.join(', ');
@@ -853,6 +856,27 @@
 
   function initAuthenticatedApp(user) {
     resetInactivityTimer();
+
+    // Règle d'affichage du badge : AUCUN badge en production, badge persistant en test
+    try {
+      const savedTestBadge = sessionStorage.getItem('kanagaTestBadge');
+      if (savedTestBadge) {
+        updatePlatformEnvBadge(JSON.parse(savedTestBadge));
+      } else {
+        const refUrl = (document.referrer || '') + ' ' + (window.location.href || '');
+        if (refUrl.includes('AKfycbwauIpOqIbIiuEO55xTs6KOuTiqcOKlj90gr8R4sljI8UrM9EfLA4xUccfOzWKvlqn3lA') || refUrl.includes('/dev') || refUrl.includes('env=test')) {
+          updatePlatformEnvBadge({
+            isProd: false,
+            isTest: true,
+            envName: 'Test',
+            version: window.KANAGA_PLATFORM_VERSION || 'v1.0.8',
+            versionStatus: 'Environnement de Test'
+          });
+        } else {
+          updatePlatformEnvBadge(null); // Production : aucun badge !
+        }
+      }
+    } catch(e) {}
     document.getElementById('view-login').style.display = 'none';
     document.getElementById('auth-content').style.display = 'block';
     
@@ -7543,25 +7567,27 @@
   }
 
   function updatePlatformEnvBadge(envInfo) {
-    if (!envInfo) return;
     const badgeEl = document.getElementById('platform-env-badge');
     if (!badgeEl) return;
-    badgeEl.style.display = 'inline-block';
-    if (envInfo.isProd) {
-      badgeEl.className = 'badge';
-      badgeEl.style.background = '#DCFCE7';
-      badgeEl.style.color = '#15803D';
-      badgeEl.style.border = '1px solid #BBF7D0';
-      badgeEl.innerHTML = `🟢 Production ${envInfo.version}`;
-      badgeEl.title = `Déploiement Officiel de Production (${envInfo.version})`;
-    } else {
-      badgeEl.className = 'badge';
-      badgeEl.style.background = '#FEF3C7';
-      badgeEl.style.color = '#B45309';
-      badgeEl.style.border = '1px solid #FDE68A';
-      badgeEl.innerHTML = `🟡 ${envInfo.envName} ${envInfo.version} (${envInfo.versionStatus})`;
-      badgeEl.title = `Environnement de Test (${envInfo.version}) : ${envInfo.versionStatus}`;
+
+    // En production : AUCUN badge ne doit apparaître
+    if (!envInfo || envInfo.isProd || !envInfo.isTest) {
+      badgeEl.style.display = 'none';
+      badgeEl.innerHTML = '';
+      try { sessionStorage.removeItem('kanagaTestBadge'); } catch(e) {}
+      return;
     }
-  }
+
+    // Uniquement sur un environnement de TEST :
+    badgeEl.style.display = 'inline-block';
+    badgeEl.className = 'badge';
+    badgeEl.style.background = '#FEF3C7';
+    badgeEl.style.color = '#B45309';
+    badgeEl.style.border = '1px solid #FDE68A';
+    badgeEl.innerHTML = `🟡 ${envInfo.envName || 'Test'} ${envInfo.version || ''} (${envInfo.versionStatus || 'Test'})`;
+    badgeEl.title = `Environnement de Test (${envInfo.version || ''}) : ${envInfo.versionStatus || ''}`;
+
+    try { sessionStorage.setItem('kanagaTestBadge', JSON.stringify(envInfo)); } catch(e) {}
+  }}
 
 </script>

@@ -66,38 +66,43 @@ function getPlatformEnvironmentInfo(clientInfo) {
   }
 
   const clientVer = (clientInfo && clientInfo.version) ? String(clientInfo.version) : ('v' + OFFICIAL_PROD_VERSION);
-  const isProd = appUrl.includes(PROD_DEPLOYMENT_ID);
-  const isHeadDev = appUrl.endsWith('/dev');
+  const cleanVer = clientVer.startsWith('v') ? clientVer : ('v' + clientVer);
 
-  let envName = 'Production';
-  let versionStatus = 'Officielle';
+  // Détection stricte de l'environnement de TEST
+  const isExplicitTest = appUrl.includes('AKfycbwauIpOqIbIiuEO55xTs6KOuTiqcOKlj90gr8R4sljI8UrM9EfLA4xUccfOzWKvlqn3lA') ||
+                         appUrl.endsWith('/dev') ||
+                         appUrl.includes('env=test') ||
+                         appUrl.includes('test=true') ||
+                         (clientInfo && (clientInfo.isTestEnv === true || clientInfo.isTestEnv === 'true'));
 
-  if (isProd) {
-    envName = 'Production';
-    versionStatus = 'Version Officielle';
-  } else if (isHeadDev) {
-    envName = 'Test / Dev (@HEAD)';
+  if (isExplicitTest) {
+    const isHeadDev = appUrl.endsWith('/dev');
+    const envName = isHeadDev ? 'Test / Dev (@HEAD)' : 'Test (Déploiement Dédié)';
     const comp = compareSemanticVersions(clientVer, OFFICIAL_PROD_VERSION);
+    let versionStatus = 'Version de Test';
     if (comp > 0) versionStatus = 'Version Supérieure (Test)';
-    else if (comp < 0) versionStatus = 'Version Antérieure';
-    else versionStatus = 'Version de Test';
-  } else {
-    envName = 'Test (Déploiement Dédié)';
-    const comp = compareSemanticVersions(clientVer, OFFICIAL_PROD_VERSION);
-    if (comp > 0) versionStatus = 'Version Supérieure (Test)';
-    else if (comp < 0) versionStatus = 'Version Antérieure';
+    else if (comp < 0) versionStatus = 'Version Antérieure (Test)';
     else versionStatus = 'Version de Test Conforme';
+
+    return {
+      isProd: false,
+      isTest: true,
+      envName: envName,
+      version: cleanVer,
+      versionStatus: versionStatus,
+      logBadge: `[Plateforme: ${envName} | Version: ${cleanVer} (${versionStatus})]`,
+      url: appUrl
+    };
   }
 
-  const cleanVer = clientVer.startsWith('v') ? clientVer : ('v' + clientVer);
-  const logBadge = `[Plateforme: ${envName} | Version: ${cleanVer} (${versionStatus})]`;
-
+  // Par défaut absolu : PRODUCTION OFFICIELLE
   return {
-    isProd: isProd,
-    envName: envName,
+    isProd: true,
+    isTest: false,
+    envName: 'Production',
     version: cleanVer,
-    versionStatus: versionStatus,
-    logBadge: logBadge,
+    versionStatus: 'Version Officielle',
+    logBadge: `[Plateforme: Production | Version: ${cleanVer} (Version Officielle)]`,
     url: appUrl
   };
 }
