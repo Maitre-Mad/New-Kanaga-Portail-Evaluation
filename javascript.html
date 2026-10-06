@@ -2989,15 +2989,15 @@
   });
 
   function normalizeRatingValue(val) {
-    if (!val) return '';
-    const s = String(val).trim().toUpperCase();
-    if (s.includes('EXCEPTI') || s === 'PE' || s.startsWith('5')) return 'EXCEPTI';
-    if (s.includes('SUPERIE') || s === 'PS' || s.startsWith('4')) return 'SUPERIE';
-    if (s.includes('CONFORM') || s === 'CA' || s.startsWith('3')) return 'CONFORM';
-    if (s.includes('AMELIOR') || s.includes('AMÉLIOR') || s === 'PA' || s.startsWith('2')) return 'AMELIOR';
-    if (s.includes('INSATIS') || s === 'PI' || s.startsWith('1')) return 'INSATIS';
-    if (s.includes('NONAPPL') || s === 'N/A' || s === 'NA' || s.includes('NON APPL')) return 'NONAPPL';
-    return val;
+    if (!val || typeof val !== 'string') return '';
+    const s = val.trim().toUpperCase();
+    if (['EXCEPTI', '5 - EXCEPTI', '5-EXCEPTI', '5', 'PE'].includes(s)) return 'EXCEPTI';
+    if (['SUPERIE', '4 - SUPERIE', '4-SUPERIE', '4', 'PS'].includes(s)) return 'SUPERIE';
+    if (['CONFORM', '3 - CONFORM', '3-CONFORM', '3', 'CA'].includes(s)) return 'CONFORM';
+    if (['AMELIOR', '2 - AMELIOR', '2-AMELIOR', '2', 'PA'].includes(s)) return 'AMELIOR';
+    if (['INSATIS', '1 - INSATIS', '1-INSATIS', '1', 'PI'].includes(s)) return 'INSATIS';
+    if (['NONAPPL', 'NON APPL', 'NON-APPL', 'N/A', 'NA'].includes(s)) return 'NONAPPL';
+    return '';
   }
 
   function setRadioAnswer(namePrefix, idx, ans) {
@@ -3021,60 +3021,39 @@
     if (!val) return '<span class="text-muted">-</span>';
     const s = String(val).trim();
     if (!s || s === '-') return '<span class="text-muted">-</span>';
-    const upper = s.toUpperCase();
-    let label = '';
-    let cls = 'na';
-
-    if (upper.includes('EXCEPTI') || upper.startsWith('5')) { label = '5 - EXCEPTI'; cls = 'pe'; }
-    else if (upper.includes('SUPERIE') || upper.startsWith('4')) { label = '4 - SUPERIE'; cls = 'ps'; }
-    else if (upper.includes('CONFORM') || upper.startsWith('3')) { label = '3 - CONFORM'; cls = 'ca'; }
-    else if (upper.includes('AMELIOR') || upper.includes('AMÉLIOR') || upper.startsWith('2')) { label = '2 - AMELIOR'; cls = 'pa'; }
-    else if (upper.includes('INSATIS') || upper.startsWith('1')) { label = '1 - INSATIS'; cls = 'pi'; }
-    else if (upper.includes('NONAPPL')) { label = 'NONAPPL'; cls = 'na'; }
-
-    if (label) {
-      return '<span class="eval-badge eval-badge-' + cls + '">' + label + '</span>';
+    const lines = s.split('\n');
+    const norm = normalizeRatingValue(lines[0].trim());
+    if (norm) {
+      const cls = getEvalBadgeClass(norm);
+      return '<span class="eval-badge eval-badge-' + cls + '">' + norm + '</span>';
     }
-    
-    if (s.length <= 15) {
-      return '<span class="eval-badge eval-badge-' + getEvalBadgeClass(s) + '">' + escapeHtml(s) + '</span>';
-    }
-
-    return '<span class="eval-badge eval-badge-na" title="' + escapeHtml(s) + '">' + escapeHtml(s.slice(0, 20)) + '...</span>';
+    return '<span class="eval-badge eval-badge-na" title="' + escapeHtml(s) + '">' + escapeHtml(s.slice(0, 20)) + (s.length > 20 ? '...' : '') + '</span>';
   }
 
   function getEvalBadgeClass(rating) {
     if (!rating) return 'na';
-    const r = rating.toString().toUpperCase().trim();
-    if (r.startsWith('PE') || r === '5' || r.includes('EXCEPTI')) return 'pe';
-    if (r.startsWith('PS') || r === '4' || r.includes('SUPERIE')) return 'ps';
-    if (r.startsWith('CA') || r === '3' || r.includes('CONFORM')) return 'ca';
-    if (r.startsWith('PA') || r === '2' || r.includes('AMELIOR') || r.includes('AMÉLIOR')) return 'pa';
-    if (r.startsWith('PI') || r === '1' || r.includes('INSATIS')) return 'pi';
+    const norm = normalizeRatingValue(rating);
+    if (norm === 'EXCEPTI') return 'pe';
+    if (norm === 'SUPERIE') return 'ps';
+    if (norm === 'CONFORM') return 'ca';
+    if (norm === 'AMELIOR') return 'pa';
+    if (norm === 'INSATIS') return 'pi';
     return 'na';
   }
 
   function formatDashboardRating(val) {
     if (!val) return '<span class="text-muted">-</span>';
     const s = String(val).trim();
-    const upper = s.toUpperCase();
-    let cls = getEvalBadgeClass(s);
-    let detectedGrade = '';
-
-    if (upper.includes('EXCEPTI') || upper.startsWith('5') || upper.startsWith('PE')) { detectedGrade = '5 - EXCEPTI'; cls = 'pe'; }
-    else if (upper.includes('SUPERIE') || upper.startsWith('4') || upper.startsWith('PS')) { detectedGrade = '4 - SUPERIE'; cls = 'ps'; }
-    else if (upper.includes('CONFORM') || upper.startsWith('3') || upper.startsWith('CA')) { detectedGrade = '3 - CONFORM'; cls = 'ca'; }
-    else if (upper.includes('AMELIOR') || upper.includes('AMÉLIOR') || upper.startsWith('2') || upper.startsWith('PA')) { detectedGrade = '2 - AMELIOR'; cls = 'pa'; }
-    else if (upper.includes('INSATIS') || upper.startsWith('1') || upper.startsWith('PI')) { detectedGrade = '1 - INSATIS'; cls = 'pi'; }
-
-    if (detectedGrade) {
-      return '<span class="eval-badge eval-badge-' + cls + '" title="' + escapeHtml(s) + '">' + detectedGrade + '</span>';
+    if (!s || s === '-') return '<span class="text-muted">-</span>';
+    const lines = s.split('\n');
+    const norm = normalizeRatingValue(lines[0].trim());
+    if (norm) {
+      const cls = getEvalBadgeClass(norm);
+      return '<span class="eval-badge eval-badge-' + cls + '">' + norm + '</span>';
     }
-
     if (s.length <= 25) {
-      return '<span class="eval-badge eval-badge-' + cls + '">' + escapeHtml(s) + '</span>';
+      return '<span style="font-size:12px; color:var(--text-muted);">' + escapeHtml(s) + '</span>';
     }
-
     return '<span title="' + escapeHtml(s) + '" style="font-size:12px; color:var(--text-muted); cursor:help;">' + escapeHtml(s.substring(0, 25)) + '...</span>';
   }
 
@@ -3126,19 +3105,15 @@
     const str = String(raw).trim();
     if (!str) return { grade: '', comment: '' };
 
-    const norm = normalizeRatingValue(str);
-    const validRatings = ['EXCEPTI', 'SUPERIE', 'CONFORM', 'AMELIOR', 'INSATIS', 'NONAPPL'];
-
-    if (str.length <= 25 && validRatings.includes(norm)) {
-      return { grade: norm, comment: '' };
+    // Une note n'est reconnue QUE si la première ligne correspond exactement à une valeur du choix multiple
+    const lines = str.split('\n');
+    const firstNorm = normalizeRatingValue(lines[0].trim());
+    if (firstNorm) {
+      const rest = lines.slice(1).join('\n').trim();
+      return { grade: firstNorm, comment: rest };
     }
 
-    if (validRatings.includes(norm)) {
-      let comm = str.replace(/^(5\s*-\s*EXCEPTI|4\s*-\s*SUPERIE|3\s*-\s*CONFORM|2\s*-\s*AMELIOR|1\s*-\s*INSATIS|NONAPPL|EXCEPTI|SUPERIE|CONFORM|AMELIOR|INSATIS|PE|PS|CA|PA|PI|N\/A)[:\s\-\n]*/i, '').trim();
-      return { grade: norm, comment: comm };
-    }
-
-    // Réponse antérieure en texte libre : considérée comme un commentaire
+    // Sinon, c'est purement du texte saisi : aucun badge de note, tout est commentaire
     return { grade: '', comment: str };
   }
 
@@ -5105,26 +5080,24 @@
                        function formatRatingBadgeOrText(val) {
               if (!val) return '<span class="text-muted">-</span>';
               const s = String(val).trim();
-              const upper = s.toUpperCase();
-              let cls = getEvalBadgeClass(s);
-              
-              if (s.length <= 15) {
-                return '<span class="eval-badge eval-badge-' + cls + '">' + escapeHtml(s) + '</span>';
+              if (!s || s === '-') return '<span class="text-muted">-</span>';
+
+              const norm = normalizeRatingValue(s);
+              if (norm) {
+                const cls = getEvalBadgeClass(norm);
+                return '<span class="eval-badge eval-badge-' + cls + '">' + escapeHtml(norm) + '</span>';
               }
-              
-              let detectedGrade = '';
-              if (upper.includes('EXCEPTI') || upper.startsWith('5')) { detectedGrade = '5 - EXCEPTI'; cls = 'pe'; }
-              else if (upper.includes('SUPERIE') || upper.startsWith('4')) { detectedGrade = '4 - SUPERIE'; cls = 'ps'; }
-              else if (upper.includes('CONFORM') || upper.startsWith('3')) { detectedGrade = '3 - CONFORM'; cls = 'ca'; }
-              else if (upper.includes('AMELIOR') || upper.includes('AMÉLIOR') || upper.startsWith('2')) { detectedGrade = '2 - AMELIOR'; cls = 'pa'; }
-              else if (upper.includes('INSATIS') || upper.startsWith('1')) { detectedGrade = '1 - INSATIS'; cls = 'pi'; }
-              
-              let res = '';
-              if (detectedGrade) {
-                res += '<span class="eval-badge eval-badge-' + cls + '" style="margin-bottom:6px;">' + detectedGrade + '</span>';
+
+              const lines = s.split('\n');
+              const firstNorm = normalizeRatingValue(lines[0].trim());
+              if (firstNorm) {
+                const cls = getEvalBadgeClass(firstNorm);
+                const rest = lines.slice(1).join('\n').trim();
+                return '<span class="eval-badge eval-badge-' + cls + '" style="margin-bottom:6px;">' + firstNorm + '</span>' +
+                       (rest ? '<div style="line-height:1.45; word-break:break-word;">' + escapeHtml(rest).replace(/\n/g, '<br>') + '</div>' : '');
               }
-              res += '<div style="line-height:1.45; word-break:break-word;">' + escapeHtml(s).replace(/\n/g, '<br>') + '</div>';
-              return res;
+
+              return '<div style="line-height:1.45; word-break:break-word;">' + escapeHtml(s).replace(/\n/g, '<br>') + '</div>';
             }
 
             const formatSecSynthRating = () => {
