@@ -2038,6 +2038,8 @@ function getEvaluationConfig(token) {
     const colDesc = headerRow.indexOf('description');
     const colType = headerRow.indexOf('type');
     const colOptions = headerRow.indexOf('options');
+    const colObligatoire = headerRow.findIndex(h => h.includes('obligatoire') || h.includes('requis'));
+    const colCommentaires = headerRow.findIndex(h => h.includes('commentaire'));
 
     // Si la colonne 'Page' n'existe pas encore dans la feuille Google Sheets, l'ajouter immédiatement
     if (colPage === -1) {
@@ -2123,6 +2125,12 @@ function getEvaluationConfig(token) {
                        .replace(/\bPI\b/g, 'INSATIS')
                        .replace(/\bN\/A\b/g, 'NONAPPL');
 
+      const isReqVal = colObligatoire !== -1 ? String(row[colObligatoire] || '').trim().toLowerCase() : '';
+      const required = (isReqVal === '' || isReqVal === 'oui' || isReqVal === 'true' || isReqVal === '1');
+
+      const isCommVal = colCommentaires !== -1 ? String(row[colCommentaires] || '').trim().toLowerCase() : '';
+      const allowComments = (isCommVal === '') ? (type === 'scale' || type === 'boolean') : (isCommVal === 'oui' || isCommVal === 'true' || isCommVal === '1');
+
       config[prof].push({
         text: text,
         description: desc,
@@ -2130,21 +2138,53 @@ function getEvaluationConfig(token) {
         options: options,
         page: page,
         pageTitle: pageTitle,
-        order: order
+        order: order,
+        required: required,
+        allowComments: allowComments
       });
     }
 
-    // Auto-fusion de la conclusion si absente de la feuille
+    // Auto-fusion et réalignement de la conclusion (Performance Globale toujours en 1ère position)
     if (!config['conclusion'] || config['conclusion'].length === 0) {
       config['conclusion'] = defaultConfig['conclusion'];
-    } else if (config['conclusion'] && config['conclusion'].length >= 5) {
-      // Rétablir les 2 pages standard et titres si besoin
-      const allPage1 = config['conclusion'].every(q => (parseInt(q.page, 10) || 1) === 1);
-      if (allPage1) {
+    } else {
+      if (config['conclusion'].length >= 5) {
+        const allPage1 = config['conclusion'].every(q => (parseInt(q.page, 10) || 1) === 1);
+        if (allPage1) {
+          config['conclusion'].forEach((q, idx) => {
+            q.page = (idx >= 4) ? 2 : 1;
+            if (!q.pageTitle) {
+              q.pageTitle = (idx >= 4) ? 'Plan de Développement & Objectifs SMART' : 'Bilan & Performance Globale';
+            }
+          });
+        }
+      }
+
+      // S'assurer que l'Appréciation de la Performance Globale est bien en question 1
+      const gIdx = config['conclusion'].findIndex(q => {
+        const t = String(q.text || '').toLowerCase();
+        return t.includes('performance globale') || t.includes('note globale') || t.includes('appréciation globale');
+      });
+      if (gIdx > -1) {
+        const [gQ] = config['conclusion'].splice(gIdx, 1);
+        gQ.page = 1;
+        gQ.type = 'scale';
+        if (!gQ.options || !gQ.options.includes('INSATIS')) {
+          gQ.options = "INSATIS, AMELIOR, CONFORM, SUPERIE, EXCEPTI, NONAPPL";
+        }
+        let cleanText = String(gQ.text || '').replace(/^\s*\d+[\.\)]\s*/, '').trim();
+        if (!cleanText.toLowerCase().includes('globale')) cleanText = 'Appréciation de la Performance Globale';
+        gQ.text = '1. ' + cleanText;
+        config['conclusion'].unshift(gQ);
+
+        let p1Counter = 2;
         config['conclusion'].forEach((q, idx) => {
-          q.page = (idx >= 4) ? 2 : 1;
-          if (!q.pageTitle) {
-            q.pageTitle = (idx >= 4) ? 'Plan de Développement & Objectifs SMART' : 'Bilan & Performance Globale';
+          if (idx === 0) return;
+          const p = parseInt(q.page, 10) || 1;
+          if (p === 1) {
+            let cl = String(q.text || '').replace(/^\s*\d+[\.\)]\s*/, '').trim();
+            q.text = p1Counter + '. ' + cl;
+            p1Counter++;
           }
         });
       }
@@ -2187,12 +2227,12 @@ function saveEvaluationConfig(token, config) {
   }
 
   sheet.clear();
-  const headers = ['Profil', 'Base Associée', 'Page', 'Titre Page', 'Ordre', 'Question', 'Description', 'Type', 'Options'];
+  const headers = ['Profil', 'Base Associée', 'Page', 'Titre Page', 'Ordre', 'Question', 'Description', 'Type', 'Options', 'Obligatoire', 'Commentaires'];
   sheet.appendRow(headers);
   sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold').setBackground('#f3f3f3');
 
   const rowsToAdd = [];
-  const defaultScale = "PI, PA, CA, PS, PE, N/A";
+  const defaultScale = "INSATIS, AMELIOR, CONFORM, SUPERIE, EXCEPTI, NONAPPL";
 
   for (let profile in config) {
     if (profile.startsWith('_') || !Array.isArray(config[profile])) continue;
@@ -2209,7 +2249,9 @@ function saveEvaluationConfig(token, config) {
           q.text || '',
           q.description || '',
           q.type || 'scale',
-          q.options || defaultScale
+          q.options || defaultScale,
+          q.required !== false ? 'Oui' : 'Non',
+          q.allowComments !== false ? 'Oui' : 'Non'
         ]);
       });
     }

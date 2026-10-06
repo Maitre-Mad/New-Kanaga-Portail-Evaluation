@@ -3315,6 +3315,13 @@
         return;
       }
 
+      // Ignorer la validation si la question est non obligatoire / optionnelle
+      const isQReq = (q.required !== false && q.required !== 'Non' && q.required !== 'false' && q.optional !== true && q.isOptional !== true);
+      if (!isQReq) {
+        clearQuestionError(prefix, idx);
+        return;
+      }
+
       const answered = isQuestionAnswered(prefix, idx, q.type);
       if (!answered) {
         setQuestionError(prefix, idx);
@@ -3509,9 +3516,12 @@
           return; // Skip the rest of the rendering for this item
       }
 
+      const isQuestionReq = (q.required !== false && q.required !== 'Non' && q.required !== 'false' && q.optional !== true && q.isOptional !== true);
+      const optBadge = isQuestionReq ? '' : ' <span class="badge" style="font-size:11px; font-weight:600; color:#B45309; background:#FEF3C7; border:1px solid #FDE68A; margin-left:6px; vertical-align:middle;">Optionnel</span>';
+
       html += `<div class="eval-grid-row" id="row-${prefix}-${idx}" data-page="${q.page || 1}">
                  <div class="eval-grid-question">
-                    ${text}
+                    ${text}${optBadge}
                     ${desc}
                  </div>
                  ${collabSummaryHtml}
@@ -3547,8 +3557,9 @@
         Veuillez répondre à cette question pour continuer.
       </div>`;
 
-      // Commentaires collaborateur et évaluateur
-      if (q.type === 'scale' || q.type === 'boolean') {
+      // Commentaires collaborateur et évaluateur (activé par défaut, désactivable)
+      const isCommAllowed = (q.allowComments !== false && q.allowComments !== 'Non' && q.allowComments !== 'false');
+      if ((q.type === 'scale' || q.type === 'boolean') && isCommAllowed) {
           html += `<div class="eval-question-comments">`;
           if (window.evalCurrentMode === 'Évaluation Manager') {
               html += `
@@ -5996,158 +6007,349 @@
       const btnDelete = document.getElementById('btn-delete-profile');
       const btnRename = document.getElementById('btn-rename-profile');
       const btnDuplicate = document.getElementById('btn-duplicate-profile');
+      const btnResetConc = document.getElementById('btn-reset-conclusion');
       
       const isFonda = (profile === 'fondamentales');
       const isConclusion = (profile === 'conclusion');
       const isProtected = isFonda || isConclusion;
       if (btnDelete) btnDelete.style.display = isProtected ? 'none' : 'inline-block';
       if (btnRename) btnRename.style.display = isProtected ? 'none' : 'inline-block';
-      if (btnDuplicate) btnDuplicate.style.display = isProtected ? 'none' : 'inline-block';
-      
-      if (titleEl) {
-        if (isFonda) {
-          titleEl.textContent = "Section 1 : " + (currentEvaluationStepTitles.step2 || "Tronc Commun") + " - Compétences Fondamentales";
-        } else if (isConclusion) {
-          titleEl.textContent = "Section 3 : " + (currentEvaluationStepTitles.step4 || "Conclusion Commune") + " - Objectifs & Synthèse Globale";
-        } else {
-          titleEl.textContent = (currentEvaluationStepTitles.step3 || "Aiguillage Spécifique") + `: Profil "${profile}"`;
-        }
+      if (btnDuplicate) btnDuplicate.style.display = 'inline-block';
+      if (btnResetConc) btnResetConc.style.display = isConclusion ? 'inline-block' : 'none';
+
+      const sectionMeta = {
+          'fondamentales': { title: '1. Compétences Fondamentales', desc: 'Questions communes et obligatoires pour tous les collaborateurs (Section 1)' },
+          'conclusion': { title: '3. Conclusion & Évaluation Globale', desc: '1. Performance Globale (choix multiple + commentaires), 2. Bilan objectifs, 3. Points forts, 4. Améliorations, 5. Nouveaux Objectifs SMART' }
+      };
+
+      if (sectionMeta[profile]) {
+          if (titleEl) titleEl.innerText = sectionMeta[profile].title;
+          if (descEl) descEl.innerText = sectionMeta[profile].desc;
+      } else {
+          if (titleEl) titleEl.innerText = '2. Compétences Spécifiques : ' + (getProfileLabel(profile) || profile);
+          if (descEl) descEl.innerText = 'Questions adaptées au métier ou profil sélectionné (Section 2)';
       }
-      if (descEl) {
-        if (isFonda) {
-          descEl.textContent = "Section commune : Posée obligatoirement à tous les collaborateurs, quel que soit leur métier.";
-        } else if (isConclusion) {
-          descEl.textContent = "Page finale commune remplie après l'évaluation du profil spécifique par tous les collaborateurs et managers.";
-        } else {
-          descEl.textContent = `Posée uniquement aux collaborateurs avec le profil "${profile}".`;
-        }
+
+      if (!adminEvalConfigData || !adminEvalConfigData[profile]) {
+          if (adminEvalConfigData) adminEvalConfigData[profile] = [];
       }
+      let questions = adminEvalConfigData[profile] || [];
+
+      // Si Section 3 Conclusion : garantir que 1. Appréciation de la Performance Globale est bien en 1ère position
+      if (isConclusion && questions.length > 0) {
+          const perfIdx = questions.findIndex(q => (q.text && q.text.toLowerCase().includes('performance globale')));
+          if (perfIdx > 0) {
+              const [perfQ] = questions.splice(perfIdx, 1);
+              questions.unshift(perfQ);
+          }
+      }
+
+      // Pagination
+      const pageNums = Array.from(new Set(questions.map(q => parseInt(q.page, 10) || 1))).sort((a,b) => a - b);
+      if (pageNums.length === 0) pageNums.push(1);
+      if (!pageNums.includes(adminCurrentPage)) adminCurrentPage = pageNums[0];
+
+      // Mise à jour de la barre d'onglets de pagination
+      const tabsContainer = document.getElementById('admin-pages-tabs-container');
+      if (tabsContainer) {
+          tabsContainer.innerHTML = '';
+          pageNums.forEach(p => {
+              const pCount = questions.filter(q => (parseInt(q.page, 10) || 1) === p).length;
+              const pQWithTitle = questions.find(q => (parseInt(q.page, 10) || 1) === p && q.pageTitle);
+              const pTitle = pQWithTitle ? pQWithTitle.pageTitle.trim() : '';
+              const tabLabel = pTitle ? `Page ${p} : ${pTitle} (${pCount})` : `Page ${p} (${pCount})`;
+              const btn = document.createElement('button');
+              btn.type = 'button';
+              btn.className = 'btn';
+              btn.style.cssText = `padding: 5px 12px; font-size: 12px; font-weight: 600; border-radius: 4px; cursor: pointer; ` +
+                (p === adminCurrentPage
+                  ? `background: var(--primary-color); color: white; border: 1px solid var(--primary-color);`
+                  : `background: white; color: #4A5568; border: 1px solid #CBD5E0;`);
+              btn.textContent = tabLabel;
+              btn.title = pTitle ? `Page ${p} : ${pTitle}` : `Page ${p}`;
+              btn.onclick = function() {
+                adminCurrentPage = p;
+                renderAdminFormBuilder();
+              };
+              tabsContainer.appendChild(btn);
+          });
+      }
+
+      // Champ du titre de page pour la page courante
+      const pageTitleInput = document.getElementById('admin-page-title-input');
+      if (pageTitleInput) {
+          pageTitleInput.value = getCurrentAdminPageTitle(profile, adminCurrentPage);
+      }
+
+      const pageQuestions = questions.filter(q => (parseInt(q.page, 10) || 1) === adminCurrentPage);
+      if (badgeEl) badgeEl.innerText = `${questions.length} question(s) au total (${pageQuestions.length} sur Page ${adminCurrentPage})`;
 
       if (!container) return;
       container.innerHTML = '';
-      
-      if (!adminEvalConfigData || !adminEvalConfigData[profile]) {
-        container.innerHTML = '<p class="text-muted" style="padding:10px;">Section introuvable.</p>';
-        return;
-      }
-      
-      const questions = adminEvalConfigData[profile];
-      questions.forEach(q => { q.page = parseInt(q.page, 10) || 1; });
 
-      // Gestion des pages du profil
-      let pageNums = Array.from(new Set(questions.map(q => q.page))).sort((a,b) => a - b);
-      if (pageNums.length === 0) pageNums = [1];
-      if (!pageNums.includes(adminCurrentPage)) {
-        adminCurrentPage = pageNums[0] || 1;
-      }
-
-      // Rendu des onglets de page dans la barre d'administration
-      const tabsContainer = document.getElementById('admin-pages-tabs-container');
-      if (tabsContainer) {
-        tabsContainer.innerHTML = '';
-        pageNums.forEach(p => {
-          const pCount = questions.filter(q => q.page === p).length;
-          const pQWithTitle = questions.find(q => q.page === p && q.pageTitle);
-          const pTitle = pQWithTitle ? pQWithTitle.pageTitle.trim() : '';
-          const tabLabel = pTitle ? `Page ${p} : ${pTitle} (${pCount})` : `Page ${p} (${pCount})`;
-          const btn = document.createElement('button');
-          btn.type = 'button';
-          btn.className = 'btn';
-          btn.style.cssText = `padding: 5px 12px; font-size: 12px; font-weight: 600; border-radius: 4px; cursor: pointer; ` +
-            (p === adminCurrentPage
-              ? `background: var(--primary-color); color: white; border: 1px solid var(--primary-color);`
-              : `background: white; color: #4A5568; border: 1px solid #CBD5E0;`);
-          btn.textContent = tabLabel;
-          btn.title = pTitle ? `Page ${p} : ${pTitle}` : `Page ${p}`;
-          btn.onclick = function() {
-            adminCurrentPage = p;
-            renderAdminFormBuilder();
-          };
-          tabsContainer.appendChild(btn);
-        });
-      }
-
-      // Synchroniser le champ de titre de la page active
-      const pageTitleInput = document.getElementById('admin-page-title-input');
-      if (pageTitleInput) {
-        const curQWithTitle = questions.find(q => q.page === adminCurrentPage && q.pageTitle);
-        pageTitleInput.value = curQWithTitle ? (curQWithTitle.pageTitle || '') : '';
-      }
-
-      const btnDeletePage = document.getElementById('btn-delete-page');
-      if (btnDeletePage) {
-        btnDeletePage.style.display = (pageNums.length > 1) ? 'inline-block' : 'none';
-      }
-
-      const pageQuestions = questions.filter(q => q.page === adminCurrentPage);
-
-      if (badgeEl) {
-        badgeEl.textContent = `${questions.length} question(s) au total (Page ${adminCurrentPage} : ${pageQuestions.length})`;
+      if (isConclusion) {
+          const banner = document.createElement('div');
+          banner.style.cssText = "background:#EFF6FF; border:1px solid #BFDBFE; border-left:4px solid #2563EB; border-radius:8px; padding:12px 16px; margin-bottom:15px; font-size:13px; color:#1E40AF;";
+          banner.innerHTML = `
+              <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+                  <div>
+                      <strong>⭐ Structure Standard de la Conclusion :</strong><br>
+                      <span>1. Performance Globale (Choix multiple avec commentaires) &bull; 2. Bilan objectifs &bull; 3. Points forts &bull; 4. Améliorations &bull; 5. Objectifs SMART</span>
+                  </div>
+                  <button type="button" class="btn btn-outline" style="font-size:12px; padding:4px 10px; background:#FFFFFF; border-color:#2563EB; color:#2563EB;" onclick="resetConclusionToStandardOrder()">
+                      🔄 Réaligner Conclusion Officielle
+                  </button>
+              </div>`;
+          container.appendChild(banner);
       }
 
       if (pageQuestions.length === 0) {
-          container.innerHTML = `
-            <div style="text-align:center; padding:30px 15px; color:#718096;">
-              <p style="font-size:14px; margin-bottom:6px;">Aucune question sur la <strong>Page ${adminCurrentPage}</strong>.</p>
-              <p style="font-size:12px;">Cliquez sur <strong>"+ Ajouter une question à cette section"</strong> ci-dessous pour ajouter une question sur cette page.</p>
-            </div>
-          `;
+          const emptyDiv = document.createElement('div');
+          emptyDiv.style.cssText = "text-align:center; padding:35px 20px; background:#FAF6EE; border:2px dashed #E0CC99; border-radius:10px; margin:15px 0;";
+          emptyDiv.innerHTML = `
+              <div style="font-size:32px; margin-bottom:8px;">📝</div>
+              <h4 style="color:#5D4037; margin:0 0 6px 0;">Aucune question sur la Page ${adminCurrentPage}</h4>
+              <p style="color:#8D6E63; font-size:13px; margin:0 0 15px 0;">Cliquez ci-dessous pour ajouter votre première question interactive sur cette page.</p>
+              <button type="button" class="btn btn-primary" onclick="addAdminFormQuestion()" style="padding:7px 16px;">
+                  + Ajouter une Question
+              </button>`;
+          container.appendChild(emptyDiv);
           return;
       }
-      
+
       pageQuestions.forEach((q) => {
           const globalIdx = questions.indexOf(q);
-          const card = document.createElement('div');
-          card.className = 'admin-q-card';
-          
-          let optionsHtml = '';
-          if (q.type === 'scale') {
-              optionsHtml = `
-              <div style="margin-top:10px; background:#FAF6EE; padding:10px; border-radius:6px; border:1px solid #E0CC99;">
-                  <label style="font-size:12px; font-weight:600; color:#5D4037; display:block; margin-bottom:4px;">Options du barème de notation (séparées par des virgules) :</label>
-                  <input type="text" class="form-control" value="${escapeHtml(q.options || 'INSATIS, AMELIOR, CONFORM, SUPERIE, EXCEPTI, NONAPPL')}" onchange="updateAdminQuestion(${globalIdx}, 'options', this.value)" placeholder="ex: INSATIS, AMELIOR, CONFORM, SUPERIE, EXCEPTI, NONAPPL">
-              </div>`;
-          }
-          
-          const isFirst = (pageQuestions.indexOf(q) === 0);
-          const isLast = (pageQuestions.indexOf(q) === pageQuestions.length - 1);
+          const isPerfQ = isConclusion && (globalIdx === 0 || (q.text && q.text.toLowerCase().includes('performance globale')));
+          const isRequired = (q.required !== false && q.required !== 'Non' && q.required !== 'false' && q.optional !== true && q.isOptional !== true);
+          const isScaleOrBool = (q.type === 'scale' || q.type === 'boolean');
+          const allowComments = (q.allowComments !== false && q.allowComments !== 'Non' && q.allowComments !== 'false');
 
           let maxPageInList = Math.max(...pageNums, 1);
           let pageSelectOptions = '';
           for (let p = 1; p <= Math.max(maxPageInList, 2); p++) {
-            pageSelectOptions += `<option value="${p}" ${p === (q.page || 1) ? 'selected' : ''}>Page ${p}</option>`;
+              pageSelectOptions += `<option value="${p}" ${p === (parseInt(q.page, 10) || 1) ? 'selected' : ''}>Page ${p}</option>`;
           }
           pageSelectOptions += `<option value="new">+ Page ${maxPageInList + 1}</option>`;
 
+          const card = document.createElement('div');
+          card.className = 'admin-q-card';
+          card.style.cssText = "background:#FFFFFF; border:1px solid #E2E8F0; border-radius:10px; padding:16px; margin-bottom:14px; box-shadow:0 1px 3px rgba(0,0,0,0.05); transition:all 0.2s;";
+          card.id = `admin-q-${globalIdx}`;
+
           card.innerHTML = `
-            <div class="admin-q-header">
-               <span class="admin-q-num">#${globalIdx + 1}</span>
-               <input type="text" class="form-control" style="flex:1; font-weight:600;" value="${escapeHtml(q.text)}" onchange="updateAdminQuestion(${globalIdx}, 'text', this.value)" placeholder="Titre de la compétence ou question *">
-               <select class="form-control" style="width:170px;" onchange="updateAdminQuestion(${globalIdx}, 'type', this.value)">
-                  <option value="scale" ${q.type === 'scale' ? 'selected' : ''}>Choix Multiple (Barème)</option>
-                  <option value="text" ${q.type === 'text' ? 'selected' : ''}>Texte libre</option>
-                  <option value="boolean" ${q.type === 'boolean' ? 'selected' : ''}>Oui / Non</option>
-                  <option value="section" ${q.type === 'section' ? 'selected' : ''}>Section (Titre / Séparateur)</option>
-               </select>
-               <div style="display:inline-flex; align-items:center; gap:6px; background:#FAF6EE; border:1px solid #E0CC99; border-radius:6px; padding:2px 8px; flex-shrink:0;">
-                 <span style="font-size:11px; font-weight:700; color:#5D4037; text-transform:uppercase; letter-spacing:0.3px; white-space:nowrap;">Page :</span>
-                 <select class="form-control" style="width:auto; min-width:85px; font-size:12px; font-weight:700; color:#5D4037; height:28px; padding:2px 6px; background:#fff; border:1px solid #CBD5E0;" onchange="changeQuestionPage(${globalIdx}, this.value)" title="Assigner cette question à une page spécifique">
-                    ${pageSelectOptions}
-                 </select>
-               </div>
-               <div class="admin-q-actions">
-                 <button type="button" class="btn-q-tool" ${isFirst ? 'disabled style="opacity:0.3; cursor:not-allowed;"' : `onclick="moveAdminQuestion(${globalIdx}, -1)"`} title="Monter">↑</button>
-                 <button type="button" class="btn-q-tool" ${isLast ? 'disabled style="opacity:0.3; cursor:not-allowed;"' : `onclick="moveAdminQuestion(${globalIdx}, 1)"`} title="Descendre">↓</button>
-                 <button type="button" class="btn-q-tool btn-q-del" onclick="deleteAdminFormQuestion(${globalIdx})" title="Supprimer">Supprimer</button>
-               </div>
+            <!-- En-tête de la Question -->
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:1px solid #F1F5F9; padding-bottom:10px; flex-wrap:wrap; gap:8px;">
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                    <span style="background:#5D4037; color:#FFFFFF; border-radius:6px; padding:2px 8px; font-weight:700; font-size:12px;">#${globalIdx + 1}</span>
+                    <span style="font-weight:700; color:#1E293B; font-size:14px;">${escapeHtml(q.text || 'Question sans titre')}</span>
+                    ${isRequired 
+                        ? '<span class="badge" style="background:#DCFCE7; color:#15803D; border:1px solid #BBF7D0; font-size:11px;">✓ Obligatoire</span>' 
+                        : '<span class="badge" style="background:#FEF3C7; color:#B45309; border:1px solid #FDE68A; font-size:11px;">⚪ Optionnel</span>'}
+                    ${isPerfQ 
+                        ? '<span class="badge" style="background:#FEF9C3; color:#854D0E; border:1px solid #F59E0B; font-size:11px; font-weight:700;">⭐ Note Globale Initiale</span>' 
+                        : ''}
+                </div>
+                <div style="display:flex; align-items:center; gap:6px;">
+                    <div style="display:inline-flex; align-items:center; gap:4px; background:#FAF6EE; border:1px solid #E0CC99; border-radius:6px; padding:2px 6px;">
+                        <span style="font-size:11px; font-weight:700; color:#5D4037;">Page :</span>
+                        <select class="form-control" style="width:auto; min-width:80px; font-size:11px; height:26px; padding:1px 4px;" onchange="changeQuestionPage(${globalIdx}, this.value)">
+                            ${pageSelectOptions}
+                        </select>
+                    </div>
+                    <button type="button" class="btn btn-outline" style="padding:3px 8px; font-size:11px;" onclick="moveAdminQuestion(${globalIdx}, -1)" title="Monter">⬆️</button>
+                    <button type="button" class="btn btn-outline" style="padding:3px 8px; font-size:11px;" onclick="moveAdminQuestion(${globalIdx}, 1)" title="Descendre">⬇️</button>
+                    <button type="button" class="btn btn-outline" style="padding:3px 8px; font-size:11px; color:#DC2626; border-color:#FCA5A5;" onclick="deleteAdminFormQuestion(${globalIdx})" title="Supprimer">🗑️</button>
+                </div>
             </div>
-            <div>
-               <input type="text" class="form-control" style="width:100%; font-size:13px;" value="${escapeHtml(q.description || '')}" onchange="updateAdminQuestion(${globalIdx}, 'description', this.value)" placeholder="Description, consignes ou critères attendus (Optionnel)">
+
+            <!-- Ligne 1 : Intitulé et Description -->
+            <div style="display:grid; grid-template-columns: 2fr 1.5fr; gap:12px; margin-bottom:12px;">
+                <div>
+                    <label style="font-size:12px; font-weight:600; color:#475569; display:block; margin-bottom:4px;">Intitulé de la question / compétence :</label>
+                    <input type="text" class="form-control" value="${escapeHtml(q.text || '')}" onchange="updateAdminQuestion(${globalIdx}, 'text', this.value)" placeholder="Ex: 1. Qualité du travail rendu...">
+                </div>
+                <div>
+                    <label style="font-size:12px; font-weight:600; color:#475569; display:block; margin-bottom:4px;">Description / Critères d'évaluation :</label>
+                    <input type="text" class="form-control" value="${escapeHtml(q.description || '')}" onchange="updateAdminQuestion(${globalIdx}, 'description', this.value)" placeholder="Ex: Rigueur, respect des délais, précision...">
+                </div>
             </div>
-            ${optionsHtml}
+
+            <!-- Ligne 2 : Type de Réponse & Options -->
+            <div style="display:grid; grid-template-columns: 1fr 1.5fr; gap:12px; margin-bottom:12px;">
+                <div>
+                    <label style="font-size:12px; font-weight:600; color:#475569; display:block; margin-bottom:4px;">Format de réponse :</label>
+                    <select class="form-control" onchange="updateAdminQuestion(${globalIdx}, 'type', this.value)">
+                        <option value="scale" ${q.type === 'scale' ? 'selected' : ''}>📊 Choix multiple / Barème (Notes)</option>
+                        <option value="text" ${q.type === 'text' ? 'selected' : ''}>📝 Texte libre / Paragraphe</option>
+                        <option value="boolean" ${q.type === 'boolean' ? 'selected' : ''}>⚖️ Oui / Non (Binaire)</option>
+                        <option value="section" ${q.type === 'section' ? 'selected' : ''}>📌 Section (Titre / Séparateur)</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size:12px; font-weight:600; color:#475569; display:block; margin-bottom:4px;">
+                        ${isScaleOrBool ? 'Options / Valeurs possibles (séparées par des virgules) :' : 'Options supplémentaires (optionnel) :'}
+                    </label>
+                    <input type="text" class="form-control" value="${escapeHtml(q.options || '')}" onchange="updateAdminQuestion(${globalIdx}, 'options', this.value)" placeholder="${q.type === 'scale' ? 'EXCEPTI,TRESBON,CONFORM,AMELIOR,INSATIS,NONAPPL' : 'Optionnel...'}">
+                    ${q.type === 'scale' ? `
+                    <div style="display:flex; gap:6px; margin-top:5px; flex-wrap:wrap;">
+                        <button type="button" class="btn btn-outline" style="font-size:10px; padding:2px 6px;" onclick="updateAdminQuestion(${globalIdx}, 'options', 'EXCEPTI,TRESBON,CONFORM,AMELIOR,INSATIS,NONAPPL')">🏷️ Barème Kanaga</button>
+                        <button type="button" class="btn btn-outline" style="font-size:10px; padding:2px 6px;" onclick="updateAdminQuestion(${globalIdx}, 'options', '1,2,3,4,5')">🔢 Échelle 1 à 5</button>
+                    </div>` : ''}
+                </div>
+            </div>
+
+            <!-- Ligne 3 : Contrôles Interactifs (Obligatoire / Commentaires / Aperçu) -->
+            <div style="background:#F8FAFC; border:1px solid #E2E8F0; border-radius:8px; padding:10px 14px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+                    <!-- Toggle Obligatoire -->
+                    <label style="display:inline-flex; align-items:center; gap:6px; cursor:pointer; font-size:13px; font-weight:600; color:#1E293B; margin:0;">
+                        <input type="checkbox" ${isRequired ? 'checked' : ''} onchange="toggleAdminQuestionRequired(${globalIdx}, this.checked)" style="width:16px; height:16px; accent-color:#059669; cursor:pointer;">
+                        <span>Champ Obligatoire</span>
+                        <span style="font-size:11px; font-weight:normal; color:#64748B;">(requis pour soumettre)</span>
+                    </label>
+
+                    <!-- Toggle Commentaires (pour scale & boolean) -->
+                    ${isScaleOrBool ? `
+                    <label style="display:inline-flex; align-items:center; gap:6px; cursor:pointer; font-size:13px; font-weight:600; color:#1E293B; margin:0;">
+                        <input type="checkbox" ${allowComments ? 'checked' : ''} onchange="toggleAdminQuestionComments(${globalIdx}, this.checked)" style="width:16px; height:16px; accent-color:#2563EB; cursor:pointer;">
+                        <span>💬 Zone de Commentaires</span>
+                        <span style="font-size:11px; font-weight:normal; color:#64748B;">(Auto-évaluation & Évaluateur)</span>
+                    </label>` : ''}
+                </div>
+
+                <!-- Bouton Aperçu Interactif -->
+                <button type="button" class="btn btn-outline" style="font-size:12px; padding:3px 10px; color:#475569;" onclick="toggleAdminQuestionPreview(${globalIdx})">
+                    👁️ Aperçu direct
+                </button>
+            </div>
+
+            <!-- Boîte d'aperçu dépliable -->
+            <div id="admin-preview-box-${globalIdx}" style="display:none; margin-top:12px; background:#FAF6EE; border:1px dashed #D4A373; border-radius:8px; padding:12px 14px;">
+                <div style="font-size:11px; font-weight:700; color:#8D6E63; text-transform:uppercase; margin-bottom:6px;">Aperçu du rendu dans le formulaire :</div>
+                <div style="font-weight:600; font-size:13px; color:#2D3748;">
+                    ${escapeHtml(q.text || 'Question')} 
+                    ${isRequired ? '<span style="color:#DC2626;">*</span>' : '<span style="font-size:11px; color:#B45309; background:#FEF3C7; padding:1px 6px; border-radius:4px; margin-left:4px;">Optionnel</span>'}
+                </div>
+                ${q.description ? `<div style="font-size:12px; color:#718096; margin-top:2px;">${escapeHtml(q.description)}</div>` : ''}
+                
+                <div style="margin-top:8px;">
+                    ${q.type === 'scale' ? `
+                    <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px;">
+                        ${(q.options || 'EXCEPTI,TRESBON,CONFORM,AMELIOR,INSATIS,NONAPPL').split(',').map(opt => `<span style="display:inline-block; padding:4px 8px; border:1px solid #CBD5E1; border-radius:4px; background:#FFFFFF; font-size:11px; font-weight:600; color:#334155;">⚪ ${escapeHtml(opt.trim())}</span>`).join('')}
+                    </div>` : ''}
+
+                    ${q.type === 'text' ? `<textarea class="form-control" rows="2" placeholder="Réponse détaillée..." disabled style="background:#FFF;"></textarea>` : ''}
+                    ${q.type === 'boolean' ? `
+                    <div style="display:flex; gap:10px;">
+                        <span style="padding:3px 10px; border:1px solid #CBD5E1; border-radius:4px; background:#FFF; font-size:12px;">⚪ Oui</span>
+                        <span style="padding:3px 10px; border:1px solid #CBD5E1; border-radius:4px; background:#FFF; font-size:12px;">⚪ Non</span>
+                    </div>` : ''}
+
+                    ${isScaleOrBool && allowComments ? `
+                    <div style="margin-top:8px; display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+                        <div style="background:#FFFFFF; border:1px solid #E2E8F0; border-radius:6px; padding:6px 8px; font-size:11px; color:#64748B;">
+                            💬 <em>Commentaires Auto-évaluation...</em>
+                        </div>
+                        <div style="background:#FFFFFF; border:1px solid #E2E8F0; border-radius:6px; padding:6px 8px; font-size:11px; color:#64748B;">
+                            💬 <em>Commentaires Évaluateur...</em>
+                        </div>
+                    </div>` : ''}
+                </div>
+            </div>
           `;
+
           container.appendChild(card);
       });
+  }
+
+  function toggleAdminQuestionRequired(idx, isChecked) {
+      const profile = document.getElementById('admin-profile-select').value;
+      if (!profile || !adminEvalConfigData[profile] || !adminEvalConfigData[profile][idx]) return;
+      adminEvalConfigData[profile][idx].required = isChecked;
+      adminEvalConfigData[profile][idx].optional = !isChecked;
+      markAdminQuestionsUnsaved();
+      renderAdminFormBuilder();
+  }
+
+  function toggleAdminQuestionComments(idx, isChecked) {
+      const profile = document.getElementById('admin-profile-select').value;
+      if (!profile || !adminEvalConfigData[profile] || !adminEvalConfigData[profile][idx]) return;
+      adminEvalConfigData[profile][idx].allowComments = isChecked;
+      markAdminQuestionsUnsaved();
+      renderAdminFormBuilder();
+  }
+
+  function toggleAdminQuestionPreview(idx) {
+      const box = document.getElementById('admin-preview-box-' + idx);
+      if (box) {
+          box.style.display = (box.style.display === 'none' || !box.style.display) ? 'block' : 'none';
+      }
+  }
+
+  function resetConclusionToStandardOrder() {
+      const select = document.getElementById('admin-profile-select');
+      if (select) select.value = 'conclusion';
+      
+      if (!confirm("Voulez-vous réaligner la Section 3 avec l'ordre officiel :\n1. Appréciation de la Performance Globale (Barème + Commentaires)\n2. Bilan des Objectifs de l'année écoulée\n3. Principaux points forts du collaborateur\n4. Domaines d'amélioration et besoins d'accompagnement\n5. Nouveaux Objectifs SMART pour l'année à venir ?")) {
+          return;
+      }
+
+      adminEvalConfigData['conclusion'] = [
+          {
+              text: '1. Appréciation de la Performance Globale',
+              description: 'Note globale et synthèse de la performance sur l ensemble de l année',
+              type: 'scale',
+              options: 'EXCEPTI,TRESBON,CONFORM,AMELIOR,INSATIS,NONAPPL',
+              page: 1,
+              pageTitle: 'Bilan & Performance Globale',
+              required: true,
+              allowComments: true
+          },
+          {
+              text: "2. Bilan des Objectifs de l'année écoulée",
+              description: "Évaluation de l'atteinte des objectifs fixés l'année précédente",
+              type: 'text',
+              options: '',
+              page: 1,
+              pageTitle: 'Bilan & Performance Globale',
+              required: true,
+              allowComments: false
+          },
+          {
+              text: '3. Principaux points forts du collaborateur',
+              description: 'Compétences remarquables, réussites et qualités démontrées',
+              type: 'text',
+              options: '',
+              page: 1,
+              pageTitle: 'Bilan & Performance Globale',
+              required: true,
+              allowComments: false
+          },
+          {
+              text: "4. Domaines d'amélioration et besoins d'accompagnement",
+              description: "Axes de progression, formations souhaitées ou besoins d'appui",
+              type: 'text',
+              options: '',
+              page: 1,
+              pageTitle: 'Bilan & Performance Globale',
+              required: true,
+              allowComments: false
+          },
+          {
+              text: "5. Nouveaux Objectifs SMART pour l'année à venir",
+              description: "Objectifs spécifiques, mesurables, atteignables, réalistes et temporels",
+              type: 'text',
+              options: '',
+              page: 2,
+              pageTitle: 'Plan de Développement & Objectifs SMART',
+              required: true,
+              allowComments: false
+          }
+      ];
+
+      markAdminQuestionsUnsaved();
+      renderAdminFormBuilder();
+      alert("Section 3 (Conclusion) réalignée selon l'ordre officiel !");
   }
 
   function markAdminQuestionsUnsaved() {
