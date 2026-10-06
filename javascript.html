@@ -7542,8 +7542,6 @@
       .replace(/'/g, '&#039;');
   }
 
-</script>
-
   function updatePlatformEnvBadge(envInfo) {
     if (!envInfo) return;
     const badgeEl = document.getElementById('platform-env-badge');
@@ -7565,3 +7563,5 @@
       badgeEl.title = `Environnement de Test (${envInfo.version}) : ${envInfo.versionStatus}`;
     }
   }
+
+</script>
