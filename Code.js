@@ -32,6 +32,76 @@ function withScriptLock(callback, timeoutMs) {
   }
 }
 
+/**
+ * ============================================================================
+ * DÉTECTION D'ENVIRONNEMENT & VERSION DE LA PLATEFORME (Production vs Test)
+ * ============================================================================
+ */
+const PROD_DEPLOYMENT_ID = 'AKfycbxeoDfu8Uh9plmQXjud3N1cXUBmSAaIpgdrXQxgWEnp1jst3K3N2puD1pF3zl1XYsRntA';
+const OFFICIAL_PROD_VERSION = '1.0.8';
+
+function compareSemanticVersions(vA, vB) {
+  const parseV = v => String(v || '').replace(/^[^\d]*/, '').split('.').map(n => parseInt(n, 10) || 0);
+  const pA = parseV(vA);
+  const pB = parseV(vB);
+  const len = Math.max(pA.length, pB.length);
+  for (let i = 0; i < len; i++) {
+    const a = pA[i] || 0;
+    const b = pB[i] || 0;
+    if (a > b) return 1;
+    if (a < b) return -1;
+  }
+  return 0;
+}
+
+function getPlatformEnvironmentInfo(clientInfo) {
+  let appUrl = '';
+  if (clientInfo && clientInfo.appUrl) {
+    appUrl = String(clientInfo.appUrl);
+  }
+  if (!appUrl) {
+    try {
+      appUrl = ScriptApp.getService().getUrl() || '';
+    } catch(e) {}
+  }
+
+  const clientVer = (clientInfo && clientInfo.version) ? String(clientInfo.version) : ('v' + OFFICIAL_PROD_VERSION);
+  const isProd = appUrl.includes(PROD_DEPLOYMENT_ID);
+  const isHeadDev = appUrl.endsWith('/dev');
+
+  let envName = 'Production';
+  let versionStatus = 'Officielle';
+
+  if (isProd) {
+    envName = 'Production';
+    versionStatus = 'Version Officielle';
+  } else if (isHeadDev) {
+    envName = 'Test / Dev (@HEAD)';
+    const comp = compareSemanticVersions(clientVer, OFFICIAL_PROD_VERSION);
+    if (comp > 0) versionStatus = 'Version Supérieure (Test)';
+    else if (comp < 0) versionStatus = 'Version Antérieure';
+    else versionStatus = 'Version de Test';
+  } else {
+    envName = 'Test (Déploiement Dédié)';
+    const comp = compareSemanticVersions(clientVer, OFFICIAL_PROD_VERSION);
+    if (comp > 0) versionStatus = 'Version Supérieure (Test)';
+    else if (comp < 0) versionStatus = 'Version Antérieure';
+    else versionStatus = 'Version de Test Conforme';
+  }
+
+  const cleanVer = clientVer.startsWith('v') ? clientVer : ('v' + clientVer);
+  const logBadge = `[Plateforme: ${envName} | Version: ${cleanVer} (${versionStatus})]`;
+
+  return {
+    isProd: isProd,
+    envName: envName,
+    version: cleanVer,
+    versionStatus: versionStatus,
+    logBadge: logBadge,
+    url: appUrl
+  };
+}
+
 
 function doGet(e) {
 
@@ -172,6 +242,7 @@ function validateSession(token) {
 
 function logout(token, clientInfo) {
   if (token) {
+    const envInfo = getPlatformEnvironmentInfo(clientInfo);
     let clientDetails = '';
     if (clientInfo) {
       if (typeof clientInfo === 'object') {
@@ -183,7 +254,7 @@ function logout(token, clientInfo) {
         clientDetails = String(clientInfo);
       }
     }
-    const extraInfo = clientDetails ? ` | ${clientDetails}` : '';
+    const extraInfo = ` | ${envInfo.logBadge}` + (clientDetails ? ` | ${clientDetails}` : '');
     try {
       const sessionUser = verifySession(token);
       logEvent(sessionUser.username, "Déconnexion", `Déconnexion réussie${extraInfo}`, "INFO");
@@ -197,6 +268,7 @@ function logout(token, clientInfo) {
  * Authentifie un utilisateur avec son nom d'utilisateur, mot de passe et informations de client/device.
  */
 function authenticateUser(username, password, clientInfo) {
+  const envInfo = getPlatformEnvironmentInfo(clientInfo);
   let clientDetails = '';
   if (clientInfo) {
     if (typeof clientInfo === 'object') {
@@ -211,7 +283,7 @@ function authenticateUser(username, password, clientInfo) {
       clientDetails = String(clientInfo);
     }
   }
-  const extraInfo = clientDetails ? ` | ${clientDetails}` : '';
+  const extraInfo = ` | ${envInfo.logBadge}` + (clientDetails ? ` | ${clientDetails}` : '');
 
   try {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
@@ -260,7 +332,8 @@ function authenticateUser(username, password, clientInfo) {
           return {
             success: true,
             token: token,
-            user: userObj
+            user: userObj,
+            envInfo: envInfo
           };
         }
       }
