@@ -38,7 +38,13 @@ function withScriptLock(callback, timeoutMs) {
  * ============================================================================
  */
 const PROD_DEPLOYMENT_ID = 'AKfycbxeoDfu8Uh9plmQXjud3N1cXUBmSAaIpgdrXQxgWEnp1jst3K3N2puD1pF3zl1XYsRntA';
+const TEST_DEPLOYMENT_ID = 'AKfycbwauIpOqIbIiuEO55xTs6KOuTiqcOKlj90gr8R4sljI8UrM9EfLA4xUccfOzWKvlqn3lA';
 const OFFICIAL_PROD_VERSION = '1.0.8';
+const TEST_PLATFORM_VERSION = '1.0.8';
+
+// Environnement actif de ce déploiement : 'PRODUCTION' ou 'TEST'
+// Basculé automatiquement par deploy.js / deploy-test.js lors des déploiements
+var ACTIVE_DEPLOYMENT_ENV = 'PRODUCTION';
 
 function compareSemanticVersions(vA, vB) {
   const parseV = v => String(v || '').replace(/^[^\d]*/, '').split('.').map(n => parseInt(n, 10) || 0);
@@ -54,7 +60,7 @@ function compareSemanticVersions(vA, vB) {
   return 0;
 }
 
-function getPlatformEnvironmentInfo(clientInfo) {
+function getPlatformEnvironmentInfo(clientInfo, eventObj) {
   let appUrl = '';
   if (clientInfo && clientInfo.appUrl) {
     appUrl = String(clientInfo.appUrl);
@@ -65,20 +71,24 @@ function getPlatformEnvironmentInfo(clientInfo) {
     } catch(e) {}
   }
 
-  const clientVer = (clientInfo && clientInfo.version) ? String(clientInfo.version) : ('v' + OFFICIAL_PROD_VERSION);
-  const cleanVer = clientVer.startsWith('v') ? clientVer : ('v' + clientVer);
+  // Détection si appel avec paramètre URL explicite (ex: ?env=test ou ?test=true)
+  const isUrlParamTest = (eventObj && eventObj.parameter && (eventObj.parameter.env === 'test' || eventObj.parameter.test === 'true')) ||
+                         (appUrl.includes('env=test') || appUrl.includes('test=true'));
 
-  // Détection stricte de l'environnement de TEST
-  const isExplicitTest = appUrl.includes('AKfycbwauIpOqIbIiuEO55xTs6KOuTiqcOKlj90gr8R4sljI8UrM9EfLA4xUccfOzWKvlqn3lA') ||
-                         appUrl.endsWith('/dev') ||
-                         appUrl.includes('env=test') ||
-                         appUrl.includes('test=true') ||
-                         (clientInfo && (clientInfo.isTestEnv === true || clientInfo.isTestEnv === 'true'));
+  // Détection si mode dev direct /dev
+  const isHeadDev = appUrl.endsWith('/dev');
 
-  if (isExplicitTest) {
-    const isHeadDev = appUrl.endsWith('/dev');
+  // Détection si environnement de TEST
+  const isTest = (ACTIVE_DEPLOYMENT_ENV === 'TEST') ||
+                 isUrlParamTest ||
+                 appUrl.includes(TEST_DEPLOYMENT_ID) ||
+                 (clientInfo && (clientInfo.isTestEnv === true || clientInfo.isTestEnv === 'true'));
+
+  if (isTest || isHeadDev) {
     const envName = isHeadDev ? 'Test / Dev (@HEAD)' : 'Test (Déploiement Dédié)';
-    const comp = compareSemanticVersions(clientVer, OFFICIAL_PROD_VERSION);
+    const clientVer = (clientInfo && clientInfo.version) ? String(clientInfo.version) : ('v' + TEST_PLATFORM_VERSION);
+    const cleanVer = clientVer.startsWith('v') ? clientVer : ('v' + clientVer);
+    const comp = compareSemanticVersions(cleanVer, OFFICIAL_PROD_VERSION);
     let versionStatus = 'Version de Test';
     if (comp > 0) versionStatus = 'Version Supérieure (Test)';
     else if (comp < 0) versionStatus = 'Version Antérieure (Test)';
@@ -96,6 +106,8 @@ function getPlatformEnvironmentInfo(clientInfo) {
   }
 
   // Par défaut absolu : PRODUCTION OFFICIELLE
+  const clientVer = (clientInfo && clientInfo.version) ? String(clientInfo.version) : ('v' + OFFICIAL_PROD_VERSION);
+  const cleanVer = clientVer.startsWith('v') ? clientVer : ('v' + clientVer);
   return {
     isProd: true,
     isTest: false,
@@ -109,15 +121,18 @@ function getPlatformEnvironmentInfo(clientInfo) {
 
 
 function doGet(e) {
-
   try {
     getEvaluationConfig();
   } catch(err) {
     Logger.log("Init EvaluationQuestions error: " + err.message);
   }
-  return HtmlService.createTemplateFromFile('index')
+  const template = HtmlService.createTemplateFromFile('index');
+  const envInfo = getPlatformEnvironmentInfo(null, e);
+  template.serverEnvInfo = envInfo;
+
+  return template
     .evaluate()
-    .setTitle('Portail Kanaga')
+    .setTitle('Portail Kanaga' + (envInfo.isTest ? ' [TEST]' : ''))
     .setFaviconUrl('https://www.gstatic.com/images/branding/product/1x/forms_48dp.png')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');

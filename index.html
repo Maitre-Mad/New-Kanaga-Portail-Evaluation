@@ -132,6 +132,9 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
+  <script>
+    window.SERVER_ENV_INFO = <?!= JSON.stringify(serverEnvInfo || null) ?>;
+  </script>
   <?!= include('javascript'); ?>
 </body>
 </html>

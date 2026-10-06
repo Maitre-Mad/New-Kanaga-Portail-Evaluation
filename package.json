@@ -7,7 +7,10 @@
     "push": "clasp push",
     "watch": "clasp push --watch",
     "open": "clasp open",
-    "deploy": "clasp deploy"
+    "deploy": "node deploy.js prod",
+    "deploy:prod": "node deploy.js prod",
+    "deploy:test": "node deploy.js test",
+    "deploy:all": "node deploy.js all"
   },
   "devDependencies": {
     "@google/clasp": "^3.4.1"

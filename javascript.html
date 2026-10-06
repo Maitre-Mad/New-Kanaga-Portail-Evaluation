@@ -268,6 +268,10 @@
   window.addEventListener('load', function() {
     setDateValidation();
 
+    if (window.SERVER_ENV_INFO) {
+      updatePlatformEnvBadge(window.SERVER_ENV_INFO);
+    }
+
     // Sécurité anti-blocage : garantit que le loader ne reste jamais figé
     setTimeout(function() {
       const loader = document.getElementById('global-loader');
@@ -871,21 +875,16 @@
 
     // Règle d'affichage du badge : AUCUN badge en production, badge persistant en test
     try {
-      const savedTestBadge = sessionStorage.getItem('kanagaTestBadge');
-      if (savedTestBadge) {
-        updatePlatformEnvBadge(JSON.parse(savedTestBadge));
+      if (window.SERVER_ENV_INFO) {
+        updatePlatformEnvBadge(window.SERVER_ENV_INFO);
       } else {
-        const refUrl = (document.referrer || '') + ' ' + (window.location.href || '');
-        if (refUrl.includes('AKfycbwauIpOqIbIiuEO55xTs6KOuTiqcOKlj90gr8R4sljI8UrM9EfLA4xUccfOzWKvlqn3lA') || refUrl.includes('/dev') || refUrl.includes('env=test')) {
-          updatePlatformEnvBadge({
-            isProd: false,
-            isTest: true,
-            envName: 'Test',
-            version: window.KANAGA_PLATFORM_VERSION || 'v1.0.8',
-            versionStatus: 'Environnement de Test'
-          });
+        const savedTestBadge = sessionStorage.getItem('kanagaTestBadge');
+        if (savedTestBadge) {
+          updatePlatformEnvBadge(JSON.parse(savedTestBadge));
+        } else if (window.kanagaEnvInfo) {
+          updatePlatformEnvBadge(window.kanagaEnvInfo);
         } else {
-          updatePlatformEnvBadge(null); // Production : aucun badge !
+          updatePlatformEnvBadge(null);
         }
       }
     } catch(e) {}
