@@ -267,6 +267,18 @@
   // --- Initialisation ---
   window.addEventListener('load', function() {
     setDateValidation();
+
+    // Sécurité anti-blocage : garantit que le loader ne reste jamais figé
+    setTimeout(function() {
+      const loader = document.getElementById('global-loader');
+      const authContent = document.getElementById('auth-content');
+      const loginView = document.getElementById('view-login');
+      if (loader && loader.style.display !== 'none' && (!authContent || authContent.style.display !== 'block')) {
+        console.warn("Safety fallback : déblocage automatique du loader.");
+        loader.style.display = 'none';
+        if (loginView) loginView.style.display = 'block';
+      }
+    }, 5000);
     
     // Vérification du token auprès du serveur avant d'autoriser l'accès
     const storedUser = localStorage.getItem('kanagaUser');
@@ -7588,6 +7600,6 @@
     badgeEl.title = `Environnement de Test (${envInfo.version || ''}) : ${envInfo.versionStatus || ''}`;
 
     try { sessionStorage.setItem('kanagaTestBadge', JSON.stringify(envInfo)); } catch(e) {}
-  }}
+  }
 
 </script>
