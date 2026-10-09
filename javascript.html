@@ -37,7 +37,7 @@
     const type = options.type || defaultType;
     const title = options.title || defaultTitle;
     const isConfirm = !!options.isConfirm;
-    const btnText = options.buttonText || (isConfirm ? 'Confirmer' : 'Compris');
+    const btnText = options.confirmText || options.buttonText || (isConfirm ? 'Confirmer' : 'Compris');
     const cancelText = options.cancelText || 'Annuler';
 
     customAlertCallback = options.onClose || null;
@@ -106,6 +106,36 @@
     showAppModal(options);
   }
 
+  function showGlobalLoading(msg) {
+    const loader = document.getElementById('global-loader');
+    if (!loader) return;
+    const textEl = loader.querySelector('.loader-text');
+    if (textEl) {
+      textEl.textContent = msg || "Chargement en cours...";
+      textEl.style.color = "#ffffff";
+    }
+    loader.style.background = "rgba(25, 15, 8, 0.7)";
+    loader.style.backdropFilter = "blur(6px)";
+    loader.style.webkitBackdropFilter = "blur(6px)";
+    loader.style.zIndex = "9999999";
+    loader.style.display = "flex";
+  }
+
+  function hideGlobalLoading() {
+    const loader = document.getElementById('global-loader');
+    if (!loader) return;
+    loader.style.display = "none";
+    loader.style.background = "";
+    loader.style.backdropFilter = "";
+    loader.style.webkitBackdropFilter = "";
+    loader.style.zIndex = "";
+    const textEl = loader.querySelector('.loader-text');
+    if (textEl) {
+      textEl.textContent = "Chargement de votre espace...";
+      textEl.style.color = "";
+    }
+  }
+
   function closeAppModal(isConfirmed) {
     const overlay = document.getElementById('custom-app-alert-modal');
     if (!overlay) return;
@@ -116,19 +146,31 @@
         if (typeof customConfirmCallback === 'function') {
           const cb = customConfirmCallback;
           customConfirmCallback = null;
-          try { cb(); } catch(e) {}
+          try { 
+            cb(); 
+          } catch(e) {
+            console.error("Erreur dans callback de confirmation:", e);
+          }
         }
       } else if (isConfirmed === false) {
         if (typeof customCancelCallback === 'function') {
           const cb = customCancelCallback;
           customCancelCallback = null;
-          try { cb(); } catch(e) {}
+          try { 
+            cb(); 
+          } catch(e) {
+            console.error("Erreur dans callback d'annulation:", e);
+          }
         }
       }
       if (typeof customAlertCallback === 'function') {
         const cb = customAlertCallback;
         customAlertCallback = null;
-        try { cb(); } catch(e) {}
+        try { 
+          cb(); 
+        } catch(e) {
+          console.error("Erreur dans callback d'alerte:", e);
+        }
       }
     }, 220);
   }
@@ -733,6 +775,16 @@
   function runManualRemindersCheck() {
     const btn = document.getElementById('btn-run-manual-reminders');
     const status = document.getElementById('eval-reminder-ctrl-status');
+    const token = window.kanagaToken || localStorage.getItem('kanagaToken');
+
+    if (!token) {
+      showAppModal({
+        title: "Session expirée",
+        type: "error",
+        message: "Votre session n'est plus active. Veuillez vous reconnecter."
+      });
+      return;
+    }
 
     showAppConfirm({
       title: "Vérification des relances",
@@ -746,9 +798,11 @@
           status.innerText = "⏳ Analyse des dossiers et envoi des rappels en cours...";
           status.style.color = "var(--primary-color)";
         }
+        showGlobalLoading("Analyse des dossiers et envoi des rappels...");
 
         google.script.run
           .withSuccessHandler(function(res) {
+            hideGlobalLoading();
             if (btn) btn.disabled = false;
             const sent = (res && res.sent) || 0;
             const checked = (res && res.checked) || 0;
@@ -765,6 +819,7 @@
             });
           })
           .withFailureHandler(function(err) {
+            hideGlobalLoading();
             if (btn) btn.disabled = false;
             if (status) {
               status.innerText = "Erreur analyse rappels : " + err.message;
@@ -773,10 +828,10 @@
             showAppModal({
               title: "Erreur analyse rappels",
               type: "error",
-              message: "Une erreur est survenue lors de l'analyse : " + err.message
+              message: "Une erreur est survenue lors de l'analyse : " + (err && err.message ? err.message : err)
             });
           })
-          .checkAndSendEvaluationReminders(window.kanagaToken);
+          .checkAndSendEvaluationReminders(token);
       }
     });
   }
@@ -792,6 +847,16 @@
       roleLabel = "à l'évaluateur principal (manager)";
     }
 
+    const token = window.kanagaToken || localStorage.getItem('kanagaToken');
+    if (!token) {
+      showAppModal({
+        title: "Session expirée",
+        type: "error",
+        message: "Votre session n'est plus active. Veuillez actualiser la page ou vous reconnecter."
+      });
+      return;
+    }
+
     showAppConfirm({
       title: "Envoyer une relance",
       type: "info",
@@ -799,7 +864,7 @@
       cancelText: "Annuler",
       message: `Souhaitez-vous envoyer immédiatement un e-mail de rappel ${roleLabel} pour le dossier de ${empName || 'ce collaborateur'} ?`,
       onConfirm: function() {
-        showGlobalLoading("Envoi du rappel en cours...");
+        showGlobalLoading("Envoi de la relance en cours...");
         google.script.run
           .withSuccessHandler(function(res) {
             hideGlobalLoading();
@@ -828,10 +893,10 @@
             showAppModal({
               title: "Erreur serveur",
               type: "error",
-              message: "Erreur lors de l'envoi du rappel : " + err.message
+              message: "Erreur lors de l'envoi du rappel : " + (err && err.message ? err.message : err)
             });
           })
-          .sendManualEvaluationReminder(window.kanagaToken, rowId);
+          .sendManualEvaluationReminder(token, rowId);
       }
     });
   }
