@@ -6,8 +6,10 @@
   let choicesInstances = { project: null, task: null, editProject: null, editTask: null };
   let evaluationData = {};
 
-  // --- Modale Globale Responsive Kanaga (Remplace alert() natif du navigateur) ---
+  // --- Modale Globale Responsive Kanaga (Remplace alert() et confirm() natifs du navigateur) ---
   let customAlertCallback = null;
+  let customConfirmCallback = null;
+  let customCancelCallback = null;
 
   function showAppModal(options) {
     if (typeof options === 'string') {
@@ -24,18 +26,23 @@
     if (lowMsg.includes('erreur') || lowMsg.includes('échec') || lowMsg.includes('impossible') || lowMsg.includes('bloqué') || lowMsg.includes('invalide')) {
       defaultType = 'error';
       defaultTitle = 'Erreur';
-    } else if (lowMsg.includes('succès') || lowMsg.includes('enregistré') || lowMsg.includes('félicitation') || lowMsg.includes('soumis avec succès')) {
+    } else if (lowMsg.includes('succès') || lowMsg.includes('enregistré') || lowMsg.includes('félicitation') || lowMsg.includes('soumis avec succès') || lowMsg.includes('envoyé avec succès')) {
       defaultType = 'success';
       defaultTitle = 'Succès';
-    } else if (lowMsg.includes('information') || lowMsg.includes('note :')) {
+    } else if (lowMsg.includes('information') || lowMsg.includes('note :') || lowMsg.includes('rappel') || lowMsg.includes('relance')) {
       defaultType = 'info';
       defaultTitle = 'Information';
     }
 
     const type = options.type || defaultType;
     const title = options.title || defaultTitle;
-    const btnText = options.buttonText || 'Compris';
+    const isConfirm = !!options.isConfirm;
+    const btnText = options.buttonText || (isConfirm ? 'Confirmer' : 'Compris');
+    const cancelText = options.cancelText || 'Annuler';
+
     customAlertCallback = options.onClose || null;
+    customConfirmCallback = options.onConfirm || null;
+    customCancelCallback = options.onCancel || null;
 
     let overlay = document.getElementById('custom-app-alert-modal');
     if (!overlay) {
@@ -47,10 +54,25 @@
     const msgEl = document.getElementById('custom-modal-message');
     const iconContainer = document.getElementById('custom-modal-icon-container');
     const btnEl = document.getElementById('custom-modal-btn');
+    const cancelBtn = document.getElementById('custom-modal-cancel-btn');
 
     if (titleEl) titleEl.textContent = title;
-    if (msgEl) msgEl.textContent = message;
+    if (msgEl) {
+      if (options.html) {
+        msgEl.innerHTML = options.html;
+      } else {
+        msgEl.textContent = message;
+      }
+    }
     if (btnEl) btnEl.textContent = btnText;
+    if (cancelBtn) {
+      if (isConfirm) {
+        cancelBtn.style.display = 'inline-block';
+        cancelBtn.textContent = cancelText;
+      } else {
+        cancelBtn.style.display = 'none';
+      }
+    }
 
     if (iconContainer) {
       iconContainer.className = 'custom-modal-icon-wrapper ' + type;
@@ -73,12 +95,36 @@
     });
   }
 
-  function closeAppModal() {
+  function showAppConfirm(options) {
+    if (typeof options === 'string') {
+      options = { message: options };
+    }
+    options = options || {};
+    options.isConfirm = true;
+    options.type = options.type || 'info';
+    options.title = options.title || 'Confirmation';
+    showAppModal(options);
+  }
+
+  function closeAppModal(isConfirmed) {
     const overlay = document.getElementById('custom-app-alert-modal');
     if (!overlay) return;
     overlay.classList.remove('active');
     setTimeout(() => {
       overlay.style.display = 'none';
+      if (isConfirmed === true) {
+        if (typeof customConfirmCallback === 'function') {
+          const cb = customConfirmCallback;
+          customConfirmCallback = null;
+          try { cb(); } catch(e) {}
+        }
+      } else if (isConfirmed === false) {
+        if (typeof customCancelCallback === 'function') {
+          const cb = customCancelCallback;
+          customCancelCallback = null;
+          try { cb(); } catch(e) {}
+        }
+      }
       if (typeof customAlertCallback === 'function') {
         const cb = customAlertCallback;
         customAlertCallback = null;
@@ -688,58 +734,106 @@
     const btn = document.getElementById('btn-run-manual-reminders');
     const status = document.getElementById('eval-reminder-ctrl-status');
 
-    if (!confirm("Voulez-vous vérifier l'ensemble des dossiers d'évaluation en cours et envoyer des e-mails de rappel pour ceux ayant dépassé le délai d'inactivité ?")) {
-      return;
-    }
-
-    if (btn) btn.disabled = true;
-    if (status) {
-      status.innerText = "⏳ Analyse des dossiers et envoi des rappels en cours...";
-      status.style.color = "var(--primary-color)";
-    }
-
-    google.script.run
-      .withSuccessHandler(function(res) {
-        if (btn) btn.disabled = false;
+    showAppConfirm({
+      title: "Vérification des relances",
+      type: "warning",
+      confirmText: "Lancer les rappels",
+      cancelText: "Annuler",
+      message: "Voulez-vous vérifier l'ensemble des dossiers d'évaluation en cours et envoyer des e-mails de rappel pour tous ceux ayant dépassé le délai d'inactivité configuré ?",
+      onConfirm: function() {
+        if (btn) btn.disabled = true;
         if (status) {
-          status.innerText = (res.message || "Vérification terminée.");
-          status.style.color = "green";
-          setTimeout(() => { if (status) status.innerText = ""; }, 8000);
+          status.innerText = "⏳ Analyse des dossiers et envoi des rappels en cours...";
+          status.style.color = "var(--primary-color)";
         }
-      })
-      .withFailureHandler(function(err) {
-        if (btn) btn.disabled = false;
-        if (status) {
-          status.innerText = "Erreur analyse rappels : " + err.message;
-          status.style.color = "red";
-        }
-      })
-      .checkAndSendEvaluationReminders(window.kanagaToken);
+
+        google.script.run
+          .withSuccessHandler(function(res) {
+            if (btn) btn.disabled = false;
+            const sent = (res && res.sent) || 0;
+            const checked = (res && res.checked) || 0;
+            const msg = (res && res.message) ? res.message : `${sent} rappel(s) envoyé(s) sur ${checked} dossier(s) audité(s).`;
+            if (status) {
+              status.innerText = msg;
+              status.style.color = "green";
+              setTimeout(() => { if (status) status.innerText = ""; }, 8000);
+            }
+            showAppModal({
+              title: "Rappels automatiques terminés",
+              type: "success",
+              message: msg
+            });
+          })
+          .withFailureHandler(function(err) {
+            if (btn) btn.disabled = false;
+            if (status) {
+              status.innerText = "Erreur analyse rappels : " + err.message;
+              status.style.color = "red";
+            }
+            showAppModal({
+              title: "Erreur analyse rappels",
+              type: "error",
+              message: "Une erreur est survenue lors de l'analyse : " + err.message
+            });
+          })
+          .checkAndSendEvaluationReminders(window.kanagaToken);
+      }
+    });
   }
 
   function triggerManualReminder(rowId, empName, status) {
-    if (!confirm("Souhaitez-vous envoyer immédiatement un e-mail de rappel à l'intervenant en attente pour le dossier de " + (empName || "ce collaborateur") + " ?")) {
-      return;
+    const rawStatus = (status || '').trim();
+    let roleLabel = "à l'intervenant en attente";
+    if (rawStatus === 'Initiée' || rawStatus === 'Brouillon Employé' || rawStatus.toLowerCase().includes('auto-éval')) {
+      roleLabel = "au collaborateur pour son auto-évaluation";
+    } else if (rawStatus.toLowerCase().includes('secondaire')) {
+      roleLabel = "aux évaluateurs secondaires";
+    } else if (rawStatus.toLowerCase().includes('principal') || rawStatus.toLowerCase().includes('manager')) {
+      roleLabel = "à l'évaluateur principal (manager)";
     }
 
-    showGlobalLoading("Envoi du rappel en cours...");
-    google.script.run
-      .withSuccessHandler(function(res) {
-        hideGlobalLoading();
-        if (res && res.success) {
-          alert(res.message);
-          if (typeof showManagerDashboard === 'function') {
-            showManagerDashboard();
-          }
-        } else {
-          alert((res ? res.message : "Le rappel n'a pas pu être envoyé."));
-        }
-      })
-      .withFailureHandler(function(err) {
-        hideGlobalLoading();
-        alert("Erreur lors de l'envoi du rappel : " + err.message);
-      })
-      .sendManualEvaluationReminder(window.kanagaToken, rowId);
+    showAppConfirm({
+      title: "Envoyer une relance",
+      type: "info",
+      confirmText: "Envoyer la relance",
+      cancelText: "Annuler",
+      message: `Souhaitez-vous envoyer immédiatement un e-mail de rappel ${roleLabel} pour le dossier de ${empName || 'ce collaborateur'} ?`,
+      onConfirm: function() {
+        showGlobalLoading("Envoi du rappel en cours...");
+        google.script.run
+          .withSuccessHandler(function(res) {
+            hideGlobalLoading();
+            if (res && res.success) {
+              const successMsg = res.message || `Rappel envoyé avec succès à ${res.recipient || 'l\'intervenant'} (${res.targetRole || status}).`;
+              showAppModal({
+                title: "Relance effectuée",
+                type: "success",
+                message: successMsg,
+                onClose: function() {
+                  if (typeof showManagerDashboard === 'function') {
+                    showManagerDashboard();
+                  }
+                }
+              });
+            } else {
+              showAppModal({
+                title: "Échec du rappel",
+                type: "error",
+                message: (res && res.message) ? res.message : "Le rappel n'a pas pu être envoyé."
+              });
+            }
+          })
+          .withFailureHandler(function(err) {
+            hideGlobalLoading();
+            showAppModal({
+              title: "Erreur serveur",
+              type: "error",
+              message: "Erreur lors de l'envoi du rappel : " + err.message
+            });
+          })
+          .sendManualEvaluationReminder(window.kanagaToken, rowId);
+      }
+    });
   }
 
   function onNotificationEventSelectChange() {

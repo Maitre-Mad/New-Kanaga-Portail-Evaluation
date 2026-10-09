@@ -1734,55 +1734,63 @@ function checkAndSendEvaluationReminders(manualToken) {
 
         let reminderType = '';
         let recipientLabel = '';
+        const lowStatus = rawStatus.toLowerCase();
 
-        if (rawStatus === 'Initiée' || rawStatus === 'Brouillon Employé') {
+        if (rawStatus === 'Initiée' || rawStatus === 'Brouillon Employé' || lowStatus.includes('auto-éval') || lowStatus.includes('init')) {
           reminderType = 'reminder_employee';
-          recipientLabel = empName + ' (' + empEmail + ')';
-          sendEvaluationNotification('reminder_employee', {
-            employeeName: empName,
-            employeeEmail: empEmail,
-            period: period,
-            profile: profile,
-            principalEvaluatorName: princName,
-            principalEvaluatorEmail: princEmail,
-            inactivityDays: diffDays
-          });
-          sentCount++;
-        } else if (rawStatus === 'Attente Évaluateur Secondaire') {
+          recipientLabel = empName + (empEmail ? ' (' + empEmail + ')' : '');
+          if (empEmail && empEmail.includes('@')) {
+            sendEvaluationNotification('reminder_employee', {
+              employeeName: empName,
+              employeeEmail: empEmail,
+              period: period,
+              profile: profile,
+              principalEvaluatorName: princName,
+              principalEvaluatorEmail: princEmail,
+              inactivityDays: diffDays
+            });
+            sentCount++;
+          }
+        } else if (lowStatus.includes('secondaire')) {
           const pendingSec = secList.filter(s => s.status !== 'Complété');
-          if (pendingSec.length > 0) {
+          const targetList = pendingSec.length > 0 ? pendingSec : secList;
+          if (targetList.length > 0) {
             reminderType = 'reminder_secondary';
-            recipientLabel = pendingSec.map(s => s.name || s.email).join(', ');
-            pendingSec.forEach(sec => {
+            recipientLabel = targetList.map(s => s.name || s.email).join(', ');
+            targetList.forEach(sec => {
               const secEmail = sec.email || findUserEmailByName(sec.name);
-              sendEvaluationNotification('reminder_secondary', {
-                employeeName: empName,
-                employeeEmail: empEmail,
-                period: period,
-                profile: profile,
-                principalEvaluatorName: princName,
-                principalEvaluatorEmail: princEmail,
-                targetSecondaryEmail: secEmail,
-                targetSecondaryName: sec.name || secEmail,
-                secondaryEvaluators: secList,
-                inactivityDays: diffDays
-              });
-              sentCount++;
+              if (secEmail && secEmail.includes('@')) {
+                sendEvaluationNotification('reminder_secondary', {
+                  employeeName: empName,
+                  employeeEmail: empEmail,
+                  period: period,
+                  profile: profile,
+                  principalEvaluatorName: princName,
+                  principalEvaluatorEmail: princEmail,
+                  targetSecondaryEmail: secEmail,
+                  targetSecondaryName: sec.name || secEmail,
+                  secondaryEvaluators: secList,
+                  inactivityDays: diffDays
+                });
+                sentCount++;
+              }
             });
           }
-        } else if (rawStatus === 'Attente Évaluateur Principal' || rawStatus === 'Auto-évaluée' || rawStatus === 'Brouillon Manager' || rawStatus === 'Pré-évaluée') {
+        } else if (lowStatus.includes('principal') || lowStatus.includes('manager') || lowStatus.includes('auto-évaluée') || lowStatus.includes('pré-évaluée')) {
           reminderType = 'reminder_principal';
-          recipientLabel = princName + ' (' + princEmail + ')';
-          sendEvaluationNotification('reminder_principal', {
-            employeeName: empName,
-            employeeEmail: empEmail,
-            period: period,
-            profile: profile,
-            principalEvaluatorName: princName,
-            principalEvaluatorEmail: princEmail,
-            inactivityDays: diffDays
-          });
-          sentCount++;
+          recipientLabel = princName + (princEmail ? ' (' + princEmail + ')' : '');
+          if (princEmail && princEmail.includes('@')) {
+            sendEvaluationNotification('reminder_principal', {
+              employeeName: empName,
+              employeeEmail: empEmail,
+              period: period,
+              profile: profile,
+              principalEvaluatorName: princName,
+              principalEvaluatorEmail: princEmail,
+              inactivityDays: diffDays
+            });
+            sentCount++;
+          }
         }
 
         if (reminderType) {
@@ -1803,11 +1811,17 @@ function checkAndSendEvaluationReminders(manualToken) {
     }
 
     logEvent(triggerUser, "Vérification Rappels Évaluations", `${sentCount} rappel(s) envoyé(s) sur ${checkedCount} dossier(s) audité(s).`, "INFO");
-    return { success: true, checked: checkedCount, sent: sentCount, details: details };
+    return { 
+      success: true, 
+      checked: checkedCount, 
+      sent: sentCount, 
+      message: `${sentCount} e-mail(s) de rappel envoyé(s) sur ${checkedCount} dossier(s) vérifié(s).`,
+      details: details 
+    };
   } catch(e) {
     Logger.log("Erreur checkAndSendEvaluationReminders: " + e.message);
     logEvent(triggerUser, "Erreur Rappels Évaluations", e.message, "ERROR");
-    return { success: false, checked: checkedCount, sent: sentCount, error: e.message };
+    return { success: false, checked: checkedCount, sent: sentCount, error: e.message, message: "Erreur lors de la vérification : " + e.message };
   }
 }
 
@@ -1849,10 +1863,14 @@ function sendManualEvaluationReminder(token, rowId) {
 
   let targetRole = '';
   let recipient = '';
+  const lowStatus = rawStatus.toLowerCase();
 
-  if (rawStatus === 'Initiée' || rawStatus === 'Brouillon Employé') {
+  if (rawStatus === 'Initiée' || rawStatus === 'Brouillon Employé' || lowStatus.includes('auto-éval') || lowStatus.includes('init')) {
     targetRole = 'Collaborateur (Auto-évaluation)';
     recipient = empEmail;
+    if (!recipient || !recipient.includes('@')) {
+      throw new Error(`Adresse e-mail du collaborateur (${empName}) introuvable ou invalide.`);
+    }
     sendEvaluationNotification('reminder_employee', {
       employeeName: empName,
       employeeEmail: empEmail,
@@ -1862,28 +1880,37 @@ function sendManualEvaluationReminder(token, rowId) {
       principalEvaluatorEmail: princEmail,
       inactivityDays: diffDays
     });
-  } else if (rawStatus === 'Attente Évaluateur Secondaire') {
+  } else if (lowStatus.includes('secondaire')) {
     targetRole = 'Évaluateurs Secondaires';
     const pendingSec = secList.filter(s => s.status !== 'Complété');
-    recipient = pendingSec.map(s => s.name || s.email).join(', ') || 'Secondaires';
-    pendingSec.forEach(sec => {
+    const recipientsToSend = pendingSec.length > 0 ? pendingSec : secList;
+    if (recipientsToSend.length === 0) {
+      throw new Error("Aucun évaluateur secondaire n'est configuré pour ce dossier.");
+    }
+    recipient = recipientsToSend.map(s => s.name || s.email).join(', ');
+    recipientsToSend.forEach(sec => {
       const sEmail = sec.email || findUserEmailByName(sec.name);
-      sendEvaluationNotification('reminder_secondary', {
-        employeeName: empName,
-        employeeEmail: empEmail,
-        period: period,
-        profile: profile,
-        principalEvaluatorName: princName,
-        principalEvaluatorEmail: princEmail,
-        targetSecondaryEmail: sEmail,
-        targetSecondaryName: sec.name || sEmail,
-        secondaryEvaluators: secList,
-        inactivityDays: diffDays
-      });
+      if (sEmail && sEmail.includes('@')) {
+        sendEvaluationNotification('reminder_secondary', {
+          employeeName: empName,
+          employeeEmail: empEmail,
+          period: period,
+          profile: profile,
+          principalEvaluatorName: princName,
+          principalEvaluatorEmail: princEmail,
+          targetSecondaryEmail: sEmail,
+          targetSecondaryName: sec.name || sEmail,
+          secondaryEvaluators: secList,
+          inactivityDays: diffDays
+        });
+      }
     });
-  } else if (rawStatus === 'Attente Évaluateur Principal' || rawStatus === 'Auto-évaluée' || rawStatus === 'Brouillon Manager' || rawStatus === 'Pré-évaluée') {
+  } else if (lowStatus.includes('principal') || lowStatus.includes('manager') || lowStatus.includes('auto-évaluée') || lowStatus.includes('pré-évaluée')) {
     targetRole = 'Évaluateur Principal (Manager)';
     recipient = princEmail;
+    if (!recipient || !recipient.includes('@')) {
+      throw new Error(`Adresse e-mail de l'évaluateur principal (${princName}) introuvable ou invalide.`);
+    }
     sendEvaluationNotification('reminder_principal', {
       employeeName: empName,
       employeeEmail: empEmail,
@@ -1893,6 +1920,8 @@ function sendManualEvaluationReminder(token, rowId) {
       principalEvaluatorEmail: princEmail,
       inactivityDays: diffDays
     });
+  } else {
+    throw new Error(`Impossible d'envoyer un rappel pour le statut actuel du dossier : "${rawStatus}".`);
   }
 
   const now = new Date();
@@ -1900,10 +1929,11 @@ function sendManualEvaluationReminder(token, rowId) {
   sheet.getRange(row, 38).setValue(nowStr);
   sheet.getRange(row, 39).setValue(currentCount + 1);
 
-  logEvent(sessionUser.username, "Rappel Manuel Évaluation", `Relance envoyée pour le dossier de ${empName} (${targetRole})`, "INFO");
+  logEvent(sessionUser.username, "Rappel Manuel Évaluation", `Relance envoyée pour le dossier de ${empName} (${targetRole}) à ${recipient}`, "INFO");
 
   return {
     success: true,
+    message: `Rappel envoyé avec succès à ${recipient} (${targetRole}).`,
     recipient: recipient,
     targetRole: targetRole,
     reminderCount: currentCount + 1,
