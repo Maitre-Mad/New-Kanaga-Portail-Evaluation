@@ -672,29 +672,34 @@
   function fetchReminderTriggerStatus() {
     const badge = document.getElementById('eval-reminder-trigger-badge');
     if (!badge) return;
+    const token = window.kanagaToken || localStorage.getItem('kanagaToken');
     google.script.run
       .withSuccessHandler(function(res) {
         updateReminderTriggerBadge(res);
       })
-      .withFailureHandler(function() {
+      .withFailureHandler(function(err) {
+        console.error("Erreur statut déclencheur:", err);
         badge.innerText = "Erreur statut";
         badge.style.background = "#FEE2E2";
         badge.style.color = "#991B1B";
       })
-      .getEvaluationReminderTriggerStatus(window.kanagaToken);
+      .getEvaluationReminderTriggerStatus(token);
   }
 
   function updateReminderTriggerBadge(res) {
     const badge = document.getElementById('eval-reminder-trigger-badge');
     if (!badge) return;
-    if (res && res.hasTrigger) {
+    const isActive = !!(res && (res.hasTrigger === true || res.installed === true || res.active === true));
+    if (isActive) {
       badge.innerText = "ACTIF (Quotidien 8h00)";
       badge.style.background = "#DCFCE7";
       badge.style.color = "#166534";
+      badge.style.border = "1px solid #BBF7D0";
     } else {
       badge.innerText = "INACTIF";
       badge.style.background = "#F1F5F9";
       badge.style.color = "#64748B";
+      badge.style.border = "1px solid #CBD5E1";
     }
   }
 
@@ -703,6 +708,7 @@
     const maxCount = parseInt(document.getElementById('eval-reminder-max-count').value, 10) || 3;
     const btn = document.getElementById('btn-save-reminder-config');
     const status = document.getElementById('eval-reminder-ctrl-status');
+    const token = window.kanagaToken || localStorage.getItem('kanagaToken');
 
     if (!window.adminNotifSettings) window.adminNotifSettings = {};
     window.adminNotifSettings.reminder_inactivity_days = days;
@@ -730,13 +736,14 @@
           status.style.color = "red";
         }
       })
-      .saveEvaluationNotificationSettings(window.kanagaToken, window.adminNotifSettings);
+      .saveEvaluationNotificationSettings(token, window.adminNotifSettings);
   }
 
   function toggleReminderTrigger(enable) {
     const btnSetup = document.getElementById('btn-setup-reminder-trigger');
     const btnRemove = document.getElementById('btn-remove-reminder-trigger');
     const status = document.getElementById('eval-reminder-ctrl-status');
+    const token = window.kanagaToken || localStorage.getItem('kanagaToken');
 
     if (btnSetup) btnSetup.disabled = true;
     if (btnRemove) btnRemove.disabled = true;
@@ -753,6 +760,7 @@
         status.style.color = (res && res.success ? "green" : "#B45309");
         setTimeout(() => { if (status) status.innerText = ""; }, 6000);
       }
+      updateReminderTriggerBadge(res);
       fetchReminderTriggerStatus();
     };
 
@@ -766,9 +774,9 @@
     };
 
     if (enable) {
-      google.script.run.withSuccessHandler(handler).withFailureHandler(failHandler).setupEvaluationReminderTrigger(window.kanagaToken);
+      google.script.run.withSuccessHandler(handler).withFailureHandler(failHandler).setupEvaluationReminderTrigger(token);
     } else {
-      google.script.run.withSuccessHandler(handler).withFailureHandler(failHandler).removeEvaluationReminderTrigger(window.kanagaToken);
+      google.script.run.withSuccessHandler(handler).withFailureHandler(failHandler).removeEvaluationReminderTrigger(token);
     }
   }
 

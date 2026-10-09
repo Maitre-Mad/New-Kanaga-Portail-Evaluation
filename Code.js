@@ -1992,41 +1992,99 @@ function sendManualEvaluationReminder(token, rowId) {
 }
 
 function setupEvaluationReminderTrigger(token) {
-  if (token) verifySession(token);
-  const triggers = ScriptApp.getProjectTriggers();
-  triggers.forEach(t => {
-    if (t.getHandlerFunction() === 'checkAndSendEvaluationReminders') {
-      ScriptApp.deleteTrigger(t);
-    }
-  });
-  ScriptApp.newTrigger('checkAndSendEvaluationReminders')
-    .timeBased()
-    .everyDays(1)
-    .atHour(8)
-    .create();
-  return { success: true, message: "Déclencheur automatique quotidien activé (vérification chaque jour à 8h)." };
+  let userEmail = 'Admin';
+  if (token) {
+    try {
+      const u = verifySession(token);
+      userEmail = u.username;
+    } catch(e) {}
+  }
+  try {
+    const triggers = ScriptApp.getProjectTriggers();
+    triggers.forEach(t => {
+      if (t.getHandlerFunction() === 'checkAndSendEvaluationReminders') {
+        ScriptApp.deleteTrigger(t);
+      }
+    });
+    ScriptApp.newTrigger('checkAndSendEvaluationReminders')
+      .timeBased()
+      .everyDays(1)
+      .atHour(8)
+      .create();
+
+    logEvent(userEmail, "Configuration Déclencheur", "Activation du déclencheur automatique quotidien des relances d'évaluation (8h00)", "INFO");
+
+    return { 
+      success: true, 
+      hasTrigger: true,
+      installed: true,
+      active: true,
+      message: "Déclencheur automatique quotidien activé (vérification chaque jour à 8h)." 
+    };
+  } catch(err) {
+    Logger.log("Erreur setupEvaluationReminderTrigger: " + err.message);
+    logEvent(userEmail, "Erreur Déclencheur", "Échec d'activation du déclencheur : " + err.message, "ERROR");
+    throw new Error("Impossible d'activer le déclencheur : " + err.message);
+  }
 }
 
 function removeEvaluationReminderTrigger(token) {
-  if (token) verifySession(token);
-  const triggers = ScriptApp.getProjectTriggers();
-  let count = 0;
-  triggers.forEach(t => {
-    if (t.getHandlerFunction() === 'checkAndSendEvaluationReminders') {
-      ScriptApp.deleteTrigger(t);
-      count++;
-    }
-  });
-  return { success: true, message: "Déclencheur automatique quotidien désactivé." };
+  let userEmail = 'Admin';
+  if (token) {
+    try {
+      const u = verifySession(token);
+      userEmail = u.username;
+    } catch(e) {}
+  }
+  try {
+    const triggers = ScriptApp.getProjectTriggers();
+    let count = 0;
+    triggers.forEach(t => {
+      if (t.getHandlerFunction() === 'checkAndSendEvaluationReminders') {
+        ScriptApp.deleteTrigger(t);
+        count++;
+      }
+    });
+
+    logEvent(userEmail, "Configuration Déclencheur", "Désactivation du déclencheur automatique quotidien des relances d'évaluation", "INFO");
+
+    return { 
+      success: true, 
+      hasTrigger: false,
+      installed: false,
+      active: false,
+      message: "Déclencheur automatique quotidien désactivé." 
+    };
+  } catch(err) {
+    Logger.log("Erreur removeEvaluationReminderTrigger: " + err.message);
+    logEvent(userEmail, "Erreur Déclencheur", "Échec de désactivation du déclencheur : " + err.message, "ERROR");
+    throw new Error("Impossible de désactiver le déclencheur : " + err.message);
+  }
 }
 
 function getEvaluationReminderTriggerStatus(token) {
   if (token) {
     try { verifySession(token); } catch(e) {}
   }
-  const triggers = ScriptApp.getProjectTriggers();
-  const exists = triggers.some(t => t.getHandlerFunction() === 'checkAndSendEvaluationReminders');
-  return { installed: exists };
+  try {
+    const triggers = ScriptApp.getProjectTriggers();
+    const exists = triggers.some(t => t.getHandlerFunction() === 'checkAndSendEvaluationReminders');
+    return { 
+      success: true,
+      hasTrigger: exists,
+      installed: exists,
+      active: exists 
+    };
+  } catch(err) {
+    Logger.log("Erreur getEvaluationReminderTriggerStatus: " + err.message);
+    return { 
+      success: false, 
+      hasTrigger: false, 
+      installed: false, 
+      active: false,
+      error: err.message 
+    };
+  }
 }
 function sendGeneralTimesheetReminder() {
   const settings = getGeneralReminderSettings();
