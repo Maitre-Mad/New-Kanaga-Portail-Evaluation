@@ -1662,17 +1662,24 @@ function parseSheetDate(dateVal) {
 }
 
 function checkAndSendEvaluationReminders(manualToken) {
+  let isManualTrigger = false;
+  let sessionUser = null;
   let triggerUser = 'Système (Déclencheur automatique)';
+  let initiatorStr = 'Déclencheur automatique quotidien (8h00)';
+
   if (manualToken) {
     try {
-      const u = verifySession(manualToken);
-      triggerUser = u.fullName || u.username;
+      sessionUser = verifySession(manualToken);
+      isManualTrigger = true;
+      triggerUser = sessionUser.username;
+      initiatorStr = `${sessionUser.fullName || sessionUser.username} (${sessionUser.username} - ${sessionUser.role || 'Admin'})`;
     } catch(e) {}
   }
 
   const settings = getEvaluationNotificationSettings();
   if (String(settings.activation).toUpperCase() === 'NON') {
     Logger.log("Rappels ignorés : notifications désactivées.");
+    logEvent(triggerUser, isManualTrigger ? "Relance Manuelle Groupée" : "Relance Automatique Évaluation", "Tentative ignorée : les notifications d'évaluation sont désactivées dans les paramètres.", "WARNING");
     return { checked: 0, sent: 0, reason: "Notifications désactivées" };
   }
 
@@ -1806,11 +1813,25 @@ function checkAndSendEvaluationReminders(manualToken) {
             days: diffDays,
             reminderNumber: reminderCount + 1
           });
+
+          // Journalisation individuelle précise pour chaque dossier relancé
+          let roleLabel = '';
+          if (reminderType === 'reminder_employee') roleLabel = 'Collaborateur (Auto-évaluation)';
+          else if (reminderType === 'reminder_secondary') roleLabel = 'Évaluateurs Secondaires';
+          else if (reminderType === 'reminder_principal') roleLabel = 'Évaluateur Principal (Manager)';
+
+          const logActor = isManualTrigger ? sessionUser.username : 'Système';
+          const logActionName = isManualTrigger ? 'Relance Manuelle Groupée' : 'Relance Automatique Évaluation';
+          const rowLogDetails = `Dossier Ligne ${rowNum}: ${empName} (${empEmail || 'Email non renseigné'}) | Période: ${period} | Statut: ${rawStatus} | Rôle relancé: ${roleLabel} | Destinataire(s): ${recipientLabel} | Relance n°${reminderCount + 1} (${diffDays} j d'inactivité, seuil: ${inactivityDaysConfig} j) | Déclenché par: ${initiatorStr}`;
+
+          logEvent(logActor, logActionName, rowLogDetails, "INFO");
         }
       }
     }
 
-    logEvent(triggerUser, "Vérification Rappels Évaluations", `${sentCount} rappel(s) envoyé(s) sur ${checkedCount} dossier(s) audité(s).`, "INFO");
+    const summaryDetails = `Audit terminé : ${sentCount} rappel(s) envoyé(s) sur ${checkedCount} dossier(s) audité(s) (Critères: inactivité >= ${inactivityDaysConfig} j, max ${maxReminders} relances). Déclenché par: ${initiatorStr}`;
+    logEvent(triggerUser, isManualTrigger ? "Bilan Relance Groupée Admin" : "Bilan Relances Automatiques", summaryDetails, "INFO");
+
     return { 
       success: true, 
       checked: checkedCount, 
@@ -1826,13 +1847,30 @@ function checkAndSendEvaluationReminders(manualToken) {
 }
 
 function sendManualEvaluationReminder(token, rowId) {
-  const sessionUser = verifySession(token);
+  let sessionUser = null;
+  try {
+    sessionUser = verifySession(token);
+  } catch(authErr) {
+    throw new Error("Authentification requise pour envoyer un rappel : " + authErr.message);
+  }
+
+  const authorEmail = sessionUser.username;
+  const authorName = sessionUser.fullName || sessionUser.username;
+  const authorRole = sessionUser.role || 'Utilisateur';
+  const authorStr = `${authorName} (${authorEmail} - ${authorRole})`;
+
   const row = parseInt(rowId, 10);
-  if (isNaN(row) || row < 2) throw new Error("ID de ligne d'évaluation invalide.");
+  if (isNaN(row) || row < 2) {
+    logEvent(authorEmail, "Erreur Relance Manuelle", `ID de ligne d'évaluation invalide (${rowId}) demandé par ${authorStr}`, "ERROR");
+    throw new Error("ID de ligne d'évaluation invalide.");
+  }
 
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const sheet = ss.getSheetByName('Evaluations');
-  if (!sheet) throw new Error("Feuille Evaluations introuvable.");
+  if (!sheet) {
+    logEvent(authorEmail, "Erreur Relance Manuelle", `Feuille Evaluations introuvable lors de la demande par ${authorStr}`, "ERROR");
+    throw new Error("Feuille Evaluations introuvable.");
+  }
 
   const maxRequiredCol = 39;
   if (sheet.getMaxColumns() < maxRequiredCol) {
@@ -1842,6 +1880,7 @@ function sendManualEvaluationReminder(token, rowId) {
   const rowData = sheet.getRange(row, 1, 1, maxRequiredCol).getValues()[0];
   const rawStatus = rowData[1] ? String(rowData[1]).trim() : '';
   if (!rawStatus || rawStatus === 'Complétée' || rawStatus.startsWith('Compl')) {
+    logEvent(authorEmail, "Avertissement Relance Manuelle", `Tentative de relance sur un dossier déjà finalisé (Ligne ${row}) par ${authorStr}`, "WARNING");
     throw new Error("Ce dossier est déjà finalisé. Aucun rappel n'est nécessaire.");
   }
 
@@ -1869,7 +1908,9 @@ function sendManualEvaluationReminder(token, rowId) {
     targetRole = 'Collaborateur (Auto-évaluation)';
     recipient = empEmail;
     if (!recipient || !recipient.includes('@')) {
-      throw new Error(`Adresse e-mail du collaborateur (${empName}) introuvable ou invalide.`);
+      const errMsg = `Adresse e-mail du collaborateur (${empName}) introuvable ou invalide.`;
+      logEvent(authorEmail, "Erreur Relance Manuelle", `Ligne ${row} : ${errMsg} | Auteur de la demande: ${authorStr}`, "ERROR");
+      throw new Error(errMsg);
     }
     sendEvaluationNotification('reminder_employee', {
       employeeName: empName,
@@ -1885,7 +1926,9 @@ function sendManualEvaluationReminder(token, rowId) {
     const pendingSec = secList.filter(s => s.status !== 'Complété');
     const recipientsToSend = pendingSec.length > 0 ? pendingSec : secList;
     if (recipientsToSend.length === 0) {
-      throw new Error("Aucun évaluateur secondaire n'est configuré pour ce dossier.");
+      const errMsg = "Aucun évaluateur secondaire n'est configuré pour ce dossier.";
+      logEvent(authorEmail, "Erreur Relance Manuelle", `Ligne ${row} : ${errMsg} | Auteur de la demande: ${authorStr}`, "ERROR");
+      throw new Error(errMsg);
     }
     recipient = recipientsToSend.map(s => s.name || s.email).join(', ');
     recipientsToSend.forEach(sec => {
@@ -1909,7 +1952,9 @@ function sendManualEvaluationReminder(token, rowId) {
     targetRole = 'Évaluateur Principal (Manager)';
     recipient = princEmail;
     if (!recipient || !recipient.includes('@')) {
-      throw new Error(`Adresse e-mail de l'évaluateur principal (${princName}) introuvable ou invalide.`);
+      const errMsg = `Adresse e-mail de l'évaluateur principal (${princName}) introuvable ou invalide.`;
+      logEvent(authorEmail, "Erreur Relance Manuelle", `Ligne ${row} : ${errMsg} | Auteur de la demande: ${authorStr}`, "ERROR");
+      throw new Error(errMsg);
     }
     sendEvaluationNotification('reminder_principal', {
       employeeName: empName,
@@ -1921,7 +1966,9 @@ function sendManualEvaluationReminder(token, rowId) {
       inactivityDays: diffDays
     });
   } else {
-    throw new Error(`Impossible d'envoyer un rappel pour le statut actuel du dossier : "${rawStatus}".`);
+    const errMsg = `Impossible d'envoyer un rappel pour le statut actuel du dossier : "${rawStatus}".`;
+    logEvent(authorEmail, "Erreur Relance Manuelle", `Ligne ${row} : ${errMsg} | Auteur de la demande: ${authorStr}`, "ERROR");
+    throw new Error(errMsg);
   }
 
   const now = new Date();
@@ -1929,13 +1976,16 @@ function sendManualEvaluationReminder(token, rowId) {
   sheet.getRange(row, 38).setValue(nowStr);
   sheet.getRange(row, 39).setValue(currentCount + 1);
 
-  logEvent(sessionUser.username, "Rappel Manuel Évaluation", `Relance envoyée pour le dossier de ${empName} (${targetRole}) à ${recipient}`, "INFO");
+  // Journalisation détaillée avec mise en avant absolue de l'auteur de la relance manuelle
+  const detailedLog = `Auteur de la relance: ${authorName} (${authorEmail} - ${authorRole}) | Dossier Ligne ${row}: ${empName} (${empEmail || 'Email non renseigné'}) | Période: ${period} | Statut du dossier: ${rawStatus} | Rôle relancé: ${targetRole} | Destinataire(s): ${recipient} | Relance n°${currentCount + 1} (${diffDays} j d'inactivité)`;
+  logEvent(authorEmail, "Relance Manuelle Évaluation", detailedLog, "INFO");
 
   return {
     success: true,
     message: `Rappel envoyé avec succès à ${recipient} (${targetRole}).`,
     recipient: recipient,
     targetRole: targetRole,
+    author: authorStr,
     reminderCount: currentCount + 1,
     lastReminderAt: nowStr
   };
